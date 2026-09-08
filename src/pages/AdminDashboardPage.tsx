@@ -6,8 +6,6 @@ import {
   Radio,
   BarChart3,
   Truck,
-  Users,
-  Settings,
   Search,
   HelpCircle,
   Mail,
@@ -30,7 +28,8 @@ import {
   MoreVertical,
   RotateCcw,
   ExternalLink,
-  Trash2
+  Trash2,
+  Edit3
 } from 'lucide-react';
 import { useStudioData } from '../context/StudioDataContext';
 import { useAuth } from '../context/AuthContext';
@@ -52,7 +51,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
   } = useStudioData();
 
   const { adminLogout } = useAuth();
-  const { orders, advanceOrderStep } = useCart();
+  const { orders, advanceOrderStep, deleteOrder, updateOrder } = useCart();
 
   // Navigation State: 'dashboard' | 'orders' | 'artworks' | 'live-studio' | 'analytics'
   const [activeNav, setActiveNav] = useState<'dashboard' | 'orders' | 'artworks' | 'live-studio' | 'analytics'>('dashboard');
@@ -61,6 +60,23 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
 
   // Selected Order for Detail Modal
   const [selectedOrderForModal, setSelectedOrderForModal] = useState<OrderRecord | null>(null);
+
+  // Edit Order Modal State
+  const [isEditOrderModalOpen, setIsEditOrderModalOpen] = useState(false);
+  const [orderToEdit, setOrderToEdit] = useState<OrderRecord | null>(null);
+  const [editOrderForm, setEditOrderForm] = useState({
+    customerName: '',
+    customerEmail: '',
+    customerPhone: '',
+    customerCity: '',
+    deliveryAddress: '',
+    itemTitle: '',
+    totalAmount: 0,
+    currentStep: 1 as 1 | 2 | 3 | 4,
+    trackingNumber: '',
+    carrierName: '',
+    notes: ''
+  });
 
   // Search & Filter for Orders table
   const [orderSearch, setOrderSearch] = useState('');
@@ -71,6 +87,106 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
   const showToast = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 3800);
+  };
+
+  const openEditOrderModal = (e: React.MouseEvent | null, order: OrderRecord) => {
+    if (e) e.stopPropagation();
+    setOrderToEdit(order);
+    setEditOrderForm({
+      customerName: order.customerName || '',
+      customerEmail: order.customerEmail || '',
+      customerPhone: order.customerPhone || '',
+      customerCity: order.customerCity || '',
+      deliveryAddress: order.deliveryAddress || '',
+      itemTitle: order.items[0]?.title || '',
+      totalAmount: order.totalAmount || 0,
+      currentStep: (order.currentStep || 1) as 1 | 2 | 3 | 4,
+      trackingNumber: order.trackingNumber || '',
+      carrierName: order.carrierName || 'BlueDart Express',
+      notes: order.notes || ''
+    });
+    setIsEditOrderModalOpen(true);
+  };
+
+  const handleSaveOrderEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!orderToEdit) return;
+
+    const updatedItems = orderToEdit.items.map((it, idx) => {
+      if (idx === 0) {
+        return {
+          ...it,
+          title: editOrderForm.itemTitle || it.title,
+          price: Number(editOrderForm.totalAmount) || it.price
+        };
+      }
+      return it;
+    });
+
+    const stepStatuses: Record<number, OrderRecord['stepStatus']> = {
+      1: 'placed',
+      2: 'accepted',
+      3: 'dispatched',
+      4: 'delivered'
+    };
+
+    const updatedData: Partial<OrderRecord> = {
+      customerName: editOrderForm.customerName,
+      customerEmail: editOrderForm.customerEmail,
+      customerPhone: editOrderForm.customerPhone,
+      customerCity: editOrderForm.customerCity,
+      deliveryAddress: editOrderForm.deliveryAddress,
+      totalAmount: Number(editOrderForm.totalAmount),
+      currentStep: editOrderForm.currentStep,
+      stepStatus: stepStatuses[editOrderForm.currentStep] || 'placed',
+      trackingNumber: editOrderForm.trackingNumber,
+      carrierName: editOrderForm.carrierName,
+      notes: editOrderForm.notes,
+      items: updatedItems
+    };
+
+    updateOrder(orderToEdit.id, updatedData);
+
+    if (selectedOrderForModal?.id === orderToEdit.id) {
+      setSelectedOrderForModal((prev) =>
+        prev
+          ? {
+              ...prev,
+              ...updatedData
+            }
+          : null
+      );
+    }
+
+    setIsEditOrderModalOpen(false);
+    showToast(`Order #${orderToEdit.id} successfully updated!`);
+  };
+
+  const handleDeleteOrder = (e: React.MouseEvent | null, orderId: string) => {
+    if (e) e.stopPropagation();
+    if (window.confirm(`Are you sure you want to delete Order #${orderId}? This cannot be undone.`)) {
+      deleteOrder(orderId);
+      if (selectedOrderForModal?.id === orderId) {
+        setSelectedOrderForModal(null);
+      }
+      showToast(`Order #${orderId} deleted.`);
+    }
+  };
+
+  const handleClearAllDefaultOrders = () => {
+    if (orders.length === 0) {
+      showToast('No orders to delete.');
+      return;
+    }
+    if (
+      window.confirm(
+        'Kya aap saare default / existing orders delete karna chahte hain taaki fresh start kar sakein?'
+      )
+    ) {
+      orders.forEach((o) => deleteOrder(o.id));
+      setSelectedOrderForModal(null);
+      showToast('All orders cleared! Ab orders list bilkul fresh hai.');
+    }
   };
 
   // -------------------------------------------------------------
@@ -459,27 +575,6 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                 <span>Sales Analytics</span>
               </div>
             </button>
-
-            <div className="pt-5 pb-2 px-3">
-              <span className="text-[10px] uppercase font-bold tracking-widest text-gray-500">
-                Logistics & Studio
-              </span>
-            </div>
-
-            <div className="flex items-center gap-3 px-3.5 py-2 text-gray-400 hover:text-white text-xs cursor-pointer rounded-xl hover:bg-[#161920] transition-colors">
-              <Truck className="w-4 h-4 text-gray-500" />
-              <span>BlueDart & Couriers</span>
-            </div>
-
-            <div className="flex items-center gap-3 px-3.5 py-2 text-gray-400 hover:text-white text-xs cursor-pointer rounded-xl hover:bg-[#161920] transition-colors">
-              <Users className="w-4 h-4 text-gray-500" />
-              <span>Collector Registry</span>
-            </div>
-
-            <div className="flex items-center gap-3 px-3.5 py-2 text-gray-400 hover:text-white text-xs cursor-pointer rounded-xl hover:bg-[#161920] transition-colors">
-              <Settings className="w-4 h-4 text-gray-500" />
-              <span>Atelier Settings</span>
-            </div>
           </nav>
         </div>
 
@@ -947,6 +1042,17 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                     Step 3 (Dispatched)
                   </button>
                 </div>
+
+                {orders.length > 0 && (
+                  <button
+                    onClick={handleClearAllDefaultOrders}
+                    className="px-3 py-1.5 bg-red-950/40 hover:bg-red-900/60 text-red-400 border border-red-800/40 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors"
+                    title="Delete all sample orders"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Clear Orders</span>
+                  </button>
+                )}
               </div>
             </div>
 
@@ -1083,45 +1189,65 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                             </div>
                           </td>
 
-                          {/* Action Button: One-Click Progression */}
+                          {/* Action Buttons: One-Click Progression + Edit + Delete */}
                           <td className="py-4 px-3 text-right">
-                            {order.currentStep === 1 && (
-                              <button
-                                onClick={(e) => handleAdvanceStep(e, order)}
-                                className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-emerald-600/20 cursor-pointer"
-                                title="Accept this order and start packing"
-                              >
-                                Accept Order
-                              </button>
-                            )}
+                            <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+                              {order.currentStep === 1 && (
+                                <button
+                                  onClick={(e) => handleAdvanceStep(e, order)}
+                                  className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-emerald-600/20 cursor-pointer"
+                                  title="Accept this order and start packing"
+                                >
+                                  Accept Order
+                                </button>
+                              )}
 
-                            {order.currentStep === 2 && (
-                              <button
-                                onClick={(e) => handleAdvanceStep(e, order)}
-                                className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-blue-600/20 flex items-center gap-1 ml-auto cursor-pointer"
-                                title="Dispatch package for delivery"
-                              >
-                                <Truck className="w-3 h-3" />
-                                <span>Dispatch</span>
-                              </button>
-                            )}
+                              {order.currentStep === 2 && (
+                                <button
+                                  onClick={(e) => handleAdvanceStep(e, order)}
+                                  className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-blue-600/20 flex items-center gap-1 cursor-pointer"
+                                  title="Dispatch package for delivery"
+                                >
+                                  <Truck className="w-3 h-3" />
+                                  <span>Dispatch</span>
+                                </button>
+                              )}
 
-                            {order.currentStep === 3 && (
-                              <button
-                                onClick={(e) => handleAdvanceStep(e, order)}
-                                className="px-3.5 py-1.5 bg-[#FF5722] hover:bg-[#e64a19] text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-[#FF5722]/20 cursor-pointer"
-                                title="Mark as delivered"
-                              >
-                                Mark Delivered
-                              </button>
-                            )}
+                              {order.currentStep === 3 && (
+                                <button
+                                  onClick={(e) => handleAdvanceStep(e, order)}
+                                  className="px-3.5 py-1.5 bg-[#FF5722] hover:bg-[#e64a19] text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-[#FF5722]/20 cursor-pointer"
+                                  title="Mark as delivered"
+                                >
+                                  Mark Delivered
+                                </button>
+                              )}
 
-                            {order.currentStep === 4 && (
-                              <span className="inline-flex items-center gap-1 text-emerald-400 text-xs font-semibold bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/30">
-                                <CheckCircle2 className="w-3.5 h-3.5" />
-                                <span>Completed</span>
-                              </span>
-                            )}
+                              {order.currentStep === 4 && (
+                                <span className="inline-flex items-center gap-1 text-emerald-400 text-xs font-semibold bg-emerald-500/10 px-2 py-1 rounded-full border border-emerald-500/30">
+                                  <CheckCircle2 className="w-3.5 h-3.5" />
+                                  <span>Completed</span>
+                                </span>
+                              )}
+
+                              {/* Edit Order button */}
+                              <button
+                                onClick={(e) => openEditOrderModal(e, order)}
+                                className="p-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white rounded-xl transition-colors cursor-pointer border border-gray-700/50"
+                                title="Edit Order Details"
+                              >
+                                <Edit3 className="w-3.5 h-3.5" />
+                              </button>
+
+                              {/* Delete Order button */}
+                              <button
+                                onClick={(e) => handleDeleteOrder(e, order.id)}
+                                className="p-1.5 bg-red-950/40 hover:bg-red-900/60 text-red-400 hover:text-red-300 rounded-xl transition-colors cursor-pointer border border-red-900/40"
+                                title="Delete Order"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -1545,7 +1671,27 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
               </div>
             </div>
 
-            <div className="flex justify-end pt-2">
+            <div className="flex items-center justify-between pt-4 border-t border-gray-800">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={(e) => {
+                    openEditOrderModal(e, selectedOrderForModal);
+                  }}
+                  className="px-3.5 py-2 bg-[#252C3A] hover:bg-gray-700 text-white rounded-xl text-xs font-semibold cursor-pointer flex items-center gap-1.5 transition-colors border border-gray-700"
+                >
+                  <Edit3 className="w-3.5 h-3.5 text-[#FF5722]" />
+                  <span>Edit Order</span>
+                </button>
+                <button
+                  onClick={(e) => {
+                    handleDeleteOrder(e, selectedOrderForModal.id);
+                  }}
+                  className="px-3.5 py-2 bg-red-950/40 hover:bg-red-900/60 text-red-400 border border-red-800/40 rounded-xl text-xs font-semibold cursor-pointer flex items-center gap-1.5 transition-colors"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Delete Order</span>
+                </button>
+              </div>
               <button
                 onClick={() => setSelectedOrderForModal(null)}
                 className="px-5 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-xl text-xs font-semibold cursor-pointer"
@@ -1553,6 +1699,209 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                 Close Drawer
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* MODAL: EDIT ORDER DETAILS                                 */}
+      {/* ========================================================= */}
+      {isEditOrderModalOpen && orderToEdit && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md overflow-y-auto animate-fade-in">
+          <div className="bg-[#14171E] border border-[#242A36] rounded-3xl w-full max-w-2xl p-6 sm:p-8 shadow-2xl my-8 relative">
+            <div className="flex items-center justify-between pb-4 border-b border-gray-800 mb-6">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-[#FF5722]/10 border border-[#FF5722]/30 flex items-center justify-center text-[#FF5722]">
+                  <Edit3 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold font-serif text-white">
+                    Edit Order #{orderToEdit.id}
+                  </h3>
+                  <p className="text-xs text-gray-400">Modify collector information, pricing or tracking pipeline</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsEditOrderModalOpen(false)}
+                className="p-1.5 text-gray-400 hover:text-white rounded-xl bg-gray-800/50 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveOrderEdit} className="space-y-4 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Customer Name */}
+                <div>
+                  <label className="block text-gray-400 mb-1 font-semibold">Collector / Customer Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={editOrderForm.customerName}
+                    onChange={(e) => setEditOrderForm({ ...editOrderForm, customerName: e.target.value })}
+                    className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-[#FF5722]"
+                    placeholder="Full Name"
+                  />
+                </div>
+
+                {/* Customer Phone */}
+                <div>
+                  <label className="block text-gray-400 mb-1 font-semibold">Phone Number</label>
+                  <input
+                    type="text"
+                    value={editOrderForm.customerPhone}
+                    onChange={(e) => setEditOrderForm({ ...editOrderForm, customerPhone: e.target.value })}
+                    className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-[#FF5722]"
+                    placeholder="+91 98765 43210"
+                  />
+                </div>
+
+                {/* Customer Email */}
+                <div>
+                  <label className="block text-gray-400 mb-1 font-semibold">Email Address</label>
+                  <input
+                    type="email"
+                    value={editOrderForm.customerEmail}
+                    onChange={(e) => setEditOrderForm({ ...editOrderForm, customerEmail: e.target.value })}
+                    className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-[#FF5722]"
+                    placeholder="email@domain.com"
+                  />
+                </div>
+
+                {/* Customer City */}
+                <div>
+                  <label className="block text-gray-400 mb-1 font-semibold">City</label>
+                  <input
+                    type="text"
+                    value={editOrderForm.customerCity}
+                    onChange={(e) => setEditOrderForm({ ...editOrderForm, customerCity: e.target.value })}
+                    className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-[#FF5722]"
+                    placeholder="e.g. Mumbai, Delhi, Jaipur"
+                  />
+                </div>
+              </div>
+
+              {/* Delivery Address */}
+              <div>
+                <label className="block text-gray-400 mb-1 font-semibold">Full Delivery Address</label>
+                <textarea
+                  rows={2}
+                  value={editOrderForm.deliveryAddress}
+                  onChange={(e) => setEditOrderForm({ ...editOrderForm, deliveryAddress: e.target.value })}
+                  className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2 text-white focus:outline-none focus:border-[#FF5722]"
+                  placeholder="Street address, apartment, pincode..."
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Artwork Title */}
+                <div>
+                  <label className="block text-gray-400 mb-1 font-semibold">Artwork Title / Item</label>
+                  <input
+                    type="text"
+                    required
+                    value={editOrderForm.itemTitle}
+                    onChange={(e) => setEditOrderForm({ ...editOrderForm, itemTitle: e.target.value })}
+                    className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-[#FF5722]"
+                    placeholder="Painting Title"
+                  />
+                </div>
+
+                {/* Total Price INR */}
+                <div>
+                  <label className="block text-gray-400 mb-1 font-semibold">Total Price (₹ INR)</label>
+                  <input
+                    type="number"
+                    required
+                    value={editOrderForm.totalAmount}
+                    onChange={(e) => setEditOrderForm({ ...editOrderForm, totalAmount: Number(e.target.value) })}
+                    className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-[#FF5722]"
+                    placeholder="Amount in ₹"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {/* Order Step */}
+                <div>
+                  <label className="block text-gray-400 mb-1 font-semibold">Pipeline Step</label>
+                  <select
+                    value={editOrderForm.currentStep}
+                    onChange={(e) => setEditOrderForm({ ...editOrderForm, currentStep: Number(e.target.value) as 1 | 2 | 3 | 4 })}
+                    className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-[#FF5722]"
+                  >
+                    <option value={1}>Step 1: Placed</option>
+                    <option value={2}>Step 2: Accepted & Packing</option>
+                    <option value={3}>Step 3: Out for Delivery</option>
+                    <option value={4}>Step 4: Delivered</option>
+                  </select>
+                </div>
+
+                {/* Courier / Carrier */}
+                <div>
+                  <label className="block text-gray-400 mb-1 font-semibold">Carrier / Courier</label>
+                  <input
+                    type="text"
+                    value={editOrderForm.carrierName}
+                    onChange={(e) => setEditOrderForm({ ...editOrderForm, carrierName: e.target.value })}
+                    className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-[#FF5722]"
+                    placeholder="e.g. BlueDart Express"
+                  />
+                </div>
+
+                {/* Tracking Number */}
+                <div>
+                  <label className="block text-gray-400 mb-1 font-semibold">Tracking AWB #</label>
+                  <input
+                    type="text"
+                    value={editOrderForm.trackingNumber}
+                    onChange={(e) => setEditOrderForm({ ...editOrderForm, trackingNumber: e.target.value })}
+                    className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-[#FF5722]"
+                    placeholder="e.g. BD-984210"
+                  />
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label className="block text-gray-400 mb-1 font-semibold">Internal Studio Notes</label>
+                <input
+                  type="text"
+                  value={editOrderForm.notes}
+                  onChange={(e) => setEditOrderForm({ ...editOrderForm, notes: e.target.value })}
+                  className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2 text-white focus:outline-none focus:border-[#FF5722]"
+                  placeholder="e.g. Insured wooden crate packaging requested"
+                />
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center justify-between pt-4 border-t border-gray-800">
+                <button
+                  type="button"
+                  onClick={(e) => handleDeleteOrder(e, orderToEdit.id)}
+                  className="px-4 py-2.5 bg-red-950/40 hover:bg-red-900/60 text-red-400 border border-red-800/40 rounded-xl font-semibold flex items-center gap-1.5 cursor-pointer transition-colors"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>Delete Order</span>
+                </button>
+
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsEditOrderModalOpen(false)}
+                    className="px-4 py-2.5 bg-gray-800 hover:bg-gray-700 text-white rounded-xl font-semibold cursor-pointer transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-6 py-2.5 bg-gradient-to-r from-[#FF5722] to-[#FF6E40] hover:opacity-95 text-white rounded-xl font-bold shadow-lg shadow-[#FF5722]/30 cursor-pointer transition-all"
+                  >
+                    Save Changes
+                  </button>
+                </div>
+              </div>
+            </form>
           </div>
         </div>
       )}

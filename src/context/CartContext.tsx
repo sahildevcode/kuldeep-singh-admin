@@ -32,6 +32,8 @@ interface CartContextType {
   updatePaymentStatus: (orderId: string, status: OrderRecord['paymentStatus']) => void;
   advanceOrderStep: (orderId: string) => void;
   setOrderStep: (orderId: string, step: OrderPipelineStep) => void;
+  deleteOrder: (orderId: string) => void;
+  updateOrder: (orderId: string, updatedFields: Partial<OrderRecord>) => void;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -531,7 +533,17 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const resetCheckout = () => {
     setCheckoutSuccess(false);
-    setIsCartOpen(false);
+    setLastOrderId(null);
+  };
+
+  const deleteOrder = (orderId: string) => {
+    setOrders((prev) => prev.filter((o) => o.id !== orderId));
+  };
+
+  const updateOrder = (orderId: string, updatedFields: Partial<OrderRecord>) => {
+    setOrders((prev) =>
+      prev.map((o) => (o.id === orderId ? { ...o, ...updatedFields } : o))
+    );
   };
 
   return (
@@ -566,7 +578,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         updateOrderStatus,
         updatePaymentStatus,
         advanceOrderStep,
-        setOrderStep
+        setOrderStep,
+        deleteOrder,
+        updateOrder
       }}
     >
       {children}

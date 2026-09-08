@@ -148,6 +148,8 @@ export interface OrderRecord {
   orderStatus: 'Order Placed' | 'Payment Verified' | 'Fine Art Packing' | 'In Transit' | 'Delivered' | 'Cancelled' | 'Course Active & Unlocked';
   deliveryAddress?: string;
   trackingNumber?: string;
+  carrierName?: string;
+  notes?: string;
   cancellationReason?: string;
   cancelledAt?: string;
   currentStep: OrderPipelineStep;
