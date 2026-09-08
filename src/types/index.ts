@@ -124,13 +124,19 @@ export interface UserProfile {
   enrolledCourseIds?: string[];
 }
 
+export type OrderPipelineStep = 1 | 2 | 3 | 4;
+export type OrderPipelineStatus = 'placed' | 'accepted' | 'dispatched' | 'delivered';
+
 export interface OrderRecord {
   id: string;
   userId?: string;
   customerName: string;
   customerEmail: string;
   customerPhone?: string;
+  customerCity?: string;
+  customerState?: string;
   date: string;
+  orderTime?: string;
   orderMonth?: string; // e.g. "2026-09" or "2026-08"
   items: CartItem[];
   subtotal: number;
@@ -144,6 +150,14 @@ export interface OrderRecord {
   trackingNumber?: string;
   cancellationReason?: string;
   cancelledAt?: string;
+  currentStep: OrderPipelineStep;
+  stepStatus: OrderPipelineStatus;
+  stepTimestamps?: {
+    placed?: string;
+    accepted?: string;
+    dispatched?: string;
+    delivered?: string;
+  };
 }
 
 export interface ArtistProfile {

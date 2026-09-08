@@ -1,7 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import type { CartItem, OrderRecord } from '../types';
-
-const confetti = (_options?: unknown) => {};
+import type { CartItem, OrderRecord, OrderPipelineStep } from '../types';
 
 interface CartContextType {
   cart: CartItem[];
@@ -32,17 +30,22 @@ interface CartContextType {
   cancelOrder: (orderId: string, reason?: string) => void;
   updateOrderStatus: (orderId: string, status: OrderRecord['orderStatus'], trackingNumber?: string) => void;
   updatePaymentStatus: (orderId: string, status: OrderRecord['paymentStatus']) => void;
+  advanceOrderStep: (orderId: string) => void;
+  setOrderStep: (orderId: string, step: OrderPipelineStep) => void;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export const SAMPLE_INITIAL_ORDERS: OrderRecord[] = [
   {
-    id: 'ORD-2026-SEP-01',
+    id: 'ORD_00941',
     customerName: 'Aarav Singhania',
     customerEmail: 'aarav.singhania@heritageart.in',
     customerPhone: '+91 98210 44521',
-    date: 'Sep 7, 2026',
+    customerCity: 'Juhu, Mumbai',
+    customerState: 'Maharashtra',
+    date: '08 Sep, 2026',
+    orderTime: '07:45 PM',
     orderMonth: '2026-09',
     items: [
       {
@@ -60,25 +63,32 @@ export const SAMPLE_INITIAL_ORDERS: OrderRecord[] = [
     discount: 15000,
     shipping: 0,
     totalAmount: 305000,
-    paymentMethod: 'HDFC NetBanking / RTGS Wire',
+    paymentMethod: 'HDFC NetBanking / RTGS',
     paymentStatus: 'Paid',
-    orderStatus: 'In Transit',
-    deliveryAddress: 'Villa 14, Palm Avenue, Juhu, Mumbai, Maharashtra 400049',
-    trackingNumber: 'BLUEDART-EXP-90812'
+    orderStatus: 'Order Placed',
+    currentStep: 1,
+    stepStatus: 'placed',
+    deliveryAddress: 'Villa 14, Palm Avenue, Juhu, Mumbai 400049',
+    stepTimestamps: {
+      placed: '07:45 PM, 08 Sep'
+    }
   },
   {
-    id: 'ORD-2026-SEP-02',
+    id: 'ORD_00940',
     customerName: 'Meera Kapoor',
     customerEmail: 'meera.k@kapoordesigns.com',
     customerPhone: '+91 99100 88234',
-    date: 'Sep 5, 2026',
+    customerCity: 'Amrita Shergill Marg',
+    customerState: 'New Delhi',
+    date: '07 Sep, 2026',
+    orderTime: '02:15 PM',
     orderMonth: '2026-09',
     items: [
       {
         id: 'art-02',
         type: 'artwork',
         title: 'Whispers of the Eternal Forest',
-        subtitle: 'Handmade Pigment & Gold Leaf on Canvas (36 x 48 in)',
+        subtitle: 'Handmade Pigment & 24K Gold Leaf on Canvas (36 x 48 in)',
         price: 245000,
         image: 'https://images.unsplash.com/photo-1577083552431-6e5fd01aa342?q=80&w=600&auto=format&fit=crop',
         quantity: 1,
@@ -92,15 +102,23 @@ export const SAMPLE_INITIAL_ORDERS: OrderRecord[] = [
     paymentMethod: 'Instant UPI / Razorpay',
     paymentStatus: 'Paid',
     orderStatus: 'Fine Art Packing',
+    currentStep: 2,
+    stepStatus: 'accepted',
     deliveryAddress: 'B-42, Amrita Shergill Marg, New Delhi 110003',
-    trackingNumber: 'DELHIVERY-PRM-44120'
+    stepTimestamps: {
+      placed: '02:15 PM, 07 Sep',
+      accepted: '03:00 PM, 07 Sep (Proceeded to Studio Packing)'
+    }
   },
   {
-    id: 'ORD-2026-SEP-03',
+    id: 'ORD_00938',
     customerName: 'Devansh Malhotra',
     customerEmail: 'devansh@malhotragroup.co',
     customerPhone: '+91 98450 12903',
-    date: 'Sep 4, 2026',
+    customerCity: 'Koramangala',
+    customerState: 'Bengaluru',
+    date: '06 Sep, 2026',
+    orderTime: '11:20 AM',
     orderMonth: '2026-09',
     items: [
       {
@@ -118,17 +136,28 @@ export const SAMPLE_INITIAL_ORDERS: OrderRecord[] = [
     discount: 5000,
     shipping: 0,
     totalAmount: 180000,
-    paymentMethod: 'ICICI Bank Transfer (Pending Verification)',
-    paymentStatus: 'Pending Payment',
-    orderStatus: 'Order Placed',
+    paymentMethod: 'Instant UPI Transfer',
+    paymentStatus: 'Paid',
+    orderStatus: 'In Transit',
+    currentStep: 3,
+    stepStatus: 'dispatched',
     deliveryAddress: 'Penthouse 7B, Sky Tower, Koramangala, Bengaluru 560034',
+    trackingNumber: 'BLUEDART-EXP-90812',
+    stepTimestamps: {
+      placed: '11:20 AM, 06 Sep',
+      accepted: '01:00 PM, 06 Sep',
+      dispatched: '09:30 AM, 07 Sep (Courier Out for Delivery)'
+    }
   },
   {
-    id: 'ORD-2026-AUG-01',
+    id: 'ORD_00935',
     customerName: 'Countess Vivienne St. Claire',
     customerEmail: 'vivienne@stclairecollections.ch',
     customerPhone: '+41 79 412 8890',
-    date: 'Aug 26, 2026',
+    customerCity: 'Zurich',
+    customerState: 'Switzerland',
+    date: '26 Aug, 2026',
+    orderTime: '04:10 PM',
     orderMonth: '2026-08',
     items: [
       {
@@ -149,15 +178,26 @@ export const SAMPLE_INITIAL_ORDERS: OrderRecord[] = [
     paymentMethod: 'International Wire / SWIFT',
     paymentStatus: 'Paid',
     orderStatus: 'Delivered',
+    currentStep: 4,
+    stepStatus: 'delivered',
     deliveryAddress: 'Bahnhofstrasse 45, 8001 Zurich, Switzerland',
-    trackingNumber: 'DHL-EXPRESS-992301'
+    trackingNumber: 'DHL-EXPRESS-992301',
+    stepTimestamps: {
+      placed: '04:10 PM, 26 Aug',
+      accepted: '06:00 PM, 26 Aug',
+      dispatched: '10:00 AM, 27 Aug',
+      delivered: '02:30 PM, 30 Aug (Delivered & Verified)'
+    }
   },
   {
-    id: 'ORD-2026-AUG-02',
+    id: 'ORD_00932',
     customerName: 'Rajesh & Sunita Oberoi',
     customerEmail: 'oberoi.art@gmail.com',
     customerPhone: '+91 98110 55102',
-    date: 'Aug 18, 2026',
+    customerCity: 'Golf Links',
+    customerState: 'New Delhi',
+    date: '18 Aug, 2026',
+    orderTime: '01:05 PM',
     orderMonth: '2026-08',
     items: [
       {
@@ -178,38 +218,16 @@ export const SAMPLE_INITIAL_ORDERS: OrderRecord[] = [
     paymentMethod: 'UPI / Google Pay',
     paymentStatus: 'Paid',
     orderStatus: 'Delivered',
+    currentStep: 4,
+    stepStatus: 'delivered',
     deliveryAddress: 'House 12, Golf Links, New Delhi 110003',
-    trackingNumber: 'BLUEDART-EXP-77192'
-  },
-  {
-    id: 'ORD-2026-AUG-03',
-    customerName: 'Kabir Varma',
-    customerEmail: 'kabir.v@varmaholdings.in',
-    customerPhone: '+91 97690 33419',
-    date: 'Aug 10, 2026',
-    orderMonth: '2026-08',
-    items: [
-      {
-        id: 'art-06',
-        type: 'artwork',
-        title: 'Study in Umber Shadows',
-        subtitle: 'Experimental Mixed Media (30 x 40 in)',
-        price: 120000,
-        image: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=600&auto=format&fit=crop',
-        quantity: 1,
-        mediumOrCategory: 'Acrylic & Mixed Media',
-      }
-    ],
-    subtotal: 120000,
-    discount: 0,
-    shipping: 0,
-    totalAmount: 120000,
-    paymentMethod: 'NetBanking',
-    paymentStatus: 'Refunded',
-    orderStatus: 'Cancelled',
-    deliveryAddress: 'Banjara Hills, Hyderabad 500034',
-    cancellationReason: 'Customer requested size customization prior to shipment',
-    cancelledAt: '03:15 PM, Aug 11, 2026'
+    trackingNumber: 'BLUEDART-EXP-77192',
+    stepTimestamps: {
+      placed: '01:05 PM, 18 Aug',
+      accepted: '02:30 PM, 18 Aug',
+      dispatched: '11:00 AM, 19 Aug',
+      delivered: '04:15 PM, 21 Aug (Delivered)'
+    }
   }
 ];
 
@@ -225,7 +243,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const [orders, setOrders] = useState<OrderRecord[]>(() => {
     try {
-      const saved = localStorage.getItem('kuldeep_art_orders_v2');
+      const saved = localStorage.getItem('kuldeep_art_orders_v3');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
@@ -255,7 +273,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     try {
-      localStorage.setItem('kuldeep_art_orders_v2', JSON.stringify(orders));
+      localStorage.setItem('kuldeep_art_orders_v3', JSON.stringify(orders));
     } catch (e) {
       console.error(e);
     }
@@ -303,12 +321,12 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const clean = code.trim().toUpperCase();
     if (clean === 'MASTER2026' || clean === 'KULDEEP15') {
       setDiscountCode(clean);
-      setDiscountPercent(0.15); // 15% discount
+      setDiscountPercent(0.15);
       setDiscountError(null);
       return true;
     } else if (clean === 'VIPCOLLECTOR') {
       setDiscountCode(clean);
-      setDiscountPercent(0.2); // 20% discount
+      setDiscountPercent(0.2);
       setDiscountError(null);
       return true;
     } else {
@@ -324,11 +342,105 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const discount = Math.round(subtotal * discountPercent);
-  const shipping = subtotal > 0 ? 0 : 0;
+  const shipping = 0;
   const finalTotal = Math.max(0, subtotal - discount + shipping);
 
   const addOrder = (order: OrderRecord) => {
     setOrders((prev) => [order, ...prev]);
+  };
+
+  // 4-Step Pipeline Progression Engine
+  const advanceOrderStep = (orderId: string) => {
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const dateStr = now.toLocaleDateString('en-US', { day: '2-digit', month: 'short' });
+    const stamp = `${timeStr}, ${dateStr}`;
+
+    setOrders((prev) =>
+      prev.map((o) => {
+        if (o.id !== orderId) return o;
+
+        if (o.currentStep === 1) {
+          // Advance to Step 2: Order Accepted & Proceeded
+          return {
+            ...o,
+            currentStep: 2 as const,
+            stepStatus: 'accepted' as const,
+            orderStatus: 'Fine Art Packing',
+            stepTimestamps: {
+              ...o.stepTimestamps,
+              accepted: `${stamp} (Proceeded to Packing)`
+            }
+          };
+        } else if (o.currentStep === 2) {
+          // Advance to Step 3: Out for Delivery
+          const autoTracking = o.trackingNumber || `BLUEDART-EXP-${Math.floor(10000 + Math.random() * 90000)}`;
+          return {
+            ...o,
+            currentStep: 3 as const,
+            stepStatus: 'dispatched' as const,
+            orderStatus: 'In Transit',
+            trackingNumber: autoTracking,
+            stepTimestamps: {
+              ...o.stepTimestamps,
+              dispatched: `${stamp} (Dispatched with ${autoTracking.split('-')[0]})`
+            }
+          };
+        } else if (o.currentStep === 3) {
+          // Advance to Step 4: Delivered
+          return {
+            ...o,
+            currentStep: 4 as const,
+            stepStatus: 'delivered' as const,
+            orderStatus: 'Delivered',
+            stepTimestamps: {
+              ...o.stepTimestamps,
+              delivered: `${stamp} (Delivered & Verified)`
+            }
+          };
+        }
+        return o;
+      })
+    );
+  };
+
+  const setOrderStep = (orderId: string, step: OrderPipelineStep) => {
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const dateStr = now.toLocaleDateString('en-US', { day: '2-digit', month: 'short' });
+    const stamp = `${timeStr}, ${dateStr}`;
+
+    const stepStatusMap: Record<OrderPipelineStep, OrderRecord['stepStatus']> = {
+      1: 'placed',
+      2: 'accepted',
+      3: 'dispatched',
+      4: 'delivered'
+    };
+
+    const orderStatusMap: Record<OrderPipelineStep, OrderRecord['orderStatus']> = {
+      1: 'Order Placed',
+      2: 'Fine Art Packing',
+      3: 'In Transit',
+      4: 'Delivered'
+    };
+
+    setOrders((prev) =>
+      prev.map((o) => {
+        if (o.id !== orderId) return o;
+        return {
+          ...o,
+          currentStep: step,
+          stepStatus: stepStatusMap[step],
+          orderStatus: orderStatusMap[step],
+          stepTimestamps: {
+            ...o.stepTimestamps,
+            ...(step === 2 ? { accepted: stamp } : {}),
+            ...(step === 3 ? { dispatched: stamp } : {}),
+            ...(step === 4 ? { delivered: stamp } : {})
+          }
+        };
+      })
+    );
   };
 
   const cancelOrder = (orderId: string, reason = 'Cancelled by Studio Owner') => {
@@ -379,43 +491,42 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     await new Promise((resolve) => setTimeout(resolve, 800));
 
-    const generatedId = 'ORD-' + Date.now().toString().slice(-6);
+    const generatedId = 'ORD_' + Math.floor(10000 + Math.random() * 90000);
     setLastOrderId(generatedId);
     setIsCheckingOut(false);
     setCheckoutSuccess(true);
 
     const now = new Date();
     const nowMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const dateStr = now.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' });
+    const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
     const newOrder: OrderRecord = {
       id: generatedId,
       customerName: customerInfo?.name || 'Collector Guest',
       customerEmail: customerInfo?.email || 'collector@kuldeepsingh.art',
-      date: now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      customerCity: 'New Delhi',
+      date: dateStr,
+      orderTime: timeStr,
       orderMonth: nowMonth,
       items: [...cart],
       subtotal,
       discount,
       shipping,
       totalAmount: finalTotal,
-      paymentMethod: 'Instant Razorpay / Bank Wire',
+      paymentMethod: 'Instant Razorpay / Wire',
       paymentStatus: 'Paid',
-      orderStatus: 'Fine Art Packing',
+      orderStatus: 'Order Placed',
+      currentStep: 1,
+      stepStatus: 'placed',
       deliveryAddress: 'Standard Fine Art Insured Crating',
+      stepTimestamps: {
+        placed: `${timeStr}, ${dateStr}`
+      }
     };
 
     addOrder(newOrder);
     clearCart();
-
-    try {
-      confetti({
-        particleCount: 120,
-        spread: 80,
-        origin: { y: 0.6 },
-        colors: ['#E63946', '#D97706', '#2563EB', '#059669', '#C5A059']
-      });
-    } catch {
-      // ignore
-    }
   };
 
   const resetCheckout = () => {
@@ -453,7 +564,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         addOrder,
         cancelOrder,
         updateOrderStatus,
-        updatePaymentStatus
+        updatePaymentStatus,
+        advanceOrderStep,
+        setOrderStep
       }}
     >
       {children}
