@@ -40,158 +40,6 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export const SAMPLE_INITIAL_ORDERS: OrderRecord[] = [
   {
-    id: 'ORD_00941',
-    customerName: 'Aarav Singhania',
-    customerEmail: 'aarav.singhania@heritageart.in',
-    customerPhone: '+91 98210 44521',
-    customerCity: 'Juhu, Mumbai',
-    customerState: 'Maharashtra',
-    date: '08 Sep, 2026',
-    orderTime: '07:45 PM',
-    orderMonth: '2026-09',
-    items: [
-      {
-        id: 'art-01',
-        type: 'artwork',
-        title: 'Symphony of the Solitary Tide',
-        subtitle: 'Original Oil on Belgian Linen (40 x 54 in)',
-        price: 320000,
-        image: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=600&auto=format&fit=crop',
-        quantity: 1,
-        mediumOrCategory: 'Oil on Canvas',
-      }
-    ],
-    subtotal: 320000,
-    discount: 15000,
-    shipping: 0,
-    totalAmount: 305000,
-    paymentMethod: 'HDFC NetBanking / RTGS',
-    paymentStatus: 'Paid',
-    orderStatus: 'Order Placed',
-    currentStep: 1,
-    stepStatus: 'placed',
-    deliveryAddress: 'Villa 14, Palm Avenue, Juhu, Mumbai 400049',
-    stepTimestamps: {
-      placed: '07:45 PM, 08 Sep'
-    }
-  },
-  {
-    id: 'ORD_00940',
-    customerName: 'Meera Kapoor',
-    customerEmail: 'meera.k@kapoordesigns.com',
-    customerPhone: '+91 99100 88234',
-    customerCity: 'Amrita Shergill Marg',
-    customerState: 'New Delhi',
-    date: '07 Sep, 2026',
-    orderTime: '02:15 PM',
-    orderMonth: '2026-09',
-    items: [
-      {
-        id: 'art-02',
-        type: 'artwork',
-        title: 'Whispers of the Eternal Forest',
-        subtitle: 'Handmade Pigment & 24K Gold Leaf on Canvas (36 x 48 in)',
-        price: 245000,
-        image: 'https://images.unsplash.com/photo-1577083552431-6e5fd01aa342?q=80&w=600&auto=format&fit=crop',
-        quantity: 1,
-        mediumOrCategory: 'Oil & Gold Leaf',
-      }
-    ],
-    subtotal: 245000,
-    discount: 0,
-    shipping: 0,
-    totalAmount: 245000,
-    paymentMethod: 'Instant UPI / Razorpay',
-    paymentStatus: 'Paid',
-    orderStatus: 'Fine Art Packing',
-    currentStep: 2,
-    stepStatus: 'accepted',
-    deliveryAddress: 'B-42, Amrita Shergill Marg, New Delhi 110003',
-    stepTimestamps: {
-      placed: '02:15 PM, 07 Sep',
-      accepted: '03:00 PM, 07 Sep (Proceeded to Studio Packing)'
-    }
-  },
-  {
-    id: 'ORD_00938',
-    customerName: 'Devansh Malhotra',
-    customerEmail: 'devansh@malhotragroup.co',
-    customerPhone: '+91 98450 12903',
-    customerCity: 'Koramangala',
-    customerState: 'Bengaluru',
-    date: '06 Sep, 2026',
-    orderTime: '11:20 AM',
-    orderMonth: '2026-09',
-    items: [
-      {
-        id: 'art-03',
-        type: 'artwork',
-        title: 'Nocturne in Venetian Crimson',
-        subtitle: 'Impasto Oil Painting with Custom Italian Oak Frame',
-        price: 185000,
-        image: 'https://images.unsplash.com/photo-1541701494587-cb58502866ab?q=80&w=600&auto=format&fit=crop',
-        quantity: 1,
-        mediumOrCategory: 'Oil on Canvas',
-      }
-    ],
-    subtotal: 185000,
-    discount: 5000,
-    shipping: 0,
-    totalAmount: 180000,
-    paymentMethod: 'Instant UPI Transfer',
-    paymentStatus: 'Paid',
-    orderStatus: 'In Transit',
-    currentStep: 3,
-    stepStatus: 'dispatched',
-    deliveryAddress: 'Penthouse 7B, Sky Tower, Koramangala, Bengaluru 560034',
-    trackingNumber: 'BLUEDART-EXP-90812',
-    stepTimestamps: {
-      placed: '11:20 AM, 06 Sep',
-      accepted: '01:00 PM, 06 Sep',
-      dispatched: '09:30 AM, 07 Sep (Courier Out for Delivery)'
-    }
-  },
-  {
-    id: 'ORD_00935',
-    customerName: 'Countess Vivienne St. Claire',
-    customerEmail: 'vivienne@stclairecollections.ch',
-    customerPhone: '+41 79 412 8890',
-    customerCity: 'Zurich',
-    customerState: 'Switzerland',
-    date: '26 Aug, 2026',
-    orderTime: '04:10 PM',
-    orderMonth: '2026-08',
-    items: [
-      {
-        id: 'art-04',
-        type: 'artwork',
-        title: 'Echoes of the Florentine Atelier',
-        subtitle: 'Classical Realism Oil on Linen (48 x 60 in)',
-        price: 450000,
-        image: 'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?q=80&w=600&auto=format&fit=crop',
-        quantity: 1,
-        mediumOrCategory: 'Oil on Linen',
-      }
-    ],
-    subtotal: 450000,
-    discount: 25000,
-    shipping: 0,
-    totalAmount: 425000,
-    paymentMethod: 'International Wire / SWIFT',
-    paymentStatus: 'Paid',
-    orderStatus: 'Delivered',
-    currentStep: 4,
-    stepStatus: 'delivered',
-    deliveryAddress: 'Bahnhofstrasse 45, 8001 Zurich, Switzerland',
-    trackingNumber: 'DHL-EXPRESS-992301',
-    stepTimestamps: {
-      placed: '04:10 PM, 26 Aug',
-      accepted: '06:00 PM, 26 Aug',
-      dispatched: '10:00 AM, 27 Aug',
-      delivered: '02:30 PM, 30 Aug (Delivered & Verified)'
-    }
-  },
-  {
     id: 'ORD_00932',
     customerName: 'Rajesh & Sunita Oberoi',
     customerEmail: 'oberoi.art@gmail.com',
@@ -281,6 +129,32 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [orders]);
 
+  // Real-time bidirectional database sync with backend daemon
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchLiveOrders = async () => {
+      try {
+        const res = await fetch('http://localhost:5000/api/orders');
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data) && isMounted) {
+            setOrders(data);
+          }
+        }
+      } catch {
+        // backend momentarily quiet
+      }
+    };
+
+    fetchLiveOrders();
+    const interval = setInterval(fetchLiveOrders, 2000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
+
   const addToCart = (item: Omit<CartItem, 'quantity'>, quantity = 1) => {
     setCart((prev) => {
       const existing = prev.find((i) => i.id === item.id);
@@ -348,7 +222,12 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const finalTotal = Math.max(0, subtotal - discount + shipping);
 
   const addOrder = (order: OrderRecord) => {
-    setOrders((prev) => [order, ...prev]);
+    setOrders((prev) => [order, ...prev.filter((o) => o.id !== order.id)]);
+    fetch('http://localhost:5000/api/orders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(order)
+    }).catch((e) => console.warn('Backend sync failed:', e));
   };
 
   // 4-Step Pipeline Progression Engine
@@ -358,14 +237,15 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const dateStr = now.toLocaleDateString('en-US', { day: '2-digit', month: 'short' });
     const stamp = `${timeStr}, ${dateStr}`;
 
+    let patchFields: Partial<OrderRecord> | null = null;
+
     setOrders((prev) =>
       prev.map((o) => {
         if (o.id !== orderId) return o;
 
         if (o.currentStep === 1) {
           // Advance to Step 2: Order Accepted & Proceeded
-          return {
-            ...o,
+          patchFields = {
             currentStep: 2 as const,
             stepStatus: 'accepted' as const,
             orderStatus: 'Fine Art Packing',
@@ -374,11 +254,11 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
               accepted: `${stamp} (Proceeded to Packing)`
             }
           };
+          return { ...o, ...patchFields };
         } else if (o.currentStep === 2) {
           // Advance to Step 3: Out for Delivery
           const autoTracking = o.trackingNumber || `BLUEDART-EXP-${Math.floor(10000 + Math.random() * 90000)}`;
-          return {
-            ...o,
+          patchFields = {
             currentStep: 3 as const,
             stepStatus: 'dispatched' as const,
             orderStatus: 'In Transit',
@@ -388,10 +268,10 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
               dispatched: `${stamp} (Dispatched with ${autoTracking.split('-')[0]})`
             }
           };
+          return { ...o, ...patchFields };
         } else if (o.currentStep === 3) {
           // Advance to Step 4: Delivered
-          return {
-            ...o,
+          patchFields = {
             currentStep: 4 as const,
             stepStatus: 'delivered' as const,
             orderStatus: 'Delivered',
@@ -400,10 +280,19 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
               delivered: `${stamp} (Delivered & Verified)`
             }
           };
+          return { ...o, ...patchFields };
         }
         return o;
       })
     );
+
+    if (patchFields) {
+      fetch(`http://localhost:5000/api/orders/${orderId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patchFields)
+      }).catch((e) => console.warn('Backend sync failed:', e));
+    }
   };
 
   const setOrderStep = (orderId: string, step: OrderPipelineStep) => {
@@ -426,23 +315,28 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       4: 'Delivered'
     };
 
+    const targetOrder = orders.find((o) => o.id === orderId);
+    const patchFields: Partial<OrderRecord> = {
+      currentStep: step,
+      stepStatus: stepStatusMap[step],
+      orderStatus: orderStatusMap[step],
+      stepTimestamps: {
+        ...(targetOrder?.stepTimestamps || {}),
+        ...(step === 2 ? { accepted: stamp } : {}),
+        ...(step === 3 ? { dispatched: stamp } : {}),
+        ...(step === 4 ? { delivered: stamp } : {})
+      }
+    };
+
     setOrders((prev) =>
-      prev.map((o) => {
-        if (o.id !== orderId) return o;
-        return {
-          ...o,
-          currentStep: step,
-          stepStatus: stepStatusMap[step],
-          orderStatus: orderStatusMap[step],
-          stepTimestamps: {
-            ...o.stepTimestamps,
-            ...(step === 2 ? { accepted: stamp } : {}),
-            ...(step === 3 ? { dispatched: stamp } : {}),
-            ...(step === 4 ? { delivered: stamp } : {})
-          }
-        };
-      })
+      prev.map((o) => (o.id === orderId ? { ...o, ...patchFields } : o))
     );
+
+    fetch(`http://localhost:5000/api/orders/${orderId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patchFields)
+    }).catch((e) => console.warn('Backend sync failed:', e));
   };
 
   const cancelOrder = (orderId: string, reason = 'Cancelled by Studio Owner') => {
@@ -450,41 +344,49 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const dateStr = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
+    const patchFields: Partial<OrderRecord> = {
+      orderStatus: 'Cancelled',
+      paymentStatus: 'Refunded',
+      cancellationReason: reason,
+      cancelledAt: `${timeStr}, ${dateStr}`
+    };
+
     setOrders((prev) =>
-      prev.map((o) =>
-        o.id === orderId
-          ? {
-              ...o,
-              orderStatus: 'Cancelled',
-              paymentStatus: o.paymentStatus === 'Paid' ? 'Refunded' : 'Failed',
-              cancellationReason: reason,
-              cancelledAt: `${timeStr}, ${dateStr}`
-            }
-          : o
-      )
+      prev.map((o) => (o.id === orderId ? { ...o, ...patchFields } : o))
     );
+
+    fetch(`http://localhost:5000/api/orders/${orderId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patchFields)
+    }).catch((e) => console.warn('Backend sync failed:', e));
   };
 
   const updateOrderStatus = (orderId: string, status: OrderRecord['orderStatus'], trackingNumber?: string) => {
+    const patchFields: Partial<OrderRecord> = {
+      orderStatus: status,
+      ...(trackingNumber !== undefined ? { trackingNumber } : {})
+    };
     setOrders((prev) =>
-      prev.map((o) =>
-        o.id === orderId
-          ? {
-              ...o,
-              orderStatus: status,
-              ...(trackingNumber !== undefined ? { trackingNumber } : {})
-            }
-          : o
-      )
+      prev.map((o) => (o.id === orderId ? { ...o, ...patchFields } : o))
     );
+    fetch(`http://localhost:5000/api/orders/${orderId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patchFields)
+    }).catch((e) => console.warn('Backend sync failed:', e));
   };
 
   const updatePaymentStatus = (orderId: string, status: OrderRecord['paymentStatus']) => {
+    const patchFields: Partial<OrderRecord> = { paymentStatus: status };
     setOrders((prev) =>
-      prev.map((o) =>
-        o.id === orderId ? { ...o, paymentStatus: status } : o
-      )
+      prev.map((o) => (o.id === orderId ? { ...o, ...patchFields } : o))
     );
+    fetch(`http://localhost:5000/api/orders/${orderId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patchFields)
+    }).catch((e) => console.warn('Backend sync failed:', e));
   };
 
   const performCheckout = async (customerInfo?: { name: string; email: string }) => {
@@ -538,12 +440,20 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const deleteOrder = (orderId: string) => {
     setOrders((prev) => prev.filter((o) => o.id !== orderId));
+    fetch(`http://localhost:5000/api/orders/${orderId}`, {
+      method: 'DELETE'
+    }).catch((e) => console.warn('Backend sync failed:', e));
   };
 
   const updateOrder = (orderId: string, updatedFields: Partial<OrderRecord>) => {
     setOrders((prev) =>
       prev.map((o) => (o.id === orderId ? { ...o, ...updatedFields } : o))
     );
+    fetch(`http://localhost:5000/api/orders/${orderId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updatedFields)
+    }).catch((e) => console.warn('Backend sync failed:', e));
   };
 
   return (

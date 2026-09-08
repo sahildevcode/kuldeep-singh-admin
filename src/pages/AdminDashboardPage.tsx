@@ -1297,6 +1297,12 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                               <MapPin className="w-3 h-3 text-[#FF5722] shrink-0" />
                               <span className="font-medium text-gray-300">{order.customerCity || 'India'}</span>
                             </div>
+                            {order.customerPhone && (
+                              <div className="text-[10px] text-gray-500 flex items-center gap-1 mt-0.5">
+                                <Phone className="w-2.5 h-2.5 text-gray-500 shrink-0" />
+                                <span>{order.customerPhone}</span>
+                              </div>
+                            )}
                           </td>
 
                           {/* Order ID */}
@@ -1329,9 +1335,20 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                             </div>
                           </td>
 
-                          {/* Price */}
-                          <td className="py-4 px-3 font-bold font-serif text-sm text-white">
-                            {formatINR(order.totalAmount)}
+                          {/* Price & Payment Mode */}
+                          <td className="py-4 px-3">
+                            <div className="font-bold font-serif text-sm text-white">
+                              {formatINR(order.totalAmount)}
+                            </div>
+                            <span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-[9px] font-bold border ${
+                              (order.paymentMethod || '').toLowerCase().includes('cash') || (order.paymentMethod || '').toLowerCase().includes('cod')
+                                ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                                : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                            }`}>
+                              {(order.paymentMethod || '').toLowerCase().includes('cash') || (order.paymentMethod || '').toLowerCase().includes('cod')
+                                ? 'COD'
+                                : 'Online'}
+                            </span>
                           </td>
 
                           {/* Visual 4-Step Progress Indicator */}
@@ -1703,8 +1720,17 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
 
             {/* Collector Information */}
             <div className="bg-[#181C24] border border-[#242A36] rounded-2xl p-4 space-y-2 text-xs">
-              <div className="font-bold text-white text-sm">
-                {selectedOrderForModal.customerName}
+              <div className="flex items-center justify-between">
+                <div className="font-bold text-white text-sm">
+                  {selectedOrderForModal.customerName}
+                </div>
+                <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                  (selectedOrderForModal.paymentMethod || '').toLowerCase().includes('cash') || (selectedOrderForModal.paymentMethod || '').toLowerCase().includes('cod')
+                    ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                    : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                }`}>
+                  {selectedOrderForModal.paymentMethod || 'Online (Demo)'}
+                </span>
               </div>
               <div className="text-gray-300 flex items-center gap-2">
                 <Mail className="w-3.5 h-3.5 text-gray-500" />
@@ -1712,7 +1738,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
               </div>
               <div className="text-gray-300 flex items-center gap-2">
                 <Phone className="w-3.5 h-3.5 text-gray-500" />
-                <span>{selectedOrderForModal.customerPhone || '+91 98210 44521'}</span>
+                <span>{selectedOrderForModal.customerPhone || 'Not provided'}</span>
               </div>
               <div className="text-gray-300 flex items-center gap-2 pt-1 border-t border-gray-800">
                 <MapPin className="w-3.5 h-3.5 text-[#FF5722]" />
