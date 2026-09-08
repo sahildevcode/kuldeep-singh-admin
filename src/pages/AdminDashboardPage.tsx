@@ -1,150 +1,230 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import {
   Palette,
-  GraduationCap,
-  User,
-  Package,
-  Users,
+  Radio,
   Plus,
   Trash2,
   Edit3,
-  Check,
-  RotateCcw,
-  ExternalLink,
-  LogOut,
-  Video,
-  Clock,
+  X,
   DollarSign,
   CheckCircle2,
-  Radio,
-  X,
-  Play,
+  AlertCircle,
+  AlertTriangle,
+  Search,
+  Filter,
+  TrendingUp,
+  Calendar,
+  FileText,
+  Upload,
+  Image as ImageIcon,
+  Link as LinkIcon,
   MapPin,
   Mail,
   Phone,
+  Truck,
+  Package,
+  Eye,
+  ExternalLink,
+  Ban,
   ShieldCheck,
-  Truck
+  Sparkles,
+  LogOut
 } from 'lucide-react';
 import { useStudioData } from '../context/StudioDataContext';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
-import { MagneticButton } from '../components/ui/MagneticButton';
-import type { Artwork, CourseLecture, MediumType, AchievementTimelineItem, EnrolledStudent } from '../types';
+import type { Artwork, MediumType, OrderRecord } from '../types';
 
 interface AdminDashboardPageProps {
-  onBackToSite: () => void;
+  onBackToSite?: () => void;
 }
 
-export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onBackToSite }) => {
+export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
   const {
     artworks,
     courses,
-    students,
-    artistProfile,
-    timeline,
     addArtwork,
     updateArtwork,
     deleteArtwork,
     updateCourse,
-    addStudent,
-    deleteStudent,
-    addLectureToModule,
-    updateLectureInModule,
-    deleteLectureFromModule,
-    addModuleToCourse,
-    deleteModuleFromCourse,
-    updateArtistProfile,
-    addTimelineItem,
-    deleteTimelineItem,
-    resetToDefaults
   } = useStudioData();
 
   const { adminLogout } = useAuth();
-  const { orders } = useCart();
+  const { orders, cancelOrder, updateOrderStatus, updatePaymentStatus } = useCart();
 
-  // Tab navigation: 'paintings' | 'courses' | 'orders' | 'students' | 'about'
-  const [activeTab, setActiveTab] = useState<'paintings' | 'courses' | 'orders' | 'students' | 'about'>('paintings');
+  // Primary Tab: 'paintings' (Paintings, Sales & Order Tracker) | 'live-demo' (Live Studio & Google Meet)
+  const [activeTab, setActiveTab] = useState<'paintings' | 'live-demo'>('paintings');
+  const [paintingsSubView, setPaintingsSubView] = useState<'orders' | 'gallery'>('orders');
+
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-
   const showToast = (msg: string) => {
     setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3500);
+    setTimeout(() => setToastMessage(null), 3800);
   };
 
   // -------------------------------------------------------------
-  // 1. TOP PROFILES / SHORTCUT MODALS (Live Orders & Run Live Class)
+  // 1. MONTHLY SALES ANALYTICS ENGINE
   // -------------------------------------------------------------
-  const [isLiveClassModalOpen, setIsLiveClassModalOpen] = useState(false);
-  const [selectedLiveCourseId, setSelectedLiveCourseId] = useState<string>(courses[0]?.id || '');
-  const [liveStreamUrl, setLiveStreamUrl] = useState<string>('https://meet.google.com/ks-studio-atelier');
-  const [isLiveBroadcasting, setIsLiveBroadcasting] = useState(false);
+  const salesAnalytics = useMemo(() => {
+    // Current month identifier: 2026-09
+    const thisMonthId = '2026-09';
+    // Last month identifier: 2026-08
+    const lastMonthId = '2026-08';
 
-  const openLiveClassModal = () => {
-    const target = courses.find((c) => c.id === selectedLiveCourseId) || courses[0];
-    if (target) {
-      setSelectedLiveCourseId(target.id);
-      if (target.liveClassUrl) setLiveStreamUrl(target.liveClassUrl);
-      setIsLiveBroadcasting(target.liveClassStatus === 'live');
-    }
-    setIsLiveClassModalOpen(true);
-  };
+    let totalLifetimeRevenue = 0;
+    let thisMonthRevenue = 0;
+    let thisMonthOrdersCount = 0;
+    let lastMonthRevenue = 0;
+    let lastMonthOrdersCount = 0;
+    let paidOrdersCount = 0;
+    let pendingOrdersCount = 0;
+    let cancelledOrdersCount = 0;
 
-  const handleLiveCourseChange = (cId: string) => {
-    setSelectedLiveCourseId(cId);
-    const target = courses.find((c) => c.id === cId);
-    if (target) {
-      if (target.liveClassUrl) setLiveStreamUrl(target.liveClassUrl);
-      setIsLiveBroadcasting(target.liveClassStatus === 'live');
-    }
-  };
+    orders.forEach((order) => {
+      const isPaid = order.paymentStatus === 'Paid';
+      const isCancelled = order.orderStatus === 'Cancelled' || order.paymentStatus === 'Refunded' || order.paymentStatus === 'Failed';
+      const isPending = order.paymentStatus === 'Pending Payment' || order.paymentStatus === 'Processing';
 
-  const handleToggleBroadcast = () => {
-    if (!selectedLiveCourseId) return;
-    const willBeLive = !isLiveBroadcasting;
-    setIsLiveBroadcasting(willBeLive);
-    updateCourse(selectedLiveCourseId, {
-      liveClassStatus: willBeLive ? 'live' : 'offline',
-      liveClassUrl: liveStreamUrl
+      if (isCancelled) {
+        cancelledOrdersCount += 1;
+      } else if (isPaid) {
+        paidOrdersCount += 1;
+        totalLifetimeRevenue += order.totalAmount;
+
+        // Check month
+        if (order.orderMonth === thisMonthId || order.date.toLowerCase().includes('sep')) {
+          thisMonthRevenue += order.totalAmount;
+          thisMonthOrdersCount += 1;
+        } else if (order.orderMonth === lastMonthId || order.date.toLowerCase().includes('aug')) {
+          lastMonthRevenue += order.totalAmount;
+          lastMonthOrdersCount += 1;
+        }
+      } else if (isPending) {
+        pendingOrdersCount += 1;
+      }
     });
-    showToast(
-      willBeLive
-        ? '🔴 Live Studio Broadcast is ON AIR! Students can now join via Google Meet.'
-        : 'Live Studio broadcast ended.'
-    );
+
+    const revenueGrowthPercent = lastMonthRevenue > 0
+      ? Math.round(((thisMonthRevenue - lastMonthRevenue) / lastMonthRevenue) * 100)
+      : 100;
+
+    return {
+      totalLifetimeRevenue,
+      thisMonthRevenue,
+      thisMonthOrdersCount,
+      lastMonthRevenue,
+      lastMonthOrdersCount,
+      revenueGrowthPercent,
+      paidOrdersCount,
+      pendingOrdersCount,
+      cancelledOrdersCount,
+      totalOrdersCount: orders.length
+    };
+  }, [orders]);
+
+  const formatINR = (amount: number) => {
+    return '₹' + amount.toLocaleString('en-IN');
   };
 
   // -------------------------------------------------------------
-  // 2. PAINTINGS STATE
+  // 2. LIVE ORDER TRACKER FILTERS & ACTIONS
+  // -------------------------------------------------------------
+  const [orderMonthFilter, setOrderMonthFilter] = useState<'all' | 'this_month' | 'last_month'>('all');
+  const [orderStatusFilter, setOrderStatusFilter] = useState<string>('all');
+  const [orderSearchQuery, setOrderSearchQuery] = useState('');
+
+  const [orderToCancel, setOrderToCancel] = useState<OrderRecord | null>(null);
+  const [cancellationReasonInput, setCancellationReasonInput] = useState('');
+
+  const filteredOrders = useMemo(() => {
+    return orders.filter((order) => {
+      // Month Filter
+      if (orderMonthFilter === 'this_month') {
+        const isThis = order.orderMonth === '2026-09' || order.date.toLowerCase().includes('sep');
+        if (!isThis) return false;
+      } else if (orderMonthFilter === 'last_month') {
+        const isLast = order.orderMonth === '2026-08' || order.date.toLowerCase().includes('aug');
+        if (!isLast) return false;
+      }
+
+      // Status Filter
+      if (orderStatusFilter !== 'all') {
+        if (orderStatusFilter === 'Paid' && order.paymentStatus !== 'Paid') return false;
+        if (orderStatusFilter === 'Pending' && order.paymentStatus !== 'Pending Payment' && order.paymentStatus !== 'Processing') return false;
+        if (orderStatusFilter === 'Cancelled' && order.orderStatus !== 'Cancelled') return false;
+        if (orderStatusFilter === 'In Transit' && order.orderStatus !== 'In Transit') return false;
+        if (orderStatusFilter === 'Delivered' && order.orderStatus !== 'Delivered') return false;
+      }
+
+      // Search Query
+      if (orderSearchQuery.trim()) {
+        const query = orderSearchQuery.toLowerCase();
+        const matchesId = order.id.toLowerCase().includes(query);
+        const matchesCustomer = order.customerName.toLowerCase().includes(query);
+        const matchesEmail = order.customerEmail.toLowerCase().includes(query);
+        const matchesItem = order.items.some((i) => i.title.toLowerCase().includes(query));
+        if (!matchesId && !matchesCustomer && !matchesEmail && !matchesItem) return false;
+      }
+
+      return true;
+    });
+  }, [orders, orderMonthFilter, orderStatusFilter, orderSearchQuery]);
+
+  const handleConfirmCancelOrder = () => {
+    if (!orderToCancel) return;
+    const reason = cancellationReasonInput.trim() || 'Cancelled by Studio Owner';
+    cancelOrder(orderToCancel.id, reason);
+    showToast(`Order #${orderToCancel.id} has been cancelled in real-time. Status updated.`);
+    setOrderToCancel(null);
+    setCancellationReasonInput('');
+  };
+
+  // -------------------------------------------------------------
+  // 3. PAINTINGS UPLOAD & MANAGEMENT (PC Upload / PDF / URL)
   // -------------------------------------------------------------
   const [isPaintingModalOpen, setIsPaintingModalOpen] = useState(false);
   const [editingArtworkId, setEditingArtworkId] = useState<string | null>(null);
+  const [uploadSourceMode, setUploadSourceMode] = useState<'pc' | 'pdf' | 'url'>('pc');
+
   const [artworkForm, setArtworkForm] = useState({
     title: '',
     subtitle: '',
     medium: 'Oil on Canvas' as MediumType,
     dimensions: '36 x 48 in (91 x 122 cm)',
-    price: 3200,
+    price: 280000,
     year: 2026,
     image: '',
+    fileType: 'image' as 'image' | 'pdf',
+    fileName: '',
+    fileSize: '',
+    pdfUrl: '',
     description: '',
     story: '',
     status: 'available' as 'available' | 'sold',
     framed: true,
-    featured: false
+    featured: true
   });
+
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const pdfInputRef = useRef<HTMLInputElement | null>(null);
 
   const openNewPaintingModal = () => {
     setEditingArtworkId(null);
+    setUploadSourceMode('pc');
     setArtworkForm({
       title: '',
       subtitle: 'Original Fine Art Masterpiece',
       medium: 'Oil on Canvas',
       dimensions: '36 x 48 in (91 x 122 cm)',
-      price: 3500,
+      price: 280000,
       year: 2026,
-      image: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=1200&auto=format&fit=crop',
-      description: 'Handcrafted master oil work featuring classical multi-layered glazing and hand-ground mineral pigments.',
-      story: 'Painted in the Chelsea atelier over several months of drying intervals.',
+      image: '',
+      fileType: 'image',
+      fileName: '',
+      fileSize: '',
+      pdfUrl: '',
+      description: 'Handcrafted master oil painting infused with classical chiaroscuro and raw contemporary soul.',
+      story: 'Created by Artist Kuldeep Singh over a 4-month studio residency, layering multiple transparent glazes.',
       status: 'available',
       framed: true,
       featured: true
@@ -154,6 +234,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onBackTo
 
   const openEditPaintingModal = (art: Artwork) => {
     setEditingArtworkId(art.id);
+    setUploadSourceMode(art.fileType === 'pdf' ? 'pdf' : art.image.startsWith('data:') ? 'pc' : 'url');
     setArtworkForm({
       title: art.title,
       subtitle: art.subtitle,
@@ -162,6 +243,10 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onBackTo
       price: art.price,
       year: art.year,
       image: art.image,
+      fileType: art.fileType || 'image',
+      fileName: art.fileName || '',
+      fileSize: art.fileSize || '',
+      pdfUrl: art.pdfUrl || '',
       description: art.description,
       story: art.story,
       status: art.status === 'sold' ? 'sold' : 'available',
@@ -171,12 +256,66 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onBackTo
     setIsPaintingModalOpen(true);
   };
 
+  // Handle direct file upload from PC
+  const handlePcFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const sizeFormatted = (file.size / (1024 * 1024)).toFixed(2) + ' MB';
+    const reader = new FileReader();
+
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      setArtworkForm((prev) => ({
+        ...prev,
+        image: dataUrl,
+        fileType: 'image',
+        fileName: file.name,
+        fileSize: sizeFormatted
+      }));
+      showToast(`Selected image "${file.name}" loaded from PC!`);
+    };
+
+    reader.readAsDataURL(file);
+  };
+
+  // Handle PDF upload
+  const handlePdfFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const sizeFormatted = (file.size / (1024 * 1024)).toFixed(2) + ' MB';
+    const reader = new FileReader();
+
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      setArtworkForm((prev) => ({
+        ...prev,
+        pdfUrl: dataUrl,
+        // If image is empty, assign artistic document fallback preview
+        image: prev.image || 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?q=80&w=600&auto=format&fit=crop',
+        fileType: 'pdf',
+        fileName: file.name,
+        fileSize: sizeFormatted
+      }));
+      showToast(`PDF Document "${file.name}" loaded!`);
+    };
+
+    reader.readAsDataURL(file);
+  };
+
   const handleSavePainting = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!artworkForm.title || !artworkForm.image) {
-      alert('Please provide a title and image URL.');
+    if (!artworkForm.title) {
+      alert('Please enter a title for the painting.');
       return;
     }
+    if (!artworkForm.image && !artworkForm.pdfUrl) {
+      alert('Please upload an image from your PC, select a PDF, or provide an image link.');
+      return;
+    }
+
+    const fallbackImage = artworkForm.image || 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=600&auto=format&fit=crop';
 
     if (editingArtworkId) {
       updateArtwork(editingArtworkId, {
@@ -186,7 +325,11 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onBackTo
         dimensions: artworkForm.dimensions,
         price: Number(artworkForm.price),
         year: Number(artworkForm.year),
-        image: artworkForm.image,
+        image: fallbackImage,
+        fileType: artworkForm.fileType,
+        fileName: artworkForm.fileName,
+        fileSize: artworkForm.fileSize,
+        pdfUrl: artworkForm.pdfUrl,
         description: artworkForm.description,
         story: artworkForm.story,
         status: artworkForm.status,
@@ -203,7 +346,11 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onBackTo
         dimensions: artworkForm.dimensions,
         price: Number(artworkForm.price),
         year: Number(artworkForm.year),
-        image: artworkForm.image,
+        image: fallbackImage,
+        fileType: artworkForm.fileType,
+        fileName: artworkForm.fileName,
+        fileSize: artworkForm.fileSize,
+        pdfUrl: artworkForm.pdfUrl,
         description: artworkForm.description,
         story: artworkForm.story,
         status: artworkForm.status,
@@ -214,1342 +361,966 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onBackTo
         varnishType: 'Archival Dammar Satin'
       };
       addArtwork(newArt);
-      showToast(`New artwork "${newArt.title}" published to Gallery!`);
+      showToast(`New artwork "${newArt.title}" published!`);
     }
     setIsPaintingModalOpen(false);
   };
 
+  const handleToggleSoldStatus = (art: Artwork) => {
+    const newStatus = art.status === 'sold' ? 'available' : 'sold';
+    updateArtwork(art.id, { status: newStatus });
+    showToast(
+      newStatus === 'sold'
+        ? `"${art.title}" marked as Private Collection (Sold)!`
+        : `"${art.title}" is now Available for Acquisition!`
+    );
+  };
+
   // -------------------------------------------------------------
-  // 3. MASTERCLASSES & LECTURE PREVIEW STATE
+  // 4. LIVE STUDIO & GOOGLE MEET DEMO
   // -------------------------------------------------------------
-  const [selectedCourseForLectures, setSelectedCourseForLectures] = useState<string>(
-    courses[0]?.id || ''
+  const liveTargetCourse = courses[0];
+  const [liveStreamUrl, setLiveStreamUrl] = useState<string>(
+    liveTargetCourse?.liveClassUrl || 'https://meet.google.com/ks-studio-atelier'
   );
-  const activeCourse = courses.find((c) => c.id === selectedCourseForLectures) || courses[0];
+  const [isLiveBroadcasting, setIsLiveBroadcasting] = useState(
+    liveTargetCourse?.liveClassStatus === 'live'
+  );
 
-  const [isLectureModalOpen, setIsLectureModalOpen] = useState(false);
-  const [lectureModuleIndex, setLectureModuleIndex] = useState(0);
-  const [editingLectureIndex, setEditingLectureIndex] = useState<number | null>(null);
-  const [lectureForm, setLectureForm] = useState({
-    title: '',
-    duration: '45 Mins',
-    videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
-    summary: 'Step-by-step master demonstration with Kuldeep Sir.'
-  });
-
-  const [previewingLectureUrl, setPreviewingLectureUrl] = useState<string | null>(null);
-
-  const openAddLectureModal = (modIdx: number) => {
-    setLectureModuleIndex(modIdx);
-    setEditingLectureIndex(null);
-    setLectureForm({
-      title: `Lesson: Masterstroke Technique`,
-      duration: '45 Mins',
-      videoUrl: '',
-      summary: 'In this high-definition lesson, Artist Kuldeep Singh demonstrates the exact pigment balance and stroke pressure.'
-    });
-    setIsLectureModalOpen(true);
-  };
-
-  const openEditLectureModal = (modIdx: number, lecIdx: number, lec: CourseLecture) => {
-    setLectureModuleIndex(modIdx);
-    setEditingLectureIndex(lecIdx);
-    setLectureForm({
-      title: lec.title,
-      duration: lec.duration,
-      videoUrl: lec.videoUrl || '',
-      summary: lec.summary || ''
-    });
-    setIsLectureModalOpen(true);
-  };
-
-  const handleSaveLecture = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!activeCourse) return;
-    if (editingLectureIndex !== null) {
-      updateLectureInModule(activeCourse.id, lectureModuleIndex, editingLectureIndex, {
-        title: lectureForm.title,
-        duration: lectureForm.duration,
-        videoUrl: lectureForm.videoUrl || 'https://www.youtube.com/embed/dQw4w9WgXcQ',
-        summary: lectureForm.summary
+  const handleToggleBroadcast = () => {
+    const willBeLive = !isLiveBroadcasting;
+    setIsLiveBroadcasting(willBeLive);
+    if (liveTargetCourse) {
+      updateCourse(liveTargetCourse.id, {
+        liveClassStatus: willBeLive ? 'live' : 'offline',
+        liveClassUrl: liveStreamUrl
       });
-      showToast(`Lecture updated successfully!`);
-    } else {
-      const newLecture: CourseLecture = {
-        id: 'lec-' + Date.now(),
-        title: lectureForm.title,
-        duration: lectureForm.duration,
-        videoUrl: lectureForm.videoUrl || 'https://www.youtube.com/embed/dQw4w9WgXcQ',
-        summary: lectureForm.summary
-      };
-      addLectureToModule(activeCourse.id, lectureModuleIndex, newLecture);
-      showToast(`New lecture added to ${activeCourse.title}!`);
     }
-    setIsLectureModalOpen(false);
-  };
-
-  // -------------------------------------------------------------
-  // 4. STUDENT ADMISSION STATE
-  // -------------------------------------------------------------
-  const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
-  const [studentForm, setStudentForm] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    courseId: courses[0]?.id || '',
-    batchSchedule: 'Saturday & Sunday • 6:00 PM – 8:00 PM IST',
-    feesPaid: 349
-  });
-
-  const handleAddStudent = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!studentForm.name || !studentForm.email) return;
-    const c = courses.find((cr) => cr.id === studentForm.courseId) || courses[0];
-    const newStudent: EnrolledStudent = {
-      id: 'stu-' + Date.now(),
-      name: studentForm.name,
-      email: studentForm.email,
-      phone: studentForm.phone || '+91 98000 00000',
-      courseId: c.id,
-      courseTitle: c.title,
-      batchSchedule: studentForm.batchSchedule,
-      enrolledDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-      feesPaid: Number(studentForm.feesPaid),
-      paymentStatus: 'Paid',
-      progressPercent: 0,
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=150&auto=format&fit=crop'
-    };
-    addStudent(newStudent);
-    showToast(`Student ${newStudent.name} admitted successfully!`);
-    setIsStudentModalOpen(false);
-  };
-
-  // -------------------------------------------------------------
-  // 5. PAINTING ORDERS FILTER
-  // -------------------------------------------------------------
-  // Filter physical painting orders (separate from courses)
-  const paintingOrders = orders.filter((o) =>
-    o.items.some((item) => item.type === 'artwork')
-  );
-
-  // -------------------------------------------------------------
-  // 6. ABOUT PROFILE STATE (Clean & Simple)
-  // -------------------------------------------------------------
-  const [profileForm, setProfileForm] = useState({ ...artistProfile });
-  const [isTimelineModalOpen, setIsTimelineModalOpen] = useState(false);
-  const [timelineForm, setTimelineForm] = useState<AchievementTimelineItem>({
-    year: '2026',
-    title: '',
-    roleOrLocation: '',
-    description: '',
-    milestoneType: 'Exhibition',
-    highlightMetric: ''
-  });
-
-  const handleSaveProfile = (e: React.FormEvent) => {
-    e.preventDefault();
-    updateArtistProfile(profileForm);
-    showToast('Artist profile & biography updated in real-time!');
-  };
-
-  const handleSaveTimelineItem = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!timelineForm.title) return;
-    addTimelineItem({ ...timelineForm });
-    showToast(`Milestone "${timelineForm.title}" added to legacy!`);
-    setIsTimelineModalOpen(false);
+    showToast(
+      willBeLive
+        ? '🔴 Live Studio Broadcast is ON AIR! Google Meet link active.'
+        : 'Live Studio broadcast ended.'
+    );
   };
 
   return (
-    <div className="min-h-screen bg-[#13110F] text-stone-100 font-sans pb-24 selection:bg-artisan-gold selection:text-black">
+    <div className="min-h-screen bg-[#0B0F19] text-[#F3F4F6] pb-24 font-sans">
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed top-6 right-6 z-50 bg-emerald-600 text-white px-5 py-3 rounded-2xl shadow-2xl font-semibold text-sm flex items-center gap-2 animate-in fade-in slide-in-from-top-3">
-          <CheckCircle2 className="w-5 h-5" />
-          <span>{toastMessage}</span>
+        <div className="fixed bottom-6 right-6 z-50 bg-[#1F2937] border-2 border-[#E63946] text-white px-5 py-3.5 rounded-2xl shadow-2xl flex items-center gap-3 animate-fade-in">
+          <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+          <span className="text-sm font-medium">{toastMessage}</span>
+          <button onClick={() => setToastMessage(null)} className="ml-2 text-gray-400 hover:text-white">
+            <X className="w-4 h-4" />
+          </button>
         </div>
       )}
 
-      {/* ------------------------------------------------------------- */}
-      {/* TOP NAVIGATION BAR WITH DUAL PROFILES */}
-      {/* ------------------------------------------------------------- */}
-      <header className="sticky top-0 z-40 bg-[#1A1715]/95 backdrop-blur-md border-b border-stone-800 px-4 sm:px-8 py-3.5 flex flex-wrap items-center justify-between gap-4">
-        {/* Left: Branding & Status */}
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-artisan-gold to-amber-500 text-stone-950 font-serif font-bold text-lg flex items-center justify-center shadow-lg">
-            KS
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="font-serif font-bold text-lg text-white">
-                Artist Kuldeep Singh
-              </h1>
-              <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-artisan-gold/20 text-artisan-gold border border-artisan-gold/30">
-                Atelier Command
-              </span>
+      {/* Main Header / Tab Switcher */}
+      <header className="sticky top-0 z-40 bg-[#0F172A]/90 backdrop-blur-md border-b border-gray-800 shadow-md">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#E63946] to-amber-600 flex items-center justify-center text-white shadow-lg ring-2 ring-[#E63946]/30">
+              <ShieldCheck className="w-6 h-6" />
             </div>
-            <p className="text-[11px] text-stone-400">
-              Master Artist & Academy Control Center
-            </p>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="font-serif font-bold text-lg text-white tracking-wide">
+                  Artist Kuldeep Singh
+                </h1>
+                <span className="text-[10px] uppercase font-bold tracking-widest bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+                  Admin Active
+                </span>
+              </div>
+              <p className="text-xs text-gray-400">
+                Direct Management: Paintings, Monthly Sales & Live Google Meet Studio
+              </p>
+            </div>
           </div>
-        </div>
 
-        {/* Center: The Two Primary Owner Profiles Requested by User */}
-        <div className="flex items-center gap-2 bg-[#221F1C] p-1.5 rounded-2xl border border-stone-700/60 shadow-inner">
-          {/* Profile 1: Live Art Orders */}
-          <button
-            onClick={() => setActiveTab('orders')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all ${
-              activeTab === 'orders'
-                ? 'bg-artisan-gold text-stone-950 shadow-md'
-                : 'text-stone-300 hover:text-white hover:bg-stone-800'
-            }`}
-          >
-            <Package className="w-4 h-4 text-artisan-crimson" />
-            <span>Live Art Orders ({paintingOrders.length})</span>
-          </button>
+          {/* 2 Primary Navigation Tabs */}
+          <div className="flex items-center bg-[#1E293B] p-1.5 rounded-2xl border border-gray-700/60 shadow-inner">
+            <button
+              onClick={() => setActiveTab('paintings')}
+              className={`flex items-center gap-2 px-5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+                activeTab === 'paintings'
+                  ? 'bg-gradient-to-r from-[#E63946] to-red-600 text-white shadow-md'
+                  : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
+              }`}
+            >
+              <Palette className="w-4 h-4" />
+              <span>🎨 Paintings & Sales Tracker</span>
+            </button>
 
-          {/* Profile 2: Run Live Studio Class */}
-          <button
-            onClick={() => openLiveClassModal()}
-            className="px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 bg-gradient-to-r from-red-600 to-rose-700 hover:from-red-500 hover:to-rose-600 text-white shadow-md transition-all animate-pulse"
-          >
-            <Radio className="w-4 h-4" />
-            <span>Run Live Studio Class</span>
-          </button>
-        </div>
+            <button
+              onClick={() => setActiveTab('live-demo')}
+              className={`flex items-center gap-2 px-5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+                activeTab === 'live-demo'
+                  ? 'bg-gradient-to-r from-[#E63946] to-red-600 text-white shadow-md'
+                  : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
+              }`}
+            >
+              <Radio className={`w-4 h-4 ${isLiveBroadcasting ? 'text-red-400 animate-pulse' : ''}`} />
+              <span>🔴 Live Studio / Demo</span>
+              {isLiveBroadcasting && (
+                <span className="w-2 h-2 rounded-full bg-red-400 animate-ping"></span>
+              )}
+            </button>
 
-        {/* Right Actions: Back to site, Reset, Sign out */}
-        <div className="flex items-center gap-2 sm:gap-3">
-          <button
-            onClick={onBackToSite}
-            className="px-3.5 py-1.5 bg-stone-800 hover:bg-stone-700 text-stone-200 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-colors border border-stone-700"
-          >
-            <ExternalLink className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">View Live Site</span>
-          </button>
-
-          <button
-            onClick={() => {
-              if (window.confirm('Restore factory demo data? Any unsaved edits will be reset.')) {
-                resetToDefaults();
-                showToast('Studio data reset to factory demo values.');
-              }
-            }}
-            title="Reset to factory demo data"
-            className="p-2 text-stone-400 hover:text-white hover:bg-stone-800 rounded-xl transition-colors"
-          >
-            <RotateCcw className="w-4 h-4" />
-          </button>
-
-          <button
-            onClick={() => {
-              adminLogout();
-              onBackToSite();
-            }}
-            className="px-3 py-1.5 bg-red-950/60 hover:bg-red-900/60 text-red-200 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-colors border border-red-800/40"
-          >
-            <LogOut className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Exit</span>
-          </button>
+            <button
+              onClick={adminLogout}
+              className="flex items-center gap-1 px-3 py-2 text-xs font-semibold text-gray-400 hover:text-red-400 transition-colors ml-1 cursor-pointer"
+              title="Sign Out of Studio Admin"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span className="hidden md:inline">Exit</span>
+            </button>
+          </div>
         </div>
       </header>
 
-      {/* Main Studio Container */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 space-y-8">
-        {/* Navigation Tabs Bar */}
-        <div className="flex flex-wrap items-center gap-2 p-1.5 bg-[#1B1816] rounded-2xl border border-stone-800 w-fit">
-          <button
-            onClick={() => setActiveTab('paintings')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
-              activeTab === 'paintings'
-                ? 'bg-artisan-gold text-stone-950 shadow-md'
-                : 'text-stone-400 hover:text-white hover:bg-stone-800/50'
-            }`}
-          >
-            <Palette className="w-4 h-4" />
-            <span>Paintings & Gallery ({artworks.length})</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('courses')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
-              activeTab === 'courses'
-                ? 'bg-artisan-gold text-stone-950 shadow-md'
-                : 'text-stone-400 hover:text-white hover:bg-stone-800/50'
-            }`}
-          >
-            <GraduationCap className="w-4 h-4" />
-            <span>Masterclasses & Lectures ({courses.length})</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('orders')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
-              activeTab === 'orders'
-                ? 'bg-artisan-gold text-stone-950 shadow-md'
-                : 'text-stone-400 hover:text-white hover:bg-stone-800/50'
-            }`}
-          >
-            <Package className="w-4 h-4" />
-            <span>Painting Orders ({paintingOrders.length})</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('students')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
-              activeTab === 'students'
-                ? 'bg-artisan-gold text-stone-950 shadow-md'
-                : 'text-stone-400 hover:text-white hover:bg-stone-800/50'
-            }`}
-          >
-            <Users className="w-4 h-4" />
-            <span>Enrolled Students ({students.length})</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('about')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
-              activeTab === 'about'
-                ? 'bg-artisan-gold text-stone-950 shadow-md'
-                : 'text-stone-400 hover:text-white hover:bg-stone-800/50'
-            }`}
-          >
-            <User className="w-4 h-4" />
-            <span>About Artist & Legacy</span>
-          </button>
-        </div>
-
-        {/* ------------------------------------------------------------- */}
-        {/* TAB 1: PAINTINGS & GALLERY MANAGER */}
-        {/* ------------------------------------------------------------- */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
+        {/* ========================================================= */}
+        {/* SECTION 1: PAINTINGS & SALES OPERATIONS                   */}
+        {/* ========================================================= */}
         {activeTab === 'paintings' && (
-          <div className="space-y-6 animate-in fade-in duration-200">
-            <div className="flex flex-wrap items-center justify-between gap-4 p-6 bg-[#1A1815] rounded-3xl border border-stone-800">
-              <div>
-                <h2 className="font-serif font-bold text-xl text-white">
-                  Paintings & Gallery Catalog
-                </h2>
-                <p className="text-xs text-stone-400 mt-1">
-                  Upload artworks, adjust prices, and toggle sold status. Changes immediately appear on the Store and Home page!
-                </p>
+          <div className="space-y-8 animate-fade-in">
+            {/* Top Analytics Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Card 1: Total Sales */}
+              <div className="bg-[#131D33] border border-gray-800 rounded-3xl p-5 shadow-xl relative overflow-hidden">
+                <div className="flex items-center justify-between text-xs text-gray-400 mb-2 font-medium">
+                  <span>Total Sales Revenue</span>
+                  <DollarSign className="w-4 h-4 text-emerald-400" />
+                </div>
+                <div className="text-2xl sm:text-3xl font-bold font-serif text-white">
+                  {formatINR(salesAnalytics.totalLifetimeRevenue)}
+                </div>
+                <div className="mt-2 text-xs text-emerald-400 flex items-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>{salesAnalytics.paidOrdersCount} Paid Orders Lifetime</span>
+                </div>
               </div>
 
-              <MagneticButton
-                onClick={openNewPaintingModal}
-                variant="primary"
-                className="px-5 py-2.5 bg-artisan-gold hover:bg-amber-400 text-stone-950 font-bold text-xs flex items-center gap-2 shadow-lg"
-              >
-                <Plus className="w-4 h-4" />
-                <span>Upload New Painting</span>
-              </MagneticButton>
-            </div>
+              {/* Card 2: This Month Sales */}
+              <div className="bg-[#131D33] border border-emerald-500/30 rounded-3xl p-5 shadow-xl relative overflow-hidden ring-1 ring-emerald-500/20">
+                <div className="flex items-center justify-between text-xs text-emerald-300 mb-2 font-medium">
+                  <span className="flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5" />
+                    This Month (Sep 2026)
+                  </span>
+                  <span className="bg-emerald-500/20 text-emerald-300 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                    Current
+                  </span>
+                </div>
+                <div className="text-2xl sm:text-3xl font-bold font-serif text-white">
+                  {formatINR(salesAnalytics.thisMonthRevenue)}
+                </div>
+                <div className="mt-2 text-xs text-gray-300 flex items-center gap-1.5">
+                  <Package className="w-3.5 h-3.5 text-emerald-400" />
+                  <span><strong>{salesAnalytics.thisMonthOrdersCount}</strong> Active Painting Orders</span>
+                </div>
+              </div>
 
-            {/* Paintings Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {artworks.map((art) => (
-                <div
-                  key={art.id}
-                  className="bg-[#1C1917] rounded-3xl border border-stone-800 overflow-hidden flex flex-col justify-between hover:border-stone-700 transition-all group"
-                >
-                  <div className="relative aspect-[4/3] overflow-hidden bg-stone-900">
-                    <img
-                      src={art.image}
-                      alt={art.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    />
-                    <div className="absolute top-3 left-3 flex gap-2">
-                      <span
-                        className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full ${
-                          art.status === 'available'
-                            ? 'bg-emerald-500/90 text-white'
-                            : 'bg-stone-800/90 text-stone-300'
-                        }`}
-                      >
-                        {art.status}
-                      </span>
-                      {art.featured && (
-                        <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-artisan-gold text-stone-950">
-                          Featured
-                        </span>
-                      )}
-                    </div>
+              {/* Card 3: Last Month Sales */}
+              <div className="bg-[#131D33] border border-gray-800 rounded-3xl p-5 shadow-xl relative overflow-hidden">
+                <div className="flex items-center justify-between text-xs text-gray-400 mb-2 font-medium">
+                  <span className="flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5" />
+                    Last Month (Aug 2026)
+                  </span>
+                  <span className="bg-gray-800 text-gray-400 text-[10px] px-2 py-0.5 rounded-full">
+                    Previous
+                  </span>
+                </div>
+                <div className="text-2xl sm:text-3xl font-bold font-serif text-gray-200">
+                  {formatINR(salesAnalytics.lastMonthRevenue)}
+                </div>
+                <div className="mt-2 text-xs text-emerald-400 flex items-center gap-1">
+                  <TrendingUp className="w-3.5 h-3.5" />
+                  <span>+{salesAnalytics.revenueGrowthPercent}% MoM Growth</span>
+                </div>
+              </div>
+
+              {/* Card 4: Orders Health */}
+              <div className="bg-[#131D33] border border-gray-800 rounded-3xl p-5 shadow-xl relative overflow-hidden">
+                <div className="flex items-center justify-between text-xs text-gray-400 mb-2 font-medium">
+                  <span>Pending & Cancelled</span>
+                  <AlertCircle className="w-4 h-4 text-amber-400" />
+                </div>
+                <div className="flex items-baseline gap-3">
+                  <div className="text-xl sm:text-2xl font-bold text-amber-400">
+                    {salesAnalytics.pendingOrdersCount} <span className="text-xs text-gray-400 font-normal">Pending</span>
                   </div>
-
-                  <div className="p-5 space-y-3 flex-1 flex flex-col justify-between">
-                    <div>
-                      <span className="text-[10px] uppercase tracking-wider text-artisan-gold font-bold block">
-                        {art.medium} • {art.year}
-                      </span>
-                      <h3 className="font-serif font-bold text-base text-white mt-1">
-                        {art.title}
-                      </h3>
-                      <p className="text-xs text-stone-400 line-clamp-2 mt-1">
-                        {art.description}
-                      </p>
-                      <div className="text-xs text-stone-500 mt-2">
-                        <span>Dimensions: {art.dimensions}</span>
-                      </div>
-                    </div>
-
-                    <div className="pt-4 border-t border-stone-800 flex items-center justify-between">
-                      <span className="font-serif font-bold text-lg text-artisan-gold">
-                        ${art.price.toLocaleString()} USD
-                      </span>
-
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => {
-                            const newStatus = art.status === 'available' ? 'sold' : 'available';
-                            updateArtwork(art.id, { status: newStatus });
-                            showToast(`Status changed to "${newStatus}"!`);
-                          }}
-                          className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors ${
-                            art.status === 'available'
-                              ? 'border-stone-700 text-stone-300 hover:bg-stone-800'
-                              : 'border-emerald-500/40 text-emerald-400 hover:bg-emerald-950/40'
-                          }`}
-                        >
-                          {art.status === 'available' ? 'Mark Sold' : 'Mark Available'}
-                        </button>
-
-                        <button
-                          onClick={() => openEditPaintingModal(art)}
-                          className="p-2 text-stone-300 hover:text-white bg-stone-800 hover:bg-stone-700 rounded-xl transition-colors"
-                          title="Edit painting"
-                        >
-                          <Edit3 className="w-3.5 h-3.5" />
-                        </button>
-
-                        <button
-                          onClick={() => {
-                            if (window.confirm(`Delete "${art.title}" from catalog?`)) {
-                              deleteArtwork(art.id);
-                              showToast(`Artwork "${art.title}" deleted.`);
-                            }
-                          }}
-                          className="p-2 text-red-400 hover:text-red-200 bg-red-950/40 hover:bg-red-900/40 rounded-xl transition-colors"
-                          title="Delete painting"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
+                  <div className="text-sm text-red-400">
+                    • {salesAnalytics.cancelledOrdersCount} Cancelled
                   </div>
                 </div>
-              ))}
+                <div className="mt-2 text-xs text-gray-400">
+                  Total Orders Logged: {salesAnalytics.totalOrdersCount}
+                </div>
+              </div>
             </div>
+
+            {/* Sub-view Switcher & Actions Bar */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-[#111827] border border-gray-800 p-4 rounded-3xl">
+              <div className="flex items-center gap-2 bg-[#0B0F19] p-1.5 rounded-2xl border border-gray-800 w-full sm:w-auto">
+                <button
+                  onClick={() => setPaintingsSubView('orders')}
+                  className={`flex-1 sm:flex-none px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer flex items-center justify-center gap-2 ${
+                    paintingsSubView === 'orders'
+                      ? 'bg-emerald-600 text-white shadow-md'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  <Truck className="w-4 h-4" />
+                  <span>Live Orders & Sales Tracker</span>
+                  <span className="bg-black/30 text-white text-[10px] px-1.5 py-0.5 rounded-full font-mono">
+                    {orders.length}
+                  </span>
+                </button>
+
+                <button
+                  onClick={() => setPaintingsSubView('gallery')}
+                  className={`flex-1 sm:flex-none px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer flex items-center justify-center gap-2 ${
+                    paintingsSubView === 'gallery'
+                      ? 'bg-[#E63946] text-white shadow-md'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  <Palette className="w-4 h-4" />
+                  <span>Paintings Gallery & Catalog</span>
+                  <span className="bg-black/30 text-white text-[10px] px-1.5 py-0.5 rounded-full font-mono">
+                    {artworks.length}
+                  </span>
+                </button>
+              </div>
+
+              <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+                <button
+                  onClick={openNewPaintingModal}
+                  className="w-full sm:w-auto bg-[#E63946] hover:bg-[#c92a37] text-white px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all shadow-lg shadow-[#E63946]/30 flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Upload New Painting / PDF</span>
+                </button>
+              </div>
+            </div>
+
+            {/* ===================================================== */}
+            {/* SUB-VIEW 1: LIVE ORDERS TRACKER                       */}
+            {/* ===================================================== */}
+            {paintingsSubView === 'orders' && (
+              <div className="bg-[#131D33] border border-gray-800 rounded-3xl p-5 sm:p-6 shadow-xl space-y-6">
+                {/* Filters */}
+                <div className="flex flex-col md:flex-row items-center justify-between gap-4 pb-5 border-b border-gray-800">
+                  <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+                    {/* Time Filter */}
+                    <div className="flex items-center bg-[#0B0F19] rounded-xl border border-gray-700/80 p-1 text-xs">
+                      <button
+                        onClick={() => setOrderMonthFilter('all')}
+                        className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
+                          orderMonthFilter === 'all' ? 'bg-gray-700 text-white font-bold' : 'text-gray-400 hover:text-white'
+                        }`}
+                      >
+                        All Time
+                      </button>
+                      <button
+                        onClick={() => setOrderMonthFilter('this_month')}
+                        className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer flex items-center gap-1 ${
+                          orderMonthFilter === 'this_month' ? 'bg-emerald-600 text-white font-bold' : 'text-gray-400 hover:text-white'
+                        }`}
+                      >
+                        <span>This Month (Sep)</span>
+                        <span className="w-1.5 h-1.5 rounded-full bg-white"></span>
+                      </button>
+                      <button
+                        onClick={() => setOrderMonthFilter('last_month')}
+                        className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
+                          orderMonthFilter === 'last_month' ? 'bg-blue-600 text-white font-bold' : 'text-gray-400 hover:text-white'
+                        }`}
+                      >
+                        Last Month (Aug)
+                      </button>
+                    </div>
+
+                    {/* Status Filter */}
+                    <div className="flex items-center gap-1 bg-[#0B0F19] rounded-xl border border-gray-700/80 px-2 py-1 text-xs">
+                      <Filter className="w-3.5 h-3.5 text-gray-400" />
+                      <select
+                        value={orderStatusFilter}
+                        onChange={(e) => setOrderStatusFilter(e.target.value)}
+                        className="bg-transparent text-gray-200 focus:outline-none cursor-pointer pr-2"
+                      >
+                        <option value="all" className="bg-[#111827]">All Statuses</option>
+                        <option value="Paid" className="bg-[#111827]">Paid</option>
+                        <option value="Pending" className="bg-[#111827]">Pending Payment</option>
+                        <option value="In Transit" className="bg-[#111827]">In Transit</option>
+                        <option value="Delivered" className="bg-[#111827]">Delivered</option>
+                        <option value="Cancelled" className="bg-[#111827]">Cancelled</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Search bar */}
+                  <div className="relative w-full md:w-72">
+                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                    <input
+                      type="text"
+                      placeholder="Search order #, collector, painting..."
+                      value={orderSearchQuery}
+                      onChange={(e) => setOrderSearchQuery(e.target.value)}
+                      className="w-full bg-[#0B0F19] border border-gray-700/80 rounded-xl py-2 pl-10 pr-4 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Orders Table */}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs text-gray-300">
+                    <thead className="bg-[#0B0F19] text-gray-400 uppercase text-[10px] tracking-wider font-semibold border-b border-gray-800">
+                      <tr>
+                        <th className="py-3 px-4">Order ID & Date</th>
+                        <th className="py-3 px-4">Art Collector</th>
+                        <th className="py-3 px-4">Painting / Item</th>
+                        <th className="py-3 px-4">Amount</th>
+                        <th className="py-3 px-4">Payment</th>
+                        <th className="py-3 px-4">Fulfillment / Courier</th>
+                        <th className="py-3 px-4 text-right">Live Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-800/60 font-sans">
+                      {filteredOrders.length === 0 ? (
+                        <tr>
+                          <td colSpan={7} className="text-center py-10 text-gray-500">
+                            No orders match the selected filters.
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredOrders.map((order) => {
+                          const isCancelled = order.orderStatus === 'Cancelled';
+                          const isPaid = order.paymentStatus === 'Paid';
+
+                          return (
+                            <tr
+                              key={order.id}
+                              className={`transition-colors hover:bg-gray-800/30 ${
+                                isCancelled ? 'opacity-60 bg-red-950/10' : ''
+                              }`}
+                            >
+                              {/* Order ID & Date */}
+                              <td className="py-4 px-4">
+                                <div className="font-mono font-bold text-white text-xs flex items-center gap-1.5">
+                                  <span>{order.id}</span>
+                                </div>
+                                <div className="text-[11px] text-gray-400 mt-0.5">{order.date}</div>
+                                {order.orderMonth && (
+                                  <span className="text-[9px] uppercase tracking-wider bg-gray-800 text-gray-400 px-1.5 py-0.5 rounded mt-1 inline-block">
+                                    {order.orderMonth}
+                                  </span>
+                                )}
+                              </td>
+
+                              {/* Customer Details */}
+                              <td className="py-4 px-4">
+                                <div className="font-semibold text-white">{order.customerName}</div>
+                                <div className="text-gray-400 flex items-center gap-1 mt-0.5 text-[11px]">
+                                  <Mail className="w-3 h-3 text-gray-500" />
+                                  <span>{order.customerEmail}</span>
+                                </div>
+                                {order.customerPhone && (
+                                  <div className="text-gray-400 flex items-center gap-1 mt-0.5 text-[11px]">
+                                    <Phone className="w-3 h-3 text-gray-500" />
+                                    <span>{order.customerPhone}</span>
+                                  </div>
+                                )}
+                                {order.deliveryAddress && (
+                                  <div className="text-gray-500 flex items-center gap-1 mt-1 text-[10px] max-w-xs truncate" title={order.deliveryAddress}>
+                                    <MapPin className="w-3 h-3 shrink-0 text-amber-500" />
+                                    <span className="truncate">{order.deliveryAddress}</span>
+                                  </div>
+                                )}
+                              </td>
+
+                              {/* Items */}
+                              <td className="py-4 px-4">
+                                {order.items.map((item, idx) => (
+                                  <div key={idx} className="flex items-center gap-2 mb-1 last:mb-0">
+                                    <img
+                                      src={item.image}
+                                      alt={item.title}
+                                      className="w-8 h-8 rounded-lg object-cover border border-gray-700 shrink-0"
+                                    />
+                                    <div className="max-w-[200px]">
+                                      <div className="font-medium text-white truncate text-xs" title={item.title}>
+                                        {item.title}
+                                      </div>
+                                      <div className="text-[10px] text-gray-400">
+                                        Qty: {item.quantity} • {formatINR(item.price)}
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </td>
+
+                              {/* Amount */}
+                              <td className="py-4 px-4">
+                                <div className="font-bold font-serif text-sm text-white">
+                                  {formatINR(order.totalAmount)}
+                                </div>
+                                <div className="text-[10px] text-gray-400">{order.paymentMethod}</div>
+                              </td>
+
+                              {/* Payment Status */}
+                              <td className="py-4 px-4">
+                                <select
+                                  disabled={isCancelled}
+                                  value={order.paymentStatus}
+                                  onChange={(e) => {
+                                    updatePaymentStatus(order.id, e.target.value as OrderRecord['paymentStatus']);
+                                    showToast(`Order #${order.id} payment status changed to: ${e.target.value}`);
+                                  }}
+                                  className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border bg-[#0B0F19] focus:outline-none cursor-pointer disabled:opacity-50 ${
+                                    isPaid
+                                      ? 'text-emerald-400 border-emerald-500/40'
+                                      : order.paymentStatus === 'Pending Payment'
+                                      ? 'text-amber-400 border-amber-500/40'
+                                      : 'text-red-400 border-red-500/40'
+                                  }`}
+                                >
+                                  <option value="Paid">Paid (Captured)</option>
+                                  <option value="Pending Payment">Pending Payment</option>
+                                  <option value="Failed">Failed</option>
+                                  <option value="Refunded">Refunded</option>
+                                </select>
+                              </td>
+
+                              {/* Fulfillment Status & Tracking */}
+                              <td className="py-4 px-4">
+                                {isCancelled ? (
+                                  <div>
+                                    <span className="inline-flex items-center gap-1 bg-red-950/60 text-red-400 border border-red-500/40 px-2.5 py-1 rounded-full text-[11px] font-bold">
+                                      <Ban className="w-3 h-3" />
+                                      <span>Cancelled</span>
+                                    </span>
+                                    {order.cancellationReason && (
+                                      <div className="text-[10px] text-red-300/80 mt-1 max-w-[180px] italic">
+                                        "{order.cancellationReason}"
+                                      </div>
+                                    )}
+                                    {order.cancelledAt && (
+                                      <div className="text-[9px] text-gray-500 mt-0.5">
+                                        {order.cancelledAt}
+                                      </div>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <div className="space-y-1.5">
+                                    <select
+                                      value={order.orderStatus}
+                                      onChange={(e) => {
+                                        updateOrderStatus(order.id, e.target.value as OrderRecord['orderStatus']);
+                                        showToast(`Order #${order.id} status updated to: ${e.target.value}`);
+                                      }}
+                                      className="bg-[#0B0F19] text-gray-200 border border-gray-700 rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-emerald-500 cursor-pointer"
+                                    >
+                                      <option value="Order Placed">Order Placed</option>
+                                      <option value="Payment Verified">Payment Verified</option>
+                                      <option value="Fine Art Packing">Fine Art Packing</option>
+                                      <option value="In Transit">In Transit (Dispatched)</option>
+                                      <option value="Delivered">Delivered</option>
+                                    </select>
+
+                                    {order.trackingNumber && (
+                                      <div className="text-[10px] font-mono text-gray-400 flex items-center gap-1">
+                                        <Truck className="w-3 h-3 text-emerald-400" />
+                                        <span>{order.trackingNumber}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </td>
+
+                              {/* Live Actions */}
+                              <td className="py-4 px-4 text-right">
+                                {!isCancelled && (
+                                  <button
+                                    onClick={() => {
+                                      setOrderToCancel(order);
+                                      setCancellationReasonInput('');
+                                    }}
+                                    className="px-3 py-1.5 bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white rounded-lg text-xs font-semibold transition-all border border-red-500/30 flex items-center gap-1.5 ml-auto cursor-pointer"
+                                    title="Cancel this order live"
+                                  >
+                                    <Ban className="w-3 h-3" />
+                                    <span>Cancel Live</span>
+                                  </button>
+                                )}
+                                {isCancelled && (
+                                  <span className="text-[10px] text-gray-500 italic">
+                                    Cancelled & Closed
+                                  </span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* ===================================================== */}
+            {/* SUB-VIEW 2: PAINTINGS GALLERY & CATALOG               */}
+            {/* ===================================================== */}
+            {paintingsSubView === 'gallery' && (
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  {artworks.map((art) => {
+                    const isSold = art.status === 'sold';
+
+                    return (
+                      <div
+                        key={art.id}
+                        className="bg-[#131D33] border border-gray-800 rounded-3xl overflow-hidden shadow-xl flex flex-col group hover:border-gray-700 transition-all"
+                      >
+                        {/* Painting Image or PDF Banner */}
+                        <div className="relative aspect-[4/3] bg-black overflow-hidden">
+                          <img
+                            src={art.image}
+                            alt={art.title}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                          />
+
+                          {/* Status Badge */}
+                          <div className="absolute top-3 left-3">
+                            <span
+                              className={`px-3 py-1 rounded-full text-[10px] uppercase font-bold tracking-wider shadow-lg backdrop-blur-md border ${
+                                isSold
+                                  ? 'bg-red-950/80 text-red-300 border-red-500/40'
+                                  : 'bg-emerald-950/80 text-emerald-300 border-emerald-500/40'
+                              }`}
+                            >
+                              {isSold ? 'Private Collection (Sold)' : 'Available for Acquisition'}
+                            </span>
+                          </div>
+
+                          {/* PDF Indicator if applicable */}
+                          {art.fileType === 'pdf' && (
+                            <div className="absolute top-3 right-3 bg-amber-500/90 text-black px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 shadow">
+                              <FileText className="w-3 h-3" />
+                              <span>PDF Art Document</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Details */}
+                        <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
+                          <div>
+                            <div className="text-[11px] uppercase tracking-wider text-amber-500 font-semibold mb-1">
+                              {art.medium} • {art.year}
+                            </div>
+                            <h3 className="font-serif font-bold text-lg text-white line-clamp-1">
+                              {art.title}
+                            </h3>
+                            <p className="text-xs text-gray-400 mt-1">{art.dimensions}</p>
+                            <div className="mt-3 text-lg font-bold font-serif text-white">
+                              {formatINR(art.price)}
+                            </div>
+                          </div>
+
+                          {/* Quick Actions */}
+                          <div className="pt-4 border-t border-gray-800 flex items-center justify-between gap-2">
+                            {/* Toggle Sold / Available */}
+                            <button
+                              onClick={() => handleToggleSoldStatus(art)}
+                              className={`flex-1 py-2 px-3 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1 cursor-pointer border ${
+                                isSold
+                                  ? 'bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white border-emerald-500/30'
+                                  : 'bg-red-600/20 hover:bg-red-600 text-red-300 hover:text-white border-red-500/30'
+                              }`}
+                              title={isSold ? 'Make Available' : 'Mark as Sold'}
+                            >
+                              {isSold ? 'Make Available' : 'Make Sold'}
+                            </button>
+
+                            {/* Edit */}
+                            <button
+                              onClick={() => openEditPaintingModal(art)}
+                              className="p-2 bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white rounded-xl text-xs transition-colors cursor-pointer"
+                              title="Edit Painting Details"
+                            >
+                              <Edit3 className="w-4 h-4" />
+                            </button>
+
+                            {/* Delete */}
+                            <button
+                              onClick={() => {
+                                if (window.confirm(`Are you sure you want to remove "${art.title}"?`)) {
+                                  deleteArtwork(art.id);
+                                  showToast(`Painting "${art.title}" deleted.`);
+                                }
+                              }}
+                              className="p-2 bg-gray-800 hover:bg-red-600 text-gray-300 hover:text-white rounded-xl text-xs transition-colors cursor-pointer"
+                              title="Delete Painting"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
-        {/* ------------------------------------------------------------- */}
-        {/* TAB 2: MASTERCLASSES & 40-VIDEO LECTURES MANAGER */}
-        {/* ------------------------------------------------------------- */}
-        {activeTab === 'courses' && activeCourse && (
-          <div className="space-y-6 animate-in fade-in duration-200">
-            {/* Course Selector Header */}
-            <div className="p-6 bg-[#1A1815] rounded-3xl border border-stone-800 flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <span className="text-[10px] uppercase font-bold tracking-widest text-artisan-gold block">
-                  Select Masterclass to Configure
-                </span>
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {courses.map((c) => (
-                    <button
-                      key={c.id}
-                      onClick={() => setSelectedCourseForLectures(c.id)}
-                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                        selectedCourseForLectures === c.id
-                          ? 'bg-artisan-gold text-stone-950 shadow-md'
-                          : 'bg-stone-800 text-stone-300 hover:bg-stone-700'
-                      }`}
-                    >
-                      {c.title}
-                    </button>
-                  ))}
+        {/* ========================================================= */}
+        {/* SECTION 2: LIVE STUDIO & GOOGLE MEET DEMO                 */}
+        {/* ========================================================= */}
+        {activeTab === 'live-demo' && (
+          <div className="max-w-3xl mx-auto space-y-6 animate-fade-in">
+            <div className="bg-[#131D33] border border-gray-800 rounded-3xl p-6 sm:p-8 shadow-2xl relative overflow-hidden">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-12 h-12 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center justify-center text-red-400">
+                  <Radio className={`w-6 h-6 ${isLiveBroadcasting ? 'animate-pulse' : ''}`} />
                 </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => {
-                    setSelectedLiveCourseId(activeCourse.id);
-                    openLiveClassModal();
-                  }}
-                  className="px-4 py-2 bg-red-700 hover:bg-red-600 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md transition-all"
-                >
-                  <Radio className="w-3.5 h-3.5" />
-                  <span>Start Live Class for this Course</span>
-                </button>
-                <div className="text-right pl-4 border-l border-stone-800">
-                  <span className="text-xs text-stone-400 block">Total Curriculum</span>
-                  <span className="font-serif font-bold text-lg text-artisan-gold">
-                    {activeCourse.totalLessons} Lectures
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Course Details Card */}
-            <div className="p-6 bg-[#1C1917] rounded-3xl border border-stone-800 space-y-6">
-              <div className="flex flex-wrap items-center justify-between gap-4 border-b border-stone-800 pb-4">
                 <div>
-                  <h3 className="font-serif font-bold text-xl text-white">
-                    {activeCourse.title}
-                  </h3>
-                  <p className="text-xs text-stone-400 mt-1">
-                    {activeCourse.subtitle}
+                  <h2 className="text-xl font-bold font-serif text-white">
+                    Live Studio & Google Meet Masterclass
+                  </h2>
+                  <p className="text-xs text-gray-400">
+                    Broadcast live easel sessions directly to enrolled students.
+                  </p>
+                </div>
+              </div>
+
+              {/* Status Banner */}
+              <div
+                className={`p-5 rounded-2xl border mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
+                  isLiveBroadcasting
+                    ? 'bg-red-950/20 border-red-500/40 text-red-200'
+                    : 'bg-gray-800/40 border-gray-700/60 text-gray-300'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="flex h-3 w-3 relative">
+                    {isLiveBroadcasting && (
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                    )}
+                    <span
+                      className={`relative inline-flex rounded-full h-3 w-3 ${
+                        isLiveBroadcasting ? 'bg-red-500' : 'bg-gray-500'
+                      }`}
+                    ></span>
+                  </span>
+                  <div>
+                    <div className="font-bold text-sm">
+                      {isLiveBroadcasting ? '🔴 BROADCAST IS ON AIR' : 'Studio is Currently Offline'}
+                    </div>
+                    <div className="text-xs opacity-80">
+                      {isLiveBroadcasting
+                        ? 'Students can now click "Join Live Easel Stream" on their portal.'
+                        : 'Students see: "Next Live Workshop Scheduled Soon".'}
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleToggleBroadcast}
+                  className={`px-5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all shadow-lg cursor-pointer ${
+                    isLiveBroadcasting
+                      ? 'bg-gray-800 hover:bg-gray-700 text-white border border-gray-600'
+                      : 'bg-red-600 hover:bg-red-700 text-white shadow-red-600/30'
+                  }`}
+                >
+                  {isLiveBroadcasting ? 'End Broadcast' : 'Start Live Broadcast'}
+                </button>
+              </div>
+
+              {/* Stream URL Input */}
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">
+                    Google Meet / Live Workshop Link
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="url"
+                      value={liveStreamUrl}
+                      onChange={(e) => setLiveStreamUrl(e.target.value)}
+                      placeholder="https://meet.google.com/xyz-abcd-efg"
+                      className="w-full bg-[#0B0F19] border border-gray-700 rounded-xl py-3 pl-4 pr-32 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#E63946]"
+                    />
+                    <a
+                      href={liveStreamUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 bg-gray-800 hover:bg-gray-700 text-white text-xs font-medium px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors"
+                    >
+                      <span>Open Meet</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
+                  <p className="text-[11px] text-gray-500 mt-1.5">
+                    Paste your Google Meet room code or link above. Students enrolled in your courses can enter directly.
                   </p>
                 </div>
 
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-2 bg-stone-900 border border-stone-700 px-3 py-1.5 rounded-xl">
-                    <DollarSign className="w-3.5 h-3.5 text-artisan-gold" />
-                    <input
-                      type="number"
-                      value={activeCourse.price}
-                      onChange={(e) => {
-                        const newPrice = Number(e.target.value);
-                        updateCourse(activeCourse.id, { price: newPrice });
-                      }}
-                      className="w-20 bg-transparent text-white text-sm font-bold outline-none"
-                    />
-                    <span className="text-[10px] text-stone-400 uppercase font-bold">USD</span>
+                <div className="p-4 bg-gray-900/60 rounded-xl border border-gray-800 text-xs text-gray-400 space-y-1.5">
+                  <div className="font-semibold text-white flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4 text-amber-400" />
+                    <span>How Kuldeep's Live Studio Works:</span>
                   </div>
-
-                  <div className="flex items-center gap-2 bg-stone-900 border border-stone-700 px-3 py-1.5 rounded-xl">
-                    <Clock className="w-3.5 h-3.5 text-artisan-gold" />
-                    <input
-                      type="text"
-                      value={activeCourse.durationMonths}
-                      onChange={(e) => {
-                        updateCourse(activeCourse.id, { durationMonths: e.target.value });
-                      }}
-                      className="w-44 bg-transparent text-white text-xs font-semibold outline-none"
-                    />
-                  </div>
+                  <p>1. Open Google Meet in your browser or phone camera.</p>
+                  <p>2. Paste your Google Meet invite link in the box above.</p>
+                  <p>3. Click <strong>"Start Live Broadcast"</strong>.</p>
+                  <p>4. All enrolled students will immediately see a pulsating red "Join Live Easel Stream" notification on their site!</p>
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+      </main>
 
-              {/* Modules & Video Lectures */}
-              <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="font-serif font-bold text-base text-stone-200">
-                      Curriculum Modules & Video Lectures (Weeks 1 to 12)
-                    </h4>
-                    <p className="text-xs text-stone-400 mt-0.5">
-                      Add video lecture streaming links (Bunny Stream / Cloudflare / YouTube Unlisted). Students access videos in HD.
-                    </p>
-                  </div>
-                </div>
+      {/* ========================================================= */}
+      {/* MODAL 1: UPLOAD / EDIT PAINTING (PC File / PDF / URL)     */}
+      {/* ========================================================= */}
+      {isPaintingModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto animate-fade-in">
+          <div className="bg-[#131D33] border border-gray-800 rounded-3xl w-full max-w-2xl p-6 sm:p-8 shadow-2xl my-8 relative">
+            <div className="flex items-center justify-between pb-4 border-b border-gray-800 mb-6">
+              <div className="flex items-center gap-2">
+                <Palette className="w-5 h-5 text-[#E63946]" />
+                <h3 className="text-lg font-bold font-serif text-white">
+                  {editingArtworkId ? 'Edit Artwork Details' : 'Upload New Painting / Art Document'}
+                </h3>
+              </div>
+              <button
+                onClick={() => setIsPaintingModalOpen(false)}
+                className="p-1 text-gray-400 hover:text-white rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
 
-                {activeCourse.modules.map((mod, modIdx) => (
-                  <div
-                    key={mod.id}
-                    className="p-5 bg-[#201D1A] rounded-2xl border border-stone-800 space-y-4"
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-stone-800/80 pb-3">
-                      <div>
-                        <span className="text-[10px] uppercase font-bold tracking-wider text-artisan-gold">
-                          Module {modIdx + 1}
-                        </span>
-                        <h5 className="font-serif font-bold text-sm text-white mt-0.5">
-                          {mod.title}
-                        </h5>
-                        <p className="text-xs text-stone-400">
-                          Duration: {mod.duration}
-                        </p>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => openAddLectureModal(modIdx)}
-                          className="px-3.5 py-1.5 bg-artisan-gold/20 hover:bg-artisan-gold text-artisan-gold hover:text-stone-950 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all border border-artisan-gold/30"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                          <span>Add Video Lecture</span>
-                        </button>
-                        {activeCourse.modules.length > 1 && (
-                          <button
-                            onClick={() => {
-                              if (window.confirm(`Delete Module ${modIdx + 1}: "${mod.title}" and its lectures?`)) {
-                                deleteModuleFromCourse(activeCourse.id, modIdx);
-                                showToast('Module removed.');
-                              }
-                            }}
-                            className="p-1.5 text-stone-500 hover:text-red-400 hover:bg-stone-800 rounded-xl transition-colors border border-stone-800"
-                            title="Delete this entire module"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Lecture List in this Module */}
-                    <div className="space-y-2">
-                      {mod.lectures && mod.lectures.length > 0 ? (
-                        mod.lectures.map((lec, lecIdx) => (
-                          <div
-                            key={lec.id}
-                            className="p-3 bg-stone-900/80 rounded-xl border border-stone-800 flex flex-wrap sm:flex-nowrap items-center justify-between gap-3 text-xs"
-                          >
-                            <div className="flex items-center gap-3 flex-1 min-w-0">
-                              <div className="w-8 h-8 rounded-lg bg-artisan-gold/10 text-artisan-gold flex items-center justify-center font-bold flex-shrink-0">
-                                <Video className="w-4 h-4" />
-                              </div>
-                              <div className="truncate">
-                                <span className="font-bold text-white block truncate">
-                                  {lec.title}
-                                </span>
-                                <span className="text-[11px] text-stone-400">
-                                  {lec.duration} • Stream URL:{' '}
-                                  <span className="font-mono text-[10px] text-artisan-gold">
-                                    {lec.videoUrl || 'Standard Stream'}
-                                  </span>
-                                </span>
-                              </div>
-                            </div>
-
-                            <div className="flex items-center gap-1.5 flex-shrink-0">
-                              {lec.videoUrl && (
-                                <button
-                                  onClick={() => setPreviewingLectureUrl(lec.videoUrl || null)}
-                                  className="px-2.5 py-1.5 bg-stone-800 hover:bg-stone-700 text-stone-300 rounded-lg text-xs flex items-center gap-1 transition-colors"
-                                  title="Preview video lecture"
-                                >
-                                  <Play className="w-3 h-3 text-artisan-gold fill-artisan-gold" />
-                                  <span>Preview</span>
-                                </button>
-                              )}
-
-                              {/* Edit Lecture Button */}
-                              <button
-                                onClick={() => openEditLectureModal(modIdx, lecIdx, lec)}
-                                className="px-2.5 py-1.5 bg-stone-800 hover:bg-artisan-gold/20 text-stone-200 hover:text-artisan-gold rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors border border-stone-700"
-                                title="Edit lecture details or stream URL"
-                              >
-                                <Edit3 className="w-3 h-3 text-artisan-gold" />
-                                <span>Edit</span>
-                              </button>
-
-                              {/* Remove Lecture Button */}
-                              <button
-                                onClick={() => {
-                                  if (window.confirm(`Are you sure you want to remove lecture "${lec.title}"?`)) {
-                                    deleteLectureFromModule(activeCourse.id, modIdx, lecIdx);
-                                    showToast('Lecture removed successfully.');
-                                  }
-                                }}
-                                className="px-2.5 py-1.5 bg-stone-800 hover:bg-red-950/40 text-stone-400 hover:text-red-400 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors border border-stone-700"
-                                title="Remove this lecture"
-                              >
-                                <Trash2 className="w-3 h-3" />
-                                <span>Remove</span>
-                              </button>
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="py-4 text-center text-xs text-stone-500 border border-dashed border-stone-800 rounded-xl">
-                          <p>Topics: {mod.topics.join(' • ')}</p>
-                          <p className="mt-1 text-[11px] text-stone-400">
-                            Click "+ Add Video Lecture" to link specific Bunny/Cloudflare/YouTube videos to this week!
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-
-                {/* Add New Module Block */}
-                <div className="p-5 bg-[#201D1A]/60 rounded-2xl border border-dashed border-stone-800 flex flex-wrap items-center justify-between gap-4">
-                  <div>
-                    <h5 className="font-serif font-bold text-sm text-white">
-                      Add Additional Curriculum Module / Week
-                    </h5>
-                    <p className="text-xs text-stone-400 mt-0.5">
-                      Expand {activeCourse.title} with additional masterclass weeks or bonus modules.
-                    </p>
-                  </div>
+            <form onSubmit={handleSavePainting} className="space-y-6">
+              {/* Image / File Upload Mode Selector */}
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">
+                  Artwork File Source
+                </label>
+                <div className="grid grid-cols-3 gap-2 p-1.5 bg-[#0B0F19] rounded-2xl border border-gray-800 text-xs">
                   <button
-                    onClick={() => {
-                      addModuleToCourse(activeCourse.id);
-                      showToast('New curriculum module added!');
-                    }}
-                    className="px-4 py-2 bg-stone-800 hover:bg-stone-700 text-stone-200 hover:text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-all border border-stone-700"
+                    type="button"
+                    onClick={() => setUploadSourceMode('pc')}
+                    className={`py-2 px-3 rounded-xl font-medium transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                      uploadSourceMode === 'pc'
+                        ? 'bg-[#E63946] text-white shadow'
+                        : 'text-gray-400 hover:text-white'
+                    }`}
                   >
-                    <Plus className="w-4 h-4 text-artisan-gold" />
-                    <span>+ Add New Module Block</span>
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>Upload from PC</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setUploadSourceMode('pdf')}
+                    className={`py-2 px-3 rounded-xl font-medium transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                      uploadSourceMode === 'pdf'
+                        ? 'bg-[#E63946] text-white shadow'
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                    <span>Upload PDF</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setUploadSourceMode('url')}
+                    className={`py-2 px-3 rounded-xl font-medium transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                      uploadSourceMode === 'url'
+                        ? 'bg-[#E63946] text-white shadow'
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    <LinkIcon className="w-3.5 h-3.5" />
+                    <span>Web Image URL</span>
                   </button>
                 </div>
               </div>
-            </div>
-          </div>
-        )}
 
-        {/* ------------------------------------------------------------- */}
-        {/* TAB 3: PAINTING ORDERS & SHIPMENTS (SEPARATE TAB) */}
-        {/* ------------------------------------------------------------- */}
-        {activeTab === 'orders' && (
-          <div className="space-y-6 animate-in fade-in duration-200">
-            <div className="p-6 bg-[#1A1815] rounded-3xl border border-stone-800 flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <h2 className="font-serif font-bold text-xl text-white">
-                  Live Painting Orders & Fine Art Shipments
-                </h2>
-                <p className="text-xs text-stone-400 mt-1">
-                  Track physical art acquisitions, client shipping addresses, and dispatch provenance certificates.
-                </p>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <span className="text-xs bg-emerald-950 text-emerald-400 border border-emerald-800 px-3 py-1.5 rounded-xl font-bold flex items-center gap-1.5">
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>{paintingOrders.length} Artworks Sold / In Dispatch</span>
-                </span>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              {paintingOrders.length === 0 ? (
-                <div className="py-16 text-center text-stone-500 bg-[#1C1917] rounded-3xl border border-stone-800">
-                  <Package className="w-10 h-10 mx-auto text-stone-600 mb-2" />
-                  <p className="font-serif text-base text-stone-300">No physical painting orders yet.</p>
-                  <p className="text-xs text-stone-500 mt-1">
-                    When collectors acquire original canvases from the store, their shipping details appear here.
-                  </p>
-                </div>
-              ) : (
-                paintingOrders.map((order) => (
+              {/* Mode 1: Upload from PC */}
+              {uploadSourceMode === 'pc' && (
+                <div className="space-y-3">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/png, image/jpeg, image/webp, image/avif"
+                    onChange={handlePcFileChange}
+                    className="hidden"
+                  />
                   <div
-                    key={order.id}
-                    className="p-5 sm:p-6 bg-[#1C1917] rounded-3xl border border-stone-800 space-y-4 hover:border-stone-700 transition-all"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="border-2 border-dashed border-gray-700 hover:border-[#E63946] rounded-2xl p-6 text-center cursor-pointer bg-[#0B0F19]/60 hover:bg-[#0B0F19] transition-all"
                   >
-                    {/* Header */}
-                    <div className="flex flex-wrap items-center justify-between gap-3 text-xs border-b border-stone-800 pb-3">
-                      <div>
-                        <span className="text-[10px] text-stone-400 uppercase font-bold block">
-                          Order Reference
-                        </span>
-                        <span className="font-mono font-bold text-artisan-gold text-sm">
-                          #{order.id}
-                        </span>
-                        <span className="text-stone-400 ml-2">Date: {order.date}</span>
-                      </div>
-
-                      <div className="flex items-center gap-3">
-                        <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-950 text-emerald-300 border border-emerald-800">
-                          {order.paymentStatus}
-                        </span>
-
-                        <span
-                          className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                            order.orderStatus === 'Delivered'
-                              ? 'bg-blue-950 text-blue-300 border border-blue-800'
-                              : 'bg-amber-950 text-amber-300 border border-amber-800'
-                          }`}
-                        >
-                          {order.orderStatus}
-                        </span>
-
-                        <span className="font-serif font-bold text-base text-white">
-                          ${order.totalAmount.toLocaleString()} USD
-                        </span>
-                      </div>
+                    <div className="w-12 h-12 rounded-xl bg-gray-800 text-[#E63946] mx-auto flex items-center justify-center mb-3">
+                      <ImageIcon className="w-6 h-6" />
                     </div>
-
-                    {/* Customer & Shipping Address Details */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs bg-stone-900/60 p-4 rounded-2xl border border-stone-800/80">
-                      <div className="space-y-1">
-                        <span className="text-[10px] text-stone-400 uppercase font-bold block">
-                          Collector Information
-                        </span>
-                        <p className="font-bold text-white text-sm">{order.customerName}</p>
-                        <p className="text-stone-400 flex items-center gap-1">
-                          <Mail className="w-3.5 h-3.5 text-artisan-gold" />
-                          {order.customerEmail}
-                        </p>
-                      </div>
-
-                      <div className="space-y-1">
-                        <span className="text-[10px] text-stone-400 uppercase font-bold block">
-                          Insured Delivery Address
-                        </span>
-                        <p className="text-stone-300 flex items-start gap-1.5">
-                          <MapPin className="w-3.5 h-3.5 text-artisan-crimson flex-shrink-0 mt-0.5" />
-                          <span>
-                            {order.deliveryAddress || 'Private Residence, Manhattan, New York, NY 10021'}
-                          </span>
-                        </p>
-                      </div>
+                    <div className="text-sm font-semibold text-white">
+                      Click to choose painting photo from your PC
                     </div>
-
-                    {/* Artworks in this order */}
-                    <div className="space-y-2">
-                      {order.items
-                        .filter((i) => i.type === 'artwork')
-                        .map((item) => (
-                          <div
-                            key={item.id}
-                            className="flex items-center justify-between p-3 rounded-2xl bg-[#201D1A] border border-stone-800"
-                          >
-                            <div className="flex items-center gap-3">
-                              <img
-                                src={item.image}
-                                alt={item.title}
-                                className="w-12 h-12 rounded-xl object-cover border border-stone-700"
-                              />
-                              <div>
-                                <span className="font-serif font-bold text-white block text-sm">
-                                  {item.title}
-                                </span>
-                                <span className="text-xs text-stone-400">
-                                  {item.subtitle} • Qty: {item.quantity}
-                                </span>
-                              </div>
-                            </div>
-
-                            <div className="text-right">
-                              <span className="font-serif font-bold text-artisan-gold text-sm block">
-                                ${item.price.toLocaleString()} USD
-                              </span>
-                              <span className="text-[10px] text-stone-400 flex items-center gap-1 justify-end">
-                                <ShieldCheck className="w-3 h-3 text-artisan-gold" /> Certificate #KS-CERT-2026
-                              </span>
-                            </div>
-                          </div>
-                        ))}
-                    </div>
-
-                    {/* Shipment Action Bar */}
-                    <div className="pt-2 flex items-center justify-between text-xs text-stone-400">
-                      <div className="flex items-center gap-1.5">
-                        <Truck className="w-4 h-4 text-artisan-gold" />
-                        <span>Insured European Linen Shipping Included</span>
-                      </div>
-
-                      <button
-                        onClick={() => showToast(`Shipping dispatch label generated for #${order.id}`)}
-                        className="px-4 py-2 bg-stone-800 hover:bg-stone-700 text-stone-200 rounded-xl font-bold transition-all"
-                      >
-                        Generate Courier Dispatch Label
-                      </button>
-                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Supports JPG, PNG, WEBP, AVIF (Any resolution)
+                    </p>
                   </div>
-                ))
-              )}
-            </div>
-          </div>
-        )}
 
-        {/* ------------------------------------------------------------- */}
-        {/* TAB 4: ENROLLED ACADEMY STUDENTS (SEPARATE TAB) */}
-        {/* ------------------------------------------------------------- */}
-        {activeTab === 'students' && (
-          <div className="space-y-6 animate-in fade-in duration-200">
-            <div className="p-6 bg-[#1A1815] rounded-3xl border border-stone-800 flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <h2 className="font-serif font-bold text-xl text-white">
-                  Enrolled Academy Students Roster
-                </h2>
-                <p className="text-xs text-stone-400 mt-1">
-                  Manage active student cohorts, batch timings, class attendance, and curriculum progression.
-                </p>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <MagneticButton
-                  onClick={() => setIsStudentModalOpen(true)}
-                  variant="primary"
-                  className="px-4 py-2.5 bg-artisan-gold hover:bg-amber-400 text-stone-950 font-bold text-xs flex items-center gap-2 shadow-lg"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Admit New Student</span>
-                </MagneticButton>
-
-                <button
-                  onClick={() => openLiveClassModal()}
-                  className="px-4 py-2.5 bg-red-700 hover:bg-red-600 text-white font-bold text-xs rounded-2xl flex items-center gap-2 shadow-lg transition-all"
-                >
-                  <Radio className="w-4 h-4" />
-                  <span>Broadcast to All Students</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Students Table / Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {students.map((stu) => (
-                <div
-                  key={stu.id}
-                  className="p-5 bg-[#1C1917] rounded-3xl border border-stone-800 space-y-4 hover:border-stone-700 transition-all"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-3">
+                  {artworkForm.image && artworkForm.image.startsWith('data:') && (
+                    <div className="flex items-center gap-3 p-3 bg-[#0B0F19] border border-gray-800 rounded-xl">
                       <img
-                        src={stu.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=150&auto=format&fit=crop'}
-                        alt={stu.name}
-                        className="w-12 h-12 rounded-full object-cover border-2 border-artisan-gold"
+                        src={artworkForm.image}
+                        alt="Preview"
+                        className="w-12 h-12 rounded-lg object-cover border border-gray-700"
                       />
-                      <div>
-                        <h4 className="font-bold text-white text-sm flex items-center gap-1.5">
-                          <span>{stu.name}</span>
-                          <span className="text-[10px] bg-emerald-950 text-emerald-400 border border-emerald-800 px-2 py-0.5 rounded-full">
-                            Active Student
-                          </span>
-                        </h4>
-                        <p className="text-xs text-stone-400 flex items-center gap-1 mt-0.5">
-                          <Mail className="w-3 h-3" /> {stu.email}
-                        </p>
-                        {stu.phone && (
-                          <p className="text-[11px] text-stone-500 flex items-center gap-1 mt-0.5">
-                            <Phone className="w-3 h-3" /> {stu.phone}
-                          </p>
-                        )}
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-semibold text-white truncate">
+                          {artworkForm.fileName || 'Selected Image File'}
+                        </div>
+                        <div className="text-[10px] text-gray-400">
+                          {artworkForm.fileSize || 'Local File Ready'}
+                        </div>
                       </div>
-                    </div>
-
-                    <button
-                      onClick={() => {
-                        if (window.confirm(`Deactivate student ${stu.name}?`)) {
-                          deleteStudent(stu.id);
-                          showToast(`Student ${stu.name} removed.`);
-                        }
-                      }}
-                      className="p-1.5 text-stone-500 hover:text-red-400 hover:bg-stone-800 rounded-lg transition-colors"
-                      title="Remove student"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-
-                  <div className="p-3 bg-stone-900 rounded-2xl border border-stone-800 space-y-2 text-xs">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] text-stone-400 uppercase font-bold">
-                        Enrolled Masterclass:
-                      </span>
-                      <span className="font-bold text-artisan-gold text-right truncate max-w-[200px]">
-                        {stu.courseTitle}
+                      <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded font-medium">
+                        Ready to Save
                       </span>
                     </div>
-
-                    <div className="flex items-center justify-between text-[11px] text-stone-400">
-                      <span>Batch Timing:</span>
-                      <span className="text-stone-300">{stu.batchSchedule}</span>
-                    </div>
-
-                    <div className="flex items-center justify-between text-[11px] text-stone-400">
-                      <span>Tuition Fees:</span>
-                      <span className="font-serif font-bold text-white">
-                        ${stu.feesPaid} USD (Paid in Full)
-                      </span>
-                    </div>
-
-                    {/* Progress Bar */}
-                    <div className="pt-2 border-t border-stone-800 space-y-1">
-                      <div className="flex items-center justify-between text-[11px]">
-                        <span className="text-stone-400">Curriculum Progress</span>
-                        <span className="font-bold text-artisan-gold">{stu.progressPercent}%</span>
-                      </div>
-                      <div className="w-full h-2 bg-stone-800 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-gradient-to-r from-artisan-gold to-amber-500 rounded-full transition-all"
-                          style={{ width: `${stu.progressPercent}%` }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between pt-1">
-                    <span className="text-[11px] text-stone-500">
-                      Admitted: {stu.enrolledDate}
-                    </span>
-                    <button
-                      onClick={() => showToast(`Class link sent to ${stu.email}!`)}
-                      className="px-3 py-1.5 bg-stone-800 hover:bg-stone-700 text-stone-200 rounded-xl text-xs font-semibold transition-all"
-                    >
-                      Send Class Reminder
-                    </button>
-                  </div>
+                  )}
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
+              )}
 
-        {/* ------------------------------------------------------------- */}
-        {/* TAB 5: ABOUT ARTIST & 12Y LEGACY MANAGER (Clean & Simple) */}
-        {/* ------------------------------------------------------------- */}
-        {activeTab === 'about' && (
-          <div className="space-y-6 animate-in fade-in duration-200">
-            <div className="p-6 bg-[#1A1815] rounded-3xl border border-stone-800">
-              <h2 className="font-serif font-bold text-xl text-white">
-                Artist Biography & Legacy Customizer
-              </h2>
-              <p className="text-xs text-stone-400 mt-1">
-                Customize Kuldeep Singh's bio, studio images, continuous mastery years, and exhibition timeline.
-              </p>
-            </div>
-
-            <form onSubmit={handleSaveProfile} className="space-y-6">
-              <div className="p-6 bg-[#1C1917] rounded-3xl border border-stone-800 space-y-6">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-stone-400 mb-1">
-                      Artist Name
-                    </label>
-                    <input
-                      type="text"
-                      value={profileForm.name}
-                      onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
-                      className="w-full bg-stone-900 border border-stone-700 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-artisan-gold"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-stone-400 mb-1">
-                      Title / Atelier Role
-                    </label>
-                    <input
-                      type="text"
-                      value={profileForm.title}
-                      onChange={(e) => setProfileForm({ ...profileForm, title: e.target.value })}
-                      className="w-full bg-stone-900 border border-stone-700 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-artisan-gold"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-stone-400 mb-1">
-                      Years of Mastery
-                    </label>
-                    <input
-                      type="text"
-                      value={profileForm.yearsExperience}
-                      onChange={(e) => setProfileForm({ ...profileForm, yearsExperience: e.target.value })}
-                      className="w-full bg-stone-900 border border-stone-700 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-artisan-gold"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-stone-400 mb-1">
-                      Artworks Collected
-                    </label>
-                    <input
-                      type="text"
-                      value={profileForm.artworksCount}
-                      onChange={(e) => setProfileForm({ ...profileForm, artworksCount: e.target.value })}
-                      className="w-full bg-stone-900 border border-stone-700 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-artisan-gold"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wider text-stone-400 mb-1">
-                    Main Hero Headline
-                  </label>
+              {/* Mode 2: Upload PDF */}
+              {uploadSourceMode === 'pdf' && (
+                <div className="space-y-3">
                   <input
-                    type="text"
-                    value={profileForm.bioHeadline}
-                    onChange={(e) => setProfileForm({ ...profileForm, bioHeadline: e.target.value })}
-                    className="w-full bg-stone-900 border border-stone-700 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-artisan-gold"
+                    ref={pdfInputRef}
+                    type="file"
+                    accept=".pdf,application/pdf"
+                    onChange={handlePdfFileChange}
+                    className="hidden"
                   />
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wider text-stone-400 mb-1">
-                    Philosophy Quote
-                  </label>
-                  <input
-                    type="text"
-                    value={profileForm.philosophyQuote}
-                    onChange={(e) => setProfileForm({ ...profileForm, philosophyQuote: e.target.value })}
-                    className="w-full bg-stone-900 border border-stone-700 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-artisan-gold"
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-stone-400 mb-1">
-                      Studio / Portrait Photo URL
-                    </label>
-                    <input
-                      type="text"
-                      value={profileForm.portraitImage}
-                      onChange={(e) => setProfileForm({ ...profileForm, portraitImage: e.target.value })}
-                      className="w-full bg-stone-900 border border-stone-700 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-artisan-gold font-mono text-[11px]"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-stone-400 mb-1">
-                      Sanctuary Atmosphere Photo URL
-                    </label>
-                    <input
-                      type="text"
-                      value={profileForm.studioImage}
-                      onChange={(e) => setProfileForm({ ...profileForm, studioImage: e.target.value })}
-                      className="w-full bg-stone-900 border border-stone-700 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-artisan-gold font-mono text-[11px]"
-                    />
-                  </div>
-                </div>
-
-                <div className="pt-2">
-                  <MagneticButton
-                    type="submit"
-                    variant="primary"
-                    className="px-6 py-2.5 bg-artisan-gold hover:bg-amber-400 text-stone-950 font-bold text-xs flex items-center gap-2 shadow-lg"
-                  >
-                    <Check className="w-4 h-4" />
-                    <span>Save Biography Changes</span>
-                  </MagneticButton>
-                </div>
-              </div>
-            </form>
-
-            {/* Timeline Milestones Section */}
-            <div className="p-6 bg-[#1C1917] rounded-3xl border border-stone-800 space-y-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-serif font-bold text-lg text-artisan-gold">
-                    Exhibition Milestones & Awards Timeline
-                  </h3>
-                  <p className="text-xs text-stone-400 mt-0.5">
-                    Showcase international accolades and gallery shows.
-                  </p>
-                </div>
-
-                <button
-                  onClick={() => setIsTimelineModalOpen(true)}
-                  className="px-3.5 py-1.5 bg-stone-800 hover:bg-stone-700 text-stone-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors border border-stone-700"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Add Milestone</span>
-                </button>
-              </div>
-
-              <div className="space-y-3">
-                {timeline.map((item, idx) => (
                   <div
-                    key={idx}
-                    className="p-4 bg-stone-900 rounded-2xl border border-stone-800 flex items-center justify-between gap-4 text-xs"
+                    onClick={() => pdfInputRef.current?.click()}
+                    className="border-2 border-dashed border-gray-700 hover:border-amber-500 rounded-2xl p-6 text-center cursor-pointer bg-[#0B0F19]/60 hover:bg-[#0B0F19] transition-all"
                   >
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono font-bold text-artisan-gold">
-                          {item.year}
-                        </span>
-                        <span className="text-stone-300 font-bold">
-                          {item.title}
-                        </span>
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-stone-800 text-stone-400">
-                          {item.roleOrLocation}
-                        </span>
-                      </div>
-                      <p className="text-stone-400 text-[11px]">
-                        {item.description}
-                      </p>
+                    <div className="w-12 h-12 rounded-xl bg-amber-500/10 text-amber-400 mx-auto flex items-center justify-center mb-3">
+                      <FileText className="w-6 h-6" />
                     </div>
-
-                    <button
-                      onClick={() => {
-                        deleteTimelineItem(idx);
-                        showToast('Milestone removed.');
-                      }}
-                      className="p-2 text-stone-500 hover:text-red-400 hover:bg-stone-800 rounded-xl transition-colors"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    <div className="text-sm font-semibold text-white">
+                      Click to choose artwork PDF from your PC
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Certificate of Authenticity, Artwork Catalog or High-Res PDF
+                    </p>
                   </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
 
-      {/* ------------------------------------------------------------- */}
-      {/* MODAL 1: RUN LIVE STUDIO CLASS LAUNCHER (Requested by User) */}
-      {/* ------------------------------------------------------------- */}
-      {isLiveClassModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in">
-          <div className="relative w-full max-w-xl bg-[#1A1816] text-stone-100 rounded-3xl border border-red-500/40 shadow-2xl p-6 sm:p-8 space-y-6">
-            <button
-              onClick={() => setIsLiveClassModalOpen(false)}
-              className="absolute top-5 right-5 p-2 rounded-full text-stone-400 hover:text-white hover:bg-stone-800"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-red-950/80 border border-red-500/50 text-red-400 flex items-center justify-center shadow-lg">
-                <Radio className="w-6 h-6 animate-pulse" />
-              </div>
-              <div>
-                <span className="text-[10px] uppercase font-bold tracking-widest text-red-400 block">
-                  Kuldeep Singh Studio Broadcast Center
-                </span>
-                <h3 className="font-serif font-bold text-2xl text-white">
-                  Run Live Studio Class
-                </h3>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-[11px] font-bold uppercase text-stone-400 mb-1">
-                  Select Masterclass to Broadcast
-                </label>
-                <select
-                  value={selectedLiveCourseId}
-                  onChange={(e) => handleLiveCourseChange(e.target.value)}
-                  className="w-full bg-stone-900 border border-stone-700 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-red-500"
-                >
-                  {courses.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.title} ({c.schedule})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold uppercase text-stone-400 mb-1">
-                  Live Broadcast Link (Google Meet / Zoom / YouTube Live / Bunny Stream)
-                </label>
-                <input
-                  type="text"
-                  value={liveStreamUrl}
-                  onChange={(e) => setLiveStreamUrl(e.target.value)}
-                  placeholder="https://meet.google.com/ks-studio-atelier or Zoom link"
-                  className="w-full bg-stone-900 border border-stone-700 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-red-500 font-mono text-[11px]"
-                />
-              </div>
-
-              {/* Step-by-Step Instructor Guide */}
-              <div className="p-4 rounded-2xl bg-stone-900/90 border border-stone-800 space-y-2.5 text-xs">
-                <div className="flex items-center gap-2 text-stone-300 font-bold">
-                  <Clock className="w-4 h-4 text-artisan-gold" />
-                  <span>How Live Studio Broadcasting Works:</span>
+                  {artworkForm.pdfUrl && (
+                    <div className="flex items-center gap-3 p-3 bg-[#0B0F19] border border-gray-800 rounded-xl">
+                      <div className="w-10 h-10 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center">
+                        <FileText className="w-5 h-5" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-semibold text-white truncate">
+                          {artworkForm.fileName || 'Artwork Document.pdf'}
+                        </div>
+                        <div className="text-[10px] text-gray-400">
+                          {artworkForm.fileSize || 'PDF Attached'}
+                        </div>
+                      </div>
+                      <a
+                        href={artworkForm.pdfUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-xs text-amber-400 hover:underline flex items-center gap-1"
+                      >
+                        <Eye className="w-3 h-3" />
+                        <span>Preview</span>
+                      </a>
+                    </div>
+                  )}
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] text-stone-400">
-                  <div className="p-2.5 rounded-xl bg-stone-950/60 border border-stone-800/80">
-                    <span className="font-bold text-white block mb-0.5">Step 1: Launch Meeting</span>
-                    Click "1. Open Google Meet" to start your camera and mic in a separate tab.
-                  </div>
-                  <div className="p-2.5 rounded-xl bg-stone-950/60 border border-stone-800/80">
-                    <span className="font-bold text-white block mb-0.5">Step 2: Go Live</span>
-                    Click "2. Go Live to Students" to publish the red banner & join button on student screens.
-                  </div>
-                </div>
-              </div>
+              )}
 
-              {/* Live Status indicator */}
-              <div className="p-4 rounded-2xl bg-stone-900 border border-stone-800 flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <span
-                    className={`w-3.5 h-3.5 rounded-full ${
-                      isLiveBroadcasting ? 'bg-red-500 animate-ping' : 'bg-stone-600'
-                    }`}
+              {/* Mode 3: Web Image URL */}
+              {uploadSourceMode === 'url' && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 mb-1">
+                    Image URL (Cloudflare / Bunny / Unsplash)
+                  </label>
+                  <input
+                    type="url"
+                    value={artworkForm.image}
+                    onChange={(e) => setArtworkForm({ ...artworkForm, image: e.target.value })}
+                    placeholder="https://..."
+                    className="w-full bg-[#0B0F19] border border-gray-700 rounded-xl py-2.5 px-3.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[#E63946]"
                   />
-                  <span className="text-xs font-bold text-white">
-                    {isLiveBroadcasting ? '🔴 LIVE ON AIR (Students Can Join)' : '⚪ Studio Standby (Ready to Go Live)'}
-                  </span>
+                  {artworkForm.image && !artworkForm.image.startsWith('data:') && (
+                    <div className="mt-2">
+                      <img
+                        src={artworkForm.image}
+                        alt="Preview"
+                        className="w-20 h-20 rounded-lg object-cover border border-gray-700"
+                      />
+                    </div>
+                  )}
                 </div>
-                <span className="text-xs text-artisan-gold font-bold">
-                  {students.filter((s) => s.courseId === selectedLiveCourseId).length} Enrolled Students Ready
-                </span>
-              </div>
-            </div>
+              )}
 
-            <div className="pt-3 flex flex-wrap items-center justify-between gap-3 border-t border-stone-800">
-              <button
-                type="button"
-                onClick={() => {
-                  window.open(liveStreamUrl, '_blank');
-                }}
-                className="px-4 py-2.5 bg-stone-800 hover:bg-stone-700 text-stone-200 hover:text-white text-xs font-bold rounded-xl flex items-center gap-2 transition-colors border border-stone-700"
-              >
-                <ExternalLink className="w-3.5 h-3.5 text-artisan-gold" />
-                <span>1. Open Google Meet in New Window</span>
-              </button>
-
-              <button
-                onClick={handleToggleBroadcast}
-                className={`px-6 py-2.5 font-bold text-xs rounded-xl flex items-center gap-2 transition-all shadow-lg ${
-                  isLiveBroadcasting
-                    ? 'bg-stone-800 text-stone-300 hover:bg-stone-700 border border-stone-700'
-                    : 'bg-gradient-to-r from-red-600 to-rose-700 hover:from-red-500 hover:to-rose-600 text-white animate-pulse'
-                }`}
-              >
-                <Radio className="w-4 h-4" />
-                <span>{isLiveBroadcasting ? 'End Live Broadcast' : '2. Go Live to Students Now'}</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ------------------------------------------------------------- */}
-      {/* MODAL 2: ADD / EDIT PAINTING */}
-      {/* ------------------------------------------------------------- */}
-      {isPaintingModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
-          <div className="relative w-full max-w-2xl bg-[#1A1816] text-stone-100 rounded-3xl border border-artisan-gold/40 shadow-2xl p-6 sm:p-8 max-h-[90vh] overflow-y-auto">
-            <button
-              onClick={() => setIsPaintingModalOpen(false)}
-              className="absolute top-5 right-5 p-2 rounded-full text-stone-400 hover:text-white hover:bg-stone-800"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <h3 className="font-serif font-bold text-2xl text-white mb-1">
-              {editingArtworkId ? 'Edit Artwork' : 'Upload New Original Painting'}
-            </h3>
-            <p className="text-xs text-stone-400 mb-6">
-              Fill in the fine art specifications to show in the store and home gallery.
-            </p>
-
-            <form onSubmit={handleSavePainting} className="space-y-4">
+              {/* Title & Subtitle */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[11px] font-bold uppercase text-stone-400 mb-1">
-                    Painting Title *
+                  <label className="block text-xs font-medium text-gray-400 mb-1">
+                    Artwork Title *
                   </label>
                   <input
                     type="text"
                     required
                     value={artworkForm.title}
                     onChange={(e) => setArtworkForm({ ...artworkForm, title: e.target.value })}
-                    placeholder="e.g. Celestial Twilight in Amber"
-                    className="w-full bg-stone-900 border border-stone-700 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-artisan-gold"
+                    placeholder="e.g., Whispers in Umber"
+                    className="w-full bg-[#0B0F19] border border-gray-700 rounded-xl py-2.5 px-3.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[#E63946]"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold uppercase text-stone-400 mb-1">
-                    Subtitle / Concept
+                  <label className="block text-xs font-medium text-gray-400 mb-1">
+                    Subtitle / Edition
                   </label>
                   <input
                     type="text"
                     value={artworkForm.subtitle}
                     onChange={(e) => setArtworkForm({ ...artworkForm, subtitle: e.target.value })}
-                    placeholder="e.g. Study on Natural Light"
-                    className="w-full bg-stone-900 border border-stone-700 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-artisan-gold"
+                    placeholder="e.g., Original Oil on Belgian Linen"
+                    className="w-full bg-[#0B0F19] border border-gray-700 rounded-xl py-2.5 px-3.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[#E63946]"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {/* Medium, Dimensions, Price & Year */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <div>
-                  <label className="block text-[11px] font-bold uppercase text-stone-400 mb-1">
+                  <label className="block text-xs font-medium text-gray-400 mb-1">
                     Medium
                   </label>
                   <select
                     value={artworkForm.medium}
                     onChange={(e) => setArtworkForm({ ...artworkForm, medium: e.target.value as MediumType })}
-                    className="w-full bg-stone-900 border border-stone-700 rounded-xl px-3 py-2.5 text-xs text-white outline-none focus:border-artisan-gold"
+                    className="w-full bg-[#0B0F19] border border-gray-700 rounded-xl py-2.5 px-2.5 text-xs text-white focus:outline-none focus:border-[#E63946]"
                   >
                     <option value="Oil on Canvas">Oil on Canvas</option>
                     <option value="Charcoal & Graphite">Charcoal & Graphite</option>
@@ -1560,491 +1331,169 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onBackTo
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold uppercase text-stone-400 mb-1">
-                    Price (USD $) *
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    value={artworkForm.price}
-                    onChange={(e) => setArtworkForm({ ...artworkForm, price: Number(e.target.value) })}
-                    className="w-full bg-stone-900 border border-stone-700 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-artisan-gold"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold uppercase text-stone-400 mb-1">
+                  <label className="block text-xs font-medium text-gray-400 mb-1">
                     Dimensions
                   </label>
                   <input
                     type="text"
                     value={artworkForm.dimensions}
                     onChange={(e) => setArtworkForm({ ...artworkForm, dimensions: e.target.value })}
-                    placeholder="e.g. 36 x 48 in"
-                    className="w-full bg-stone-900 border border-stone-700 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-artisan-gold"
+                    placeholder="36 x 48 in"
+                    className="w-full bg-[#0B0F19] border border-gray-700 rounded-xl py-2.5 px-3.5 text-xs text-white focus:outline-none focus:border-[#E63946]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 mb-1">
+                    Price (₹) *
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    value={artworkForm.price}
+                    onChange={(e) => setArtworkForm({ ...artworkForm, price: Number(e.target.value) })}
+                    placeholder="280000"
+                    className="w-full bg-[#0B0F19] border border-gray-700 rounded-xl py-2.5 px-3.5 text-xs text-white focus:outline-none focus:border-[#E63946]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 mb-1">
+                    Creation Year
+                  </label>
+                  <input
+                    type="number"
+                    value={artworkForm.year}
+                    onChange={(e) => setArtworkForm({ ...artworkForm, year: Number(e.target.value) })}
+                    className="w-full bg-[#0B0F19] border border-gray-700 rounded-xl py-2.5 px-3.5 text-xs text-white focus:outline-none focus:border-[#E63946]"
                   />
                 </div>
               </div>
 
-              <div>
-                <label className="block text-[11px] font-bold uppercase text-stone-400 mb-1">
-                  High-Res Image URL *
+              {/* Status Toggle: "Make a Sold as Private Collection" */}
+              <div className="p-4 bg-[#0B0F19] border border-gray-800 rounded-2xl flex items-center justify-between">
+                <div>
+                  <div className="text-xs font-bold text-white flex items-center gap-2">
+                    <span>Make Sold as Private Collection</span>
+                    {artworkForm.status === 'sold' && (
+                      <span className="text-[10px] bg-red-500/20 text-red-400 px-2 py-0.5 rounded font-mono">
+                        SOLD
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-gray-400 mt-0.5">
+                    When checked, collectors see "Acquired / Private Collection" instead of Add to Cart.
+                  </p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={artworkForm.status === 'sold'}
+                    onChange={(e) => setArtworkForm({
+                      ...artworkForm,
+                      status: e.target.checked ? 'sold' : 'available'
+                    })}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#E63946]"></div>
                 </label>
-                <input
-                  type="text"
-                  required
-                  value={artworkForm.image}
-                  onChange={(e) => setArtworkForm({ ...artworkForm, image: e.target.value })}
-                  placeholder="https://images.unsplash.com/..."
-                  className="w-full bg-stone-900 border border-stone-700 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-artisan-gold font-mono text-[11px]"
-                />
               </div>
 
+              {/* Description & Story */}
               <div>
-                <label className="block text-[11px] font-bold uppercase text-stone-400 mb-1">
-                  Description & Technique
+                <label className="block text-xs font-medium text-gray-400 mb-1">
+                  Artistic Description & Technique
                 </label>
                 <textarea
                   rows={3}
                   value={artworkForm.description}
                   onChange={(e) => setArtworkForm({ ...artworkForm, description: e.target.value })}
-                  className="w-full bg-stone-900 border border-stone-700 rounded-xl p-3 text-xs text-white outline-none focus:border-artisan-gold"
+                  className="w-full bg-[#0B0F19] border border-gray-700 rounded-xl py-2.5 px-3.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[#E63946]"
                 />
               </div>
 
-              <div className="flex flex-wrap items-center gap-6 pt-2">
-                <label className="flex items-center gap-2 cursor-pointer text-xs text-stone-300">
-                  <input
-                    type="checkbox"
-                    checked={artworkForm.status === 'sold'}
-                    onChange={(e) =>
-                      setArtworkForm({ ...artworkForm, status: e.target.checked ? 'sold' : 'available' })
-                    }
-                    className="rounded border-stone-700 text-artisan-gold focus:ring-0"
-                  />
-                  <span>Mark as Sold / In Private Collection</span>
-                </label>
-
-                <label className="flex items-center gap-2 cursor-pointer text-xs text-stone-300">
-                  <input
-                    type="checkbox"
-                    checked={artworkForm.featured}
-                    onChange={(e) => setArtworkForm({ ...artworkForm, featured: e.target.checked })}
-                    className="rounded border-stone-700 text-artisan-gold focus:ring-0"
-                  />
-                  <span>Feature on Homepage Spotlight</span>
-                </label>
-              </div>
-
-              <div className="pt-4 border-t border-stone-800 flex justify-end gap-3">
+              {/* Submit Buttons */}
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-800">
                 <button
                   type="button"
                   onClick={() => setIsPaintingModalOpen(false)}
-                  className="px-4 py-2 text-stone-400 hover:text-white text-xs font-semibold"
+                  className="px-4 py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl text-xs font-medium transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
-                <MagneticButton
-                  type="submit"
-                  variant="primary"
-                  className="px-6 py-2.5 bg-artisan-gold hover:bg-amber-400 text-stone-950 font-bold text-xs"
-                >
-                  {editingArtworkId ? 'Save Changes' : 'Publish Painting to Gallery'}
-                </MagneticButton>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ------------------------------------------------------------- */}
-      {/* MODAL 3: ADD VIDEO LECTURE */}
-      {/* ------------------------------------------------------------- */}
-      {isLectureModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
-          <div className="relative w-full max-w-lg bg-[#1A1816] text-stone-100 rounded-3xl border border-artisan-gold/40 shadow-2xl p-6 sm:p-8">
-            <button
-              onClick={() => setIsLectureModalOpen(false)}
-              className="absolute top-5 right-5 p-2 rounded-full text-stone-400 hover:text-white hover:bg-stone-800"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <h3 className="font-serif font-bold text-xl text-white mb-1">
-              {editingLectureIndex !== null
-                ? `Edit Video Lecture (Module ${lectureModuleIndex + 1})`
-                : `Add Video Lecture to Module ${lectureModuleIndex + 1}`}
-            </h3>
-            <p className="text-xs text-stone-400 mb-6">
-              {editingLectureIndex !== null
-                ? 'Modify lecture title, duration, video streaming link or lesson summary.'
-                : 'Enter lecture details and stream link (Bunny Stream / Cloudflare / YouTube Unlisted).'}
-            </p>
-
-            <form onSubmit={handleSaveLecture} className="space-y-4">
-              <div>
-                <label className="block text-[11px] font-bold uppercase text-stone-400 mb-1">
-                  Lecture Title *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={lectureForm.title}
-                  onChange={(e) => setLectureForm({ ...lectureForm, title: e.target.value })}
-                  placeholder="e.g. Lesson 12: Preparing Rabbit Skin Glue & Sizing"
-                  className="w-full bg-stone-900 border border-stone-700 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-artisan-gold"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold uppercase text-stone-400 mb-1">
-                  Duration (e.g. 45 Mins, 1.5 Hours)
-                </label>
-                <input
-                  type="text"
-                  value={lectureForm.duration}
-                  onChange={(e) => setLectureForm({ ...lectureForm, duration: e.target.value })}
-                  placeholder="45 Mins"
-                  className="w-full bg-stone-900 border border-stone-700 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-artisan-gold"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold uppercase text-stone-400 mb-1">
-                  Video Stream URL (Bunny Stream / Cloudflare / YouTube / Vimeo)
-                </label>
-                <input
-                  type="text"
-                  value={lectureForm.videoUrl}
-                  onChange={(e) => setLectureForm({ ...lectureForm, videoUrl: e.target.value })}
-                  placeholder="https://video.bunnycdn.com/embed/... or YouTube link"
-                  className="w-full bg-stone-900 border border-stone-700 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-artisan-gold font-mono text-[11px]"
-                />
-                <span className="text-[10px] text-stone-500 mt-1 block">
-                  * Secure video streaming only. Downloads and offline PDF distribution are disabled.
-                </span>
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold uppercase text-stone-400 mb-1">
-                  Lesson Objective & Summary
-                </label>
-                <textarea
-                  rows={3}
-                  value={lectureForm.summary}
-                  onChange={(e) => setLectureForm({ ...lectureForm, summary: e.target.value })}
-                  className="w-full bg-stone-900 border border-stone-700 rounded-xl p-3 text-xs text-white outline-none focus:border-artisan-gold"
-                />
-              </div>
-
-              <div className="pt-4 border-t border-stone-800 flex justify-end gap-3">
                 <button
-                  type="button"
-                  onClick={() => setIsLectureModalOpen(false)}
-                  className="px-4 py-2 text-stone-400 hover:text-white text-xs font-semibold"
-                >
-                  Cancel
-                </button>
-                <MagneticButton
                   type="submit"
-                  variant="primary"
-                  className="px-6 py-2.5 bg-artisan-gold hover:bg-amber-400 text-stone-950 font-bold text-xs"
+                  className="px-6 py-2.5 bg-[#E63946] hover:bg-[#c92a37] text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-[#E63946]/30 cursor-pointer"
                 >
-                  {editingLectureIndex !== null ? 'Update Lecture' : 'Save New Lecture'}
-                </MagneticButton>
+                  {editingArtworkId ? 'Save Changes' : 'Publish Artwork'}
+                </button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* ------------------------------------------------------------- */}
-      {/* MODAL 4: ADMIT NEW STUDENT */}
-      {/* ------------------------------------------------------------- */}
-      {isStudentModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
-          <div className="relative w-full max-w-lg bg-[#1A1816] text-stone-100 rounded-3xl border border-artisan-gold/40 shadow-2xl p-6 sm:p-8">
-            <button
-              onClick={() => setIsStudentModalOpen(false)}
-              className="absolute top-5 right-5 p-2 rounded-full text-stone-400 hover:text-white hover:bg-stone-800"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <h3 className="font-serif font-bold text-xl text-white mb-1">
-              Admit New Student to Masterclass
-            </h3>
-            <p className="text-xs text-stone-400 mb-6">
-              Enter student credentials to grant access to curriculum lectures and live atelier sessions.
-            </p>
-
-            <form onSubmit={handleAddStudent} className="space-y-4">
+      {/* ========================================================= */}
+      {/* MODAL 2: LIVE CANCEL ORDER CONFIRMATION                   */}
+      {/* ========================================================= */}
+      {orderToCancel && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+          <div className="bg-[#131D33] border-2 border-red-500/50 rounded-3xl w-full max-w-md p-6 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-red-500/10 text-red-400 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
               <div>
-                <label className="block text-[11px] font-bold uppercase text-stone-400 mb-1">
-                  Student Full Name *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={studentForm.name}
-                  onChange={(e) => setStudentForm({ ...studentForm, name: e.target.value })}
-                  placeholder="e.g. Vikramaditya Rathore"
-                  className="w-full bg-stone-900 border border-stone-700 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-artisan-gold"
-                />
+                <h3 className="text-base font-bold text-white">
+                  Cancel Order #{orderToCancel.id}?
+                </h3>
+                <p className="text-xs text-gray-400">
+                  This action will cancel the order in real-time and deduct from active sales.
+                </p>
               </div>
+            </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[11px] font-bold uppercase text-stone-400 mb-1">
-                    Email Address *
-                  </label>
-                  <input
-                    type="email"
-                    required
-                    value={studentForm.email}
-                    onChange={(e) => setStudentForm({ ...studentForm, email: e.target.value })}
-                    placeholder="student@example.com"
-                    className="w-full bg-stone-900 border border-stone-700 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-artisan-gold"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold uppercase text-stone-400 mb-1">
-                    Phone Number
-                  </label>
-                  <input
-                    type="text"
-                    value={studentForm.phone}
-                    onChange={(e) => setStudentForm({ ...studentForm, phone: e.target.value })}
-                    placeholder="+91 98765 43210"
-                    className="w-full bg-stone-900 border border-stone-700 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-artisan-gold"
-                  />
-                </div>
+            <div className="p-3 bg-[#0B0F19] rounded-xl border border-gray-800 text-xs space-y-1">
+              <div className="text-gray-300">
+                Collector: <strong>{orderToCancel.customerName}</strong>
               </div>
-
-              <div>
-                <label className="block text-[11px] font-bold uppercase text-stone-400 mb-1">
-                  Enrolled Course
-                </label>
-                <select
-                  value={studentForm.courseId}
-                  onChange={(e) => setStudentForm({ ...studentForm, courseId: e.target.value })}
-                  className="w-full bg-stone-900 border border-stone-700 rounded-xl px-3 py-2.5 text-xs text-white outline-none focus:border-artisan-gold"
-                >
-                  {courses.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.title} (${c.price})
-                    </option>
-                  ))}
-                </select>
+              <div className="text-gray-300">
+                Amount: <strong>{formatINR(orderToCancel.totalAmount)}</strong>
               </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[11px] font-bold uppercase text-stone-400 mb-1">
-                    Batch Schedule
-                  </label>
-                  <input
-                    type="text"
-                    value={studentForm.batchSchedule}
-                    onChange={(e) => setStudentForm({ ...studentForm, batchSchedule: e.target.value })}
-                    className="w-full bg-stone-900 border border-stone-700 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-artisan-gold"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold uppercase text-stone-400 mb-1">
-                    Fees Paid (USD $)
-                  </label>
-                  <input
-                    type="number"
-                    value={studentForm.feesPaid}
-                    onChange={(e) => setStudentForm({ ...studentForm, feesPaid: Number(e.target.value) })}
-                    className="w-full bg-stone-900 border border-stone-700 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-artisan-gold"
-                  />
-                </div>
+              <div className="text-gray-400">
+                Payment Status will change to: <strong className="text-red-400">Refunded / Failed</strong>
               </div>
+            </div>
 
-              <div className="pt-4 border-t border-stone-800 flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setIsStudentModalOpen(false)}
-                  className="px-4 py-2 text-stone-400 hover:text-white text-xs font-semibold"
-                >
-                  Cancel
-                </button>
-                <MagneticButton
-                  type="submit"
-                  variant="primary"
-                  className="px-6 py-2.5 bg-artisan-gold hover:bg-amber-400 text-stone-950 font-bold text-xs"
-                >
-                  Confirm Admission
-                </MagneticButton>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+            <div>
+              <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+                Cancellation Reason (Optional)
+              </label>
+              <input
+                type="text"
+                value={cancellationReasonInput}
+                onChange={(e) => setCancellationReasonInput(e.target.value)}
+                placeholder="e.g., Customer requested cancellation prior to shipment"
+                className="w-full bg-[#0B0F19] border border-gray-700 rounded-xl py-2 px-3 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-red-500"
+              />
+            </div>
 
-      {/* ------------------------------------------------------------- */}
-      {/* MODAL 5: VIDEO LECTURE PREVIEW PLAYER */}
-      {/* ------------------------------------------------------------- */}
-      {previewingLectureUrl && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in">
-          <div className="relative w-full max-w-3xl bg-[#1A1816] rounded-3xl border border-artisan-gold/40 shadow-2xl p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-white font-bold text-sm">
-                <Video className="w-4 h-4 text-artisan-gold" />
-                <span>Admin Lecture Stream Preview</span>
-              </div>
+            <div className="flex items-center justify-end gap-3 pt-2">
               <button
-                onClick={() => setPreviewingLectureUrl(null)}
-                className="p-2 rounded-full text-stone-400 hover:text-white hover:bg-stone-800"
+                type="button"
+                onClick={() => setOrderToCancel(null)}
+                className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl text-xs font-medium cursor-pointer"
               >
-                <X className="w-5 h-5" />
+                Go Back
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmCancelOrder}
+                className="px-5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-red-600/30 cursor-pointer"
+              >
+                Confirm Live Cancellation
               </button>
             </div>
-
-            <div className="relative aspect-video rounded-2xl overflow-hidden bg-black border border-stone-800 flex items-center justify-center">
-              {previewingLectureUrl.includes('youtube') || previewingLectureUrl.includes('embed') ? (
-                <iframe
-                  src={previewingLectureUrl}
-                  title="Lecture Preview"
-                  className="w-full h-full"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
-              ) : (
-                <div className="text-center p-8 space-y-3">
-                  <Play className="w-12 h-12 text-artisan-gold mx-auto" />
-                  <p className="text-sm font-bold text-white">Direct CDN Stream Link Configured</p>
-                  <p className="text-xs text-stone-400 font-mono break-all max-w-md mx-auto">
-                    {previewingLectureUrl}
-                  </p>
-                  <p className="text-[11px] text-emerald-400">
-                    ✓ Verified: Encrypted stream ready for student classroom.
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ------------------------------------------------------------- */}
-      {/* MODAL 6: ADD TIMELINE MILESTONE */}
-      {/* ------------------------------------------------------------- */}
-      {isTimelineModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
-          <div className="relative w-full max-w-lg bg-[#1A1816] text-stone-100 rounded-3xl border border-artisan-gold/40 shadow-2xl p-6 sm:p-8">
-            <button
-              onClick={() => setIsTimelineModalOpen(false)}
-              className="absolute top-5 right-5 p-2 rounded-full text-stone-400 hover:text-white hover:bg-stone-800"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <h3 className="font-serif font-bold text-xl text-white mb-1">
-              Add Exhibition / Award Milestone
-            </h3>
-            <p className="text-xs text-stone-400 mb-6">
-              Enter milestone details to appear on the About & 12Y Legacy page.
-            </p>
-
-            <form onSubmit={handleSaveTimelineItem} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[11px] font-bold uppercase text-stone-400 mb-1">
-                    Year / Period *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={timelineForm.year}
-                    onChange={(e) => setTimelineForm({ ...timelineForm, year: e.target.value })}
-                    placeholder="e.g. 2026"
-                    className="w-full bg-stone-900 border border-stone-700 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-artisan-gold"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold uppercase text-stone-400 mb-1">
-                    Type
-                  </label>
-                  <select
-                    value={timelineForm.milestoneType}
-                    onChange={(e) =>
-                      setTimelineForm({
-                        ...timelineForm,
-                        milestoneType: e.target.value as 'Exhibition' | 'Award' | 'Studio Milestone' | 'Publication'
-                      })
-                    }
-                    className="w-full bg-stone-900 border border-stone-700 rounded-xl px-3 py-2.5 text-xs text-white outline-none focus:border-artisan-gold"
-                  >
-                    <option value="Exhibition">Exhibition</option>
-                    <option value="Award">Award</option>
-                    <option value="Studio Milestone">Studio Milestone</option>
-                    <option value="Publication">Publication</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold uppercase text-stone-400 mb-1">
-                  Milestone Title *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={timelineForm.title}
-                  onChange={(e) => setTimelineForm({ ...timelineForm, title: e.target.value })}
-                  placeholder="e.g. Solo Exhibition: 'Mastery of Light'"
-                  className="w-full bg-stone-900 border border-stone-700 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-artisan-gold"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold uppercase text-stone-400 mb-1">
-                  Location / Institution
-                </label>
-                <input
-                  type="text"
-                  value={timelineForm.roleOrLocation}
-                  onChange={(e) => setTimelineForm({ ...timelineForm, roleOrLocation: e.target.value })}
-                  placeholder="e.g. Royal Academy of Arts, London"
-                  className="w-full bg-stone-900 border border-stone-700 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-artisan-gold"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold uppercase text-stone-400 mb-1">
-                  Description
-                </label>
-                <textarea
-                  rows={3}
-                  value={timelineForm.description}
-                  onChange={(e) => setTimelineForm({ ...timelineForm, description: e.target.value })}
-                  className="w-full bg-stone-900 border border-stone-700 rounded-xl p-3 text-xs text-white outline-none focus:border-artisan-gold"
-                />
-              </div>
-
-              <div className="pt-4 border-t border-stone-800 flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setIsTimelineModalOpen(false)}
-                  className="px-4 py-2 text-stone-400 hover:text-white text-xs font-semibold"
-                >
-                  Cancel
-                </button>
-                <MagneticButton
-                  type="submit"
-                  variant="primary"
-                  className="px-6 py-2.5 bg-artisan-gold hover:bg-amber-400 text-stone-950 font-bold text-xs"
-                >
-                  Add Milestone
-                </MagneticButton>
-              </div>
-            </form>
           </div>
         </div>
       )}

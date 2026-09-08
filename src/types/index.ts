@@ -18,6 +18,10 @@ export interface Artwork {
   paletteColors: string[]; // hex codes of primary pigments used
   weight?: string;
   varnishType?: string;
+  fileType?: 'image' | 'pdf';
+  fileName?: string;
+  fileSize?: string;
+  pdfUrl?: string;
 }
 
 export interface CourseLecture {
@@ -125,16 +129,21 @@ export interface OrderRecord {
   userId?: string;
   customerName: string;
   customerEmail: string;
+  customerPhone?: string;
   date: string;
+  orderMonth?: string; // e.g. "2026-09" or "2026-08"
   items: CartItem[];
   subtotal: number;
   discount: number;
   shipping: number;
   totalAmount: number;
   paymentMethod: string;
-  paymentStatus: 'Paid' | 'Processing';
-  orderStatus: 'Delivered' | 'In Transit' | 'Course Active & Unlocked';
+  paymentStatus: 'Paid' | 'Pending Payment' | 'Processing' | 'Failed' | 'Refunded';
+  orderStatus: 'Order Placed' | 'Payment Verified' | 'Fine Art Packing' | 'In Transit' | 'Delivered' | 'Cancelled' | 'Course Active & Unlocked';
   deliveryAddress?: string;
+  trackingNumber?: string;
+  cancellationReason?: string;
+  cancelledAt?: string;
 }
 
 export interface ArtistProfile {

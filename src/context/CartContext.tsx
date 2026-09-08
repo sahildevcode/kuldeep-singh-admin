@@ -29,61 +29,187 @@ interface CartContextType {
   performCheckout: (customerInfo?: { name: string; email: string }) => Promise<void>;
   resetCheckout: () => void;
   addOrder: (order: OrderRecord) => void;
+  cancelOrder: (orderId: string, reason?: string) => void;
+  updateOrderStatus: (orderId: string, status: OrderRecord['orderStatus'], trackingNumber?: string) => void;
+  updatePaymentStatus: (orderId: string, status: OrderRecord['paymentStatus']) => void;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
-const SAMPLE_INITIAL_ORDERS: OrderRecord[] = [
+export const SAMPLE_INITIAL_ORDERS: OrderRecord[] = [
   {
-    id: 'KS-2026-89421',
-    customerName: 'Countess Vivienne',
-    customerEmail: 'collector@kuldeepsingh.art',
-    date: 'Sep 2, 2026',
+    id: 'ORD-2026-SEP-01',
+    customerName: 'Aarav Singhania',
+    customerEmail: 'aarav.singhania@heritageart.in',
+    customerPhone: '+91 98210 44521',
+    date: 'Sep 7, 2026',
+    orderMonth: '2026-09',
     items: [
       {
         id: 'art-01',
         type: 'artwork',
         title: 'Symphony of the Solitary Tide',
         subtitle: 'Original Oil on Belgian Linen (40 x 54 in)',
-        price: 4850,
+        price: 320000,
         image: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=600&auto=format&fit=crop',
         quantity: 1,
         mediumOrCategory: 'Oil on Canvas',
       }
     ],
-    subtotal: 4850,
-    discount: 727,
+    subtotal: 320000,
+    discount: 15000,
     shipping: 0,
-    totalAmount: 4123,
-    paymentMethod: 'Verified Bank Wire / UPI',
+    totalAmount: 305000,
+    paymentMethod: 'HDFC NetBanking / RTGS Wire',
     paymentStatus: 'Paid',
-    orderStatus: 'Delivered',
-    deliveryAddress: 'Upper East Side, Manhattan, New York',
+    orderStatus: 'In Transit',
+    deliveryAddress: 'Villa 14, Palm Avenue, Juhu, Mumbai, Maharashtra 400049',
+    trackingNumber: 'BLUEDART-EXP-90812'
   },
   {
-    id: 'KS-2026-67310',
-    customerName: 'Leo Montoya',
-    customerEmail: 'student@kuldeepsingh.art',
-    date: 'Aug 28, 2026',
+    id: 'ORD-2026-SEP-02',
+    customerName: 'Meera Kapoor',
+    customerEmail: 'meera.k@kapoordesigns.com',
+    customerPhone: '+91 99100 88234',
+    date: 'Sep 5, 2026',
+    orderMonth: '2026-09',
     items: [
       {
-        id: 'course-oil-mastery',
-        type: 'course',
-        title: 'The Master Oil Painting Diploma',
-        subtitle: '3 Months Intensive Masterclass by Kuldeep Singh',
-        price: 349,
-        image: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=600&auto=format&fit=crop',
+        id: 'art-02',
+        type: 'artwork',
+        title: 'Whispers of the Eternal Forest',
+        subtitle: 'Handmade Pigment & Gold Leaf on Canvas (36 x 48 in)',
+        price: 245000,
+        image: 'https://images.unsplash.com/photo-1577083552431-6e5fd01aa342?q=80&w=600&auto=format&fit=crop',
         quantity: 1,
-        mediumOrCategory: 'Oil Painting',
+        mediumOrCategory: 'Oil & Gold Leaf',
       }
     ],
-    subtotal: 349,
-    discount: 52,
+    subtotal: 245000,
+    discount: 0,
     shipping: 0,
-    totalAmount: 297,
-    paymentMethod: 'Instant UPI / Card',
+    totalAmount: 245000,
+    paymentMethod: 'Instant UPI / Razorpay',
     paymentStatus: 'Paid',
-    orderStatus: 'Course Active & Unlocked',
+    orderStatus: 'Fine Art Packing',
+    deliveryAddress: 'B-42, Amrita Shergill Marg, New Delhi 110003',
+    trackingNumber: 'DELHIVERY-PRM-44120'
+  },
+  {
+    id: 'ORD-2026-SEP-03',
+    customerName: 'Devansh Malhotra',
+    customerEmail: 'devansh@malhotragroup.co',
+    customerPhone: '+91 98450 12903',
+    date: 'Sep 4, 2026',
+    orderMonth: '2026-09',
+    items: [
+      {
+        id: 'art-03',
+        type: 'artwork',
+        title: 'Nocturne in Venetian Crimson',
+        subtitle: 'Impasto Oil Painting with Custom Italian Oak Frame',
+        price: 185000,
+        image: 'https://images.unsplash.com/photo-1541701494587-cb58502866ab?q=80&w=600&auto=format&fit=crop',
+        quantity: 1,
+        mediumOrCategory: 'Oil on Canvas',
+      }
+    ],
+    subtotal: 185000,
+    discount: 5000,
+    shipping: 0,
+    totalAmount: 180000,
+    paymentMethod: 'ICICI Bank Transfer (Pending Verification)',
+    paymentStatus: 'Pending Payment',
+    orderStatus: 'Order Placed',
+    deliveryAddress: 'Penthouse 7B, Sky Tower, Koramangala, Bengaluru 560034',
+  },
+  {
+    id: 'ORD-2026-AUG-01',
+    customerName: 'Countess Vivienne St. Claire',
+    customerEmail: 'vivienne@stclairecollections.ch',
+    customerPhone: '+41 79 412 8890',
+    date: 'Aug 26, 2026',
+    orderMonth: '2026-08',
+    items: [
+      {
+        id: 'art-04',
+        type: 'artwork',
+        title: 'Echoes of the Florentine Atelier',
+        subtitle: 'Classical Realism Oil on Linen (48 x 60 in)',
+        price: 450000,
+        image: 'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?q=80&w=600&auto=format&fit=crop',
+        quantity: 1,
+        mediumOrCategory: 'Oil on Linen',
+      }
+    ],
+    subtotal: 450000,
+    discount: 25000,
+    shipping: 0,
+    totalAmount: 425000,
+    paymentMethod: 'International Wire / SWIFT',
+    paymentStatus: 'Paid',
+    orderStatus: 'Delivered',
+    deliveryAddress: 'Bahnhofstrasse 45, 8001 Zurich, Switzerland',
+    trackingNumber: 'DHL-EXPRESS-992301'
+  },
+  {
+    id: 'ORD-2026-AUG-02',
+    customerName: 'Rajesh & Sunita Oberoi',
+    customerEmail: 'oberoi.art@gmail.com',
+    customerPhone: '+91 98110 55102',
+    date: 'Aug 18, 2026',
+    orderMonth: '2026-08',
+    items: [
+      {
+        id: 'art-05',
+        type: 'artwork',
+        title: 'Serenade at Dawn',
+        subtitle: 'Fine Charcoal & Pastel on Archival Cotton Paper',
+        price: 95000,
+        image: 'https://images.unsplash.com/photo-1549887534-1541e9326642?q=80&w=600&auto=format&fit=crop',
+        quantity: 1,
+        mediumOrCategory: 'Charcoal & Graphite',
+      }
+    ],
+    subtotal: 95000,
+    discount: 0,
+    shipping: 0,
+    totalAmount: 95000,
+    paymentMethod: 'UPI / Google Pay',
+    paymentStatus: 'Paid',
+    orderStatus: 'Delivered',
+    deliveryAddress: 'House 12, Golf Links, New Delhi 110003',
+    trackingNumber: 'BLUEDART-EXP-77192'
+  },
+  {
+    id: 'ORD-2026-AUG-03',
+    customerName: 'Kabir Varma',
+    customerEmail: 'kabir.v@varmaholdings.in',
+    customerPhone: '+91 97690 33419',
+    date: 'Aug 10, 2026',
+    orderMonth: '2026-08',
+    items: [
+      {
+        id: 'art-06',
+        type: 'artwork',
+        title: 'Study in Umber Shadows',
+        subtitle: 'Experimental Mixed Media (30 x 40 in)',
+        price: 120000,
+        image: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=600&auto=format&fit=crop',
+        quantity: 1,
+        mediumOrCategory: 'Acrylic & Mixed Media',
+      }
+    ],
+    subtotal: 120000,
+    discount: 0,
+    shipping: 0,
+    totalAmount: 120000,
+    paymentMethod: 'NetBanking',
+    paymentStatus: 'Refunded',
+    orderStatus: 'Cancelled',
+    deliveryAddress: 'Banjara Hills, Hyderabad 500034',
+    cancellationReason: 'Customer requested size customization prior to shipment',
+    cancelledAt: '03:15 PM, Aug 11, 2026'
   }
 ];
 
@@ -99,8 +225,12 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const [orders, setOrders] = useState<OrderRecord[]>(() => {
     try {
-      const saved = localStorage.getItem('kuldeep_art_orders');
-      return saved ? JSON.parse(saved) : SAMPLE_INITIAL_ORDERS;
+      const saved = localStorage.getItem('kuldeep_art_orders_v2');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+      return SAMPLE_INITIAL_ORDERS;
     } catch {
       return SAMPLE_INITIAL_ORDERS;
     }
@@ -125,7 +255,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     try {
-      localStorage.setItem('kuldeep_art_orders', JSON.stringify(orders));
+      localStorage.setItem('kuldeep_art_orders_v2', JSON.stringify(orders));
     } catch (e) {
       console.error(e);
     }
@@ -153,8 +283,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       prev
         .map((i) => {
           if (i.id === id) {
-            const newQ = i.quantity + delta;
-            return newQ > 0 ? { ...i, quantity: newQ } : null;
+            const newQty = i.quantity + delta;
+            return newQty > 0 ? { ...i, quantity: newQty } : null;
           }
           return i;
         })
@@ -166,22 +296,25 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setCart([]);
   };
 
+  const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
+  const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
   const applyDiscountCode = (code: string): boolean => {
     const clean = code.trim().toUpperCase();
-    if (clean === 'ARTISAN15' || clean === 'KULDEEP15') {
+    if (clean === 'MASTER2026' || clean === 'KULDEEP15') {
       setDiscountCode(clean);
-      setDiscountPercent(0.15);
+      setDiscountPercent(0.15); // 15% discount
       setDiscountError(null);
       return true;
-    }
-    if (clean === 'COLLECTOR20') {
+    } else if (clean === 'VIPCOLLECTOR') {
       setDiscountCode(clean);
-      setDiscountPercent(0.20);
+      setDiscountPercent(0.2); // 20% discount
       setDiscountError(null);
       return true;
+    } else {
+      setDiscountError('Invalid invitation code');
+      return false;
     }
-    setDiscountError('Invalid promotional code. Try KULDEEP15');
-    return false;
   };
 
   const removeDiscount = () => {
@@ -190,48 +323,89 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setDiscountError(null);
   };
 
-  const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
-  const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const discount = Math.round(subtotal * discountPercent);
-
-  const hasPhysicalArt = cart.some((i) => i.type === 'artwork');
-  const shipping = hasPhysicalArt ? (subtotal > 3000 ? 0 : 180) : 0;
+  const shipping = subtotal > 0 ? 0 : 0;
   const finalTotal = Math.max(0, subtotal - discount + shipping);
 
   const addOrder = (order: OrderRecord) => {
     setOrders((prev) => [order, ...prev]);
   };
 
+  const cancelOrder = (orderId: string, reason = 'Cancelled by Studio Owner') => {
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const dateStr = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+    setOrders((prev) =>
+      prev.map((o) =>
+        o.id === orderId
+          ? {
+              ...o,
+              orderStatus: 'Cancelled',
+              paymentStatus: o.paymentStatus === 'Paid' ? 'Refunded' : 'Failed',
+              cancellationReason: reason,
+              cancelledAt: `${timeStr}, ${dateStr}`
+            }
+          : o
+      )
+    );
+  };
+
+  const updateOrderStatus = (orderId: string, status: OrderRecord['orderStatus'], trackingNumber?: string) => {
+    setOrders((prev) =>
+      prev.map((o) =>
+        o.id === orderId
+          ? {
+              ...o,
+              orderStatus: status,
+              ...(trackingNumber !== undefined ? { trackingNumber } : {})
+            }
+          : o
+      )
+    );
+  };
+
+  const updatePaymentStatus = (orderId: string, status: OrderRecord['paymentStatus']) => {
+    setOrders((prev) =>
+      prev.map((o) =>
+        o.id === orderId ? { ...o, paymentStatus: status } : o
+      )
+    );
+  };
+
   const performCheckout = async (customerInfo?: { name: string; email: string }) => {
+    if (cart.length === 0) return;
     setIsCheckingOut(true);
-    await new Promise((res) => setTimeout(res, 1200));
+
+    await new Promise((resolve) => setTimeout(resolve, 800));
+
+    const generatedId = 'ORD-' + Date.now().toString().slice(-6);
+    setLastOrderId(generatedId);
     setIsCheckingOut(false);
     setCheckoutSuccess(true);
 
-    const orderNum = 'KS-2026-' + Math.floor(10000 + Math.random() * 90000);
-    setLastOrderId(orderNum);
-
-    // Create persistent OrderRecord
+    const now = new Date();
+    const nowMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     const newOrder: OrderRecord = {
-      id: orderNum,
-      customerName: customerInfo?.name || 'Verified Art Patron',
+      id: generatedId,
+      customerName: customerInfo?.name || 'Collector Guest',
       customerEmail: customerInfo?.email || 'collector@kuldeepsingh.art',
-      date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      date: now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      orderMonth: nowMonth,
       items: [...cart],
       subtotal,
       discount,
       shipping,
       totalAmount: finalTotal,
-      paymentMethod: 'Demo Razorpay / UPI Express',
+      paymentMethod: 'Instant Razorpay / Bank Wire',
       paymentStatus: 'Paid',
-      orderStatus: hasPhysicalArt ? 'In Transit' : 'Course Active & Unlocked',
-      deliveryAddress: hasPhysicalArt ? 'Standard Fine Art Insured Crating' : undefined,
+      orderStatus: 'Fine Art Packing',
+      deliveryAddress: 'Standard Fine Art Insured Crating',
     };
 
     addOrder(newOrder);
     clearCart();
 
-    // Trigger celebration confetti
     try {
       confetti({
         particleCount: 120,
@@ -277,6 +451,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         performCheckout,
         resetCheckout,
         addOrder,
+        cancelOrder,
+        updateOrderStatus,
+        updatePaymentStatus
       }}
     >
       {children}
