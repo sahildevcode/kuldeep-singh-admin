@@ -246,9 +246,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [orders, setOrders] = useState<OrderRecord[]>(() => {
     try {
       const saved = localStorage.getItem('kuldeep_art_orders_v3');
-      if (saved) {
+      if (saved !== null) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       }
       return SAMPLE_INITIAL_ORDERS;
     } catch {
