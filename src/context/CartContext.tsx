@@ -129,13 +129,15 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [orders]);
 
+  const BACKEND_API_BASE = 'https://kuldeep-singh-backend.onrender.com/api/orders';
+
   // Real-time bidirectional database sync with backend daemon
   useEffect(() => {
     let isMounted = true;
 
     const fetchLiveOrders = async () => {
       try {
-        const res = await fetch('http://localhost:5000/api/orders');
+        const res = await fetch(BACKEND_API_BASE);
         if (res.ok) {
           const data = await res.json();
           if (Array.isArray(data) && isMounted) {
@@ -223,7 +225,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const addOrder = (order: OrderRecord) => {
     setOrders((prev) => [order, ...prev.filter((o) => o.id !== order.id)]);
-    fetch('http://localhost:5000/api/orders', {
+    fetch(BACKEND_API_BASE, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(order)
@@ -287,7 +289,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     );
 
     if (patchFields) {
-      fetch(`http://localhost:5000/api/orders/${orderId}`, {
+      fetch(`${BACKEND_API_BASE}/${orderId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(patchFields)
@@ -332,7 +334,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       prev.map((o) => (o.id === orderId ? { ...o, ...patchFields } : o))
     );
 
-    fetch(`http://localhost:5000/api/orders/${orderId}`, {
+    fetch(`${BACKEND_API_BASE}/${orderId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(patchFields)
@@ -355,7 +357,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       prev.map((o) => (o.id === orderId ? { ...o, ...patchFields } : o))
     );
 
-    fetch(`http://localhost:5000/api/orders/${orderId}`, {
+    fetch(`${BACKEND_API_BASE}/${orderId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(patchFields)
@@ -370,7 +372,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setOrders((prev) =>
       prev.map((o) => (o.id === orderId ? { ...o, ...patchFields } : o))
     );
-    fetch(`http://localhost:5000/api/orders/${orderId}`, {
+    fetch(`${BACKEND_API_BASE}/${orderId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(patchFields)
@@ -382,7 +384,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setOrders((prev) =>
       prev.map((o) => (o.id === orderId ? { ...o, ...patchFields } : o))
     );
-    fetch(`http://localhost:5000/api/orders/${orderId}`, {
+    fetch(`${BACKEND_API_BASE}/${orderId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(patchFields)
@@ -440,7 +442,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const deleteOrder = (orderId: string) => {
     setOrders((prev) => prev.filter((o) => o.id !== orderId));
-    fetch(`http://localhost:5000/api/orders/${orderId}`, {
+    fetch(`${BACKEND_API_BASE}/${orderId}`, {
       method: 'DELETE'
     }).catch((e) => console.warn('Backend sync failed:', e));
   };
@@ -449,7 +451,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setOrders((prev) =>
       prev.map((o) => (o.id === orderId ? { ...o, ...updatedFields } : o))
     );
-    fetch(`http://localhost:5000/api/orders/${orderId}`, {
+    fetch(`${BACKEND_API_BASE}/${orderId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updatedFields)
