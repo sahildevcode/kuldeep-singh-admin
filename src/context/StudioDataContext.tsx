@@ -213,6 +213,67 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   }, [students]);
 
+  // Sync with Remote 24/7 Cloud Backend
+  useEffect(() => {
+    let isMounted = true;
+
+    const syncArtworksWithCloud = async () => {
+      try {
+        const res = await fetch('https://kuldeep-singh-backend.onrender.com/api/artworks');
+        if (res.ok) {
+          const cloudArtworks: Artwork[] = await res.json();
+          if (Array.isArray(cloudArtworks) && cloudArtworks.length > 0) {
+            // Check if local storage has any artworks that are not yet in the cloud (e.g. added offline or previously)
+            let savedLocal: Artwork[] = [];
+            try {
+              const localStr = localStorage.getItem('kuldeep_studio_artworks');
+              if (localStr) savedLocal = JSON.parse(localStr);
+            } catch (e) {
+              // ignore
+            }
+
+            const pendingUploads = savedLocal.filter(
+              (localArt) => !cloudArtworks.some((c) => c.id === localArt.id || c.title.trim().toLowerCase() === localArt.title.trim().toLowerCase())
+            );
+
+            if (pendingUploads.length > 0) {
+              for (const pending of pendingUploads) {
+                try {
+                  await fetch('https://kuldeep-singh-backend.onrender.com/api/artworks', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(pending)
+                  });
+                } catch (upErr) {
+                  console.warn('Pending artwork upload error:', upErr);
+                }
+              }
+              const refreshedRes = await fetch('https://kuldeep-singh-backend.onrender.com/api/artworks');
+              if (refreshedRes.ok) {
+                const refreshed = await refreshedRes.json();
+                if (isMounted) setArtworks(refreshed);
+                return;
+              }
+            }
+
+            if (isMounted) {
+              setArtworks(cloudArtworks);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Cloud artworks sync skipped, using local cache:', err);
+      }
+    };
+
+    syncArtworksWithCloud();
+    const interval = setInterval(syncArtworksWithCloud, 6000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
+
   // Sync to LocalStorage
   useEffect(() => {
     try {
@@ -246,19 +307,44 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   }, [timeline]);
 
-  // Painting Handlers
-  const addArtwork = (artwork: Artwork) => {
+  // Painting Handlers (Local Optimistic + Instant 24/7 Cloud Sync)
+  const addArtwork = async (artwork: Artwork) => {
     setArtworks((prev) => [artwork, ...prev]);
+    try {
+      await fetch('https://kuldeep-singh-backend.onrender.com/api/artworks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(artwork)
+      });
+    } catch (err) {
+      console.error('Error syncing new artwork to cloud database:', err);
+    }
   };
 
-  const updateArtwork = (id: string, updates: Partial<Artwork>) => {
+  const updateArtwork = async (id: string, updates: Partial<Artwork>) => {
     setArtworks((prev) =>
       prev.map((item) => (item.id === id ? { ...item, ...updates } : item))
     );
+    try {
+      await fetch(`https://kuldeep-singh-backend.onrender.com/api/artworks/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates)
+      });
+    } catch (err) {
+      console.error('Error updating artwork in cloud database:', err);
+    }
   };
 
-  const deleteArtwork = (id: string) => {
+  const deleteArtwork = async (id: string) => {
     setArtworks((prev) => prev.filter((item) => item.id !== id));
+    try {
+      await fetch(`https://kuldeep-singh-backend.onrender.com/api/artworks/${id}`, {
+        method: 'DELETE'
+      });
+    } catch (err) {
+      console.error('Error deleting artwork from cloud database:', err);
+    }
   };
 
   // Course Handlers
