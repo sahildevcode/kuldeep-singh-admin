@@ -213,17 +213,17 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   }, [students]);
 
-  // Sync with Remote 24/7 Cloud Backend
+  // Sync with Remote 24/7 Cloud Backend (Artworks, Courses & Lectures, Students)
   useEffect(() => {
     let isMounted = true;
 
-    const syncArtworksWithCloud = async () => {
+    const syncAllWithCloud = async () => {
       try {
-        const res = await fetch('https://kuldeep-singh-backend.onrender.com/api/artworks');
-        if (res.ok) {
-          const cloudArtworks: Artwork[] = await res.json();
+        // 1. Artworks
+        const artRes = await fetch('https://kuldeep-singh-backend.onrender.com/api/artworks');
+        if (artRes.ok) {
+          const cloudArtworks: Artwork[] = await artRes.json();
           if (Array.isArray(cloudArtworks) && cloudArtworks.length > 0) {
-            // Check if local storage has any artworks that are not yet in the cloud (e.g. added offline or previously)
             let savedLocal: Artwork[] = [];
             try {
               const localStr = localStorage.getItem('kuldeep_studio_artworks');
@@ -252,22 +252,37 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
               if (refreshedRes.ok) {
                 const refreshed = await refreshedRes.json();
                 if (isMounted) setArtworks(refreshed);
-                return;
               }
-            }
-
-            if (isMounted) {
+            } else if (isMounted) {
               setArtworks(cloudArtworks);
             }
           }
         }
+
+        // 2. Courses & Lectures
+        const courseRes = await fetch('https://kuldeep-singh-backend.onrender.com/api/courses');
+        if (courseRes.ok) {
+          const cloudCourses: Course[] = await courseRes.json();
+          if (Array.isArray(cloudCourses) && cloudCourses.length > 0 && isMounted) {
+            setCourses(normalizeCourses(cloudCourses));
+          }
+        }
+
+        // 3. Students
+        const stuRes = await fetch('https://kuldeep-singh-backend.onrender.com/api/students');
+        if (stuRes.ok) {
+          const cloudStudents: EnrolledStudent[] = await stuRes.json();
+          if (Array.isArray(cloudStudents) && cloudStudents.length > 0 && isMounted) {
+            setStudents(cloudStudents);
+          }
+        }
       } catch (err) {
-        console.warn('Cloud artworks sync skipped, using local cache:', err);
+        console.warn('Cloud sync skipped, using local cache:', err);
       }
     };
 
-    syncArtworksWithCloud();
-    const interval = setInterval(syncArtworksWithCloud, 6000);
+    syncAllWithCloud();
+    const interval = setInterval(syncAllWithCloud, 6000);
     return () => {
       isMounted = false;
       clearInterval(interval);
@@ -352,18 +367,37 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setCourses((prev) => [course, ...prev]);
   };
 
-  const updateCourse = (id: string, updates: Partial<Course>) => {
+  const updateCourse = async (id: string, updates: Partial<Course>) => {
     setCourses((prev) =>
       prev.map((c) => (c.id === id ? { ...c, ...updates } : c))
     );
+    try {
+      await fetch(`https://kuldeep-singh-backend.onrender.com/api/courses/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates)
+      });
+      if (updates.liveClassStatus !== undefined) {
+        await fetch('https://kuldeep-singh-backend.onrender.com/api/live', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            isLive: updates.liveClassStatus === 'live',
+            liveStreamUrl: updates.liveClassUrl
+          })
+        });
+      }
+    } catch (e) {
+      console.error('Failed to sync course update to backend:', e);
+    }
   };
 
   const deleteCourse = (id: string) => {
     setCourses((prev) => prev.filter((c) => c.id !== id));
   };
 
-  // Lecture Handlers
-  const addLectureToModule = (courseId: string, moduleIndex: number, lecture: CourseLecture) => {
+  // Lecture Handlers (Optimistic Local + 24/7 Cloud Sync)
+  const addLectureToModule = async (courseId: string, moduleIndex: number, lecture: CourseLecture) => {
     setCourses((prev) =>
       prev.map((course) => {
         if (course.id !== courseId) return course;
@@ -384,6 +418,15 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         };
       })
     );
+    try {
+      await fetch(`https://kuldeep-singh-backend.onrender.com/api/courses/${courseId}/modules/${moduleIndex}/lectures`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(lecture)
+      });
+    } catch (e) {
+      console.error('Failed to sync new lecture to backend:', e);
+    }
   };
 
   const updateLectureInModule = (
@@ -481,13 +524,29 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setTimeline((prev) => prev.filter((_, idx) => idx !== index));
   };
 
-  // Student Handlers
-  const addStudent = (student: EnrolledStudent) => {
+  // Student Handlers (Optimistic Local + 24/7 Cloud Sync)
+  const addStudent = async (student: EnrolledStudent) => {
     setStudents((prev) => [student, ...prev]);
+    try {
+      await fetch('https://kuldeep-singh-backend.onrender.com/api/students', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(student)
+      });
+    } catch (e) {
+      console.error('Failed to sync new student to cloud backend:', e);
+    }
   };
 
-  const deleteStudent = (id: string) => {
+  const deleteStudent = async (id: string) => {
     setStudents((prev) => prev.filter((s) => s.id !== id));
+    try {
+      await fetch(`https://kuldeep-singh-backend.onrender.com/api/students/${id}`, {
+        method: 'DELETE'
+      });
+    } catch (e) {
+      console.error('Failed to delete student from cloud backend:', e);
+    }
   };
 
   // Factory Reset
