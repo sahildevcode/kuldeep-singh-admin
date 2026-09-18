@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import {
   LayoutDashboard,
   Package,
@@ -576,9 +576,34 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
     liveTargetCourse?.liveClassStatus === 'live'
   );
 
-  const handleToggleBroadcast = () => {
+  // Sync initial live broadcast status directly from cloud backend
+  useEffect(() => {
+    fetch('https://kuldeep-singh-backend.onrender.com/api/live')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data) {
+          if (data.isLive !== undefined) setIsLiveBroadcasting(Boolean(data.isLive));
+          if (data.liveStreamUrl) setLiveStreamUrl(data.liveStreamUrl);
+        }
+      })
+      .catch((err) => console.warn('Could not fetch cloud live status on load:', err));
+  }, []);
+
+  const handleToggleBroadcast = async () => {
     const willBeLive = !isLiveBroadcasting;
     setIsLiveBroadcasting(willBeLive);
+    try {
+      await fetch('https://kuldeep-singh-backend.onrender.com/api/live', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          isLive: willBeLive,
+          liveStreamUrl: liveStreamUrl
+        })
+      });
+    } catch (e) {
+      console.error('Failed to sync live status to cloud backend:', e);
+    }
     if (liveTargetCourse) {
       updateCourse(liveTargetCourse.id, {
         liveClassStatus: willBeLive ? 'live' : 'offline',
@@ -590,6 +615,28 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
         ? '🔴 Live Studio Broadcast is ON AIR! Google Meet link live.'
         : 'Live Studio broadcast ended.'
     );
+  };
+
+  const handleUpdateLiveUrl = async () => {
+    try {
+      await fetch('https://kuldeep-singh-backend.onrender.com/api/live', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          isLive: isLiveBroadcasting,
+          liveStreamUrl: liveStreamUrl
+        })
+      });
+      if (liveTargetCourse) {
+        updateCourse(liveTargetCourse.id, {
+          liveClassUrl: liveStreamUrl
+        });
+      }
+      showToast('✅ Google Meet link updated in cloud database!');
+    } catch (e) {
+      console.error('Failed to update live URL in cloud:', e);
+      showToast('⚠️ Could not update link to cloud.');
+    }
   };
 
   return (
@@ -1650,26 +1697,35 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                 <label className="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">
                   Google Meet / Live Workshop Link
                 </label>
-                <div className="relative">
-                  <input
-                    type="url"
-                    value={liveStreamUrl}
-                    onChange={(e) => setLiveStreamUrl(e.target.value)}
-                    placeholder="https://meet.google.com/xyz-abcd-efg"
-                    className="w-full bg-[#0C0E12] border border-gray-700 rounded-xl py-3 pl-4 pr-32 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#FF5722]"
-                  />
-                  <a
-                    href={liveStreamUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="absolute right-2 top-1/2 -translate-y-1/2 bg-gray-800 hover:bg-gray-700 text-white text-xs font-medium px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors"
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+                  <div className="relative flex-1">
+                    <input
+                      type="url"
+                      value={liveStreamUrl}
+                      onChange={(e) => setLiveStreamUrl(e.target.value)}
+                      placeholder="https://meet.google.com/xyz-abcd-efg"
+                      className="w-full bg-[#0C0E12] border border-gray-700 rounded-xl py-3 pl-4 pr-28 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#FF5722]"
+                    />
+                    <a
+                      href={liveStreamUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 bg-gray-800 hover:bg-gray-700 text-white text-xs font-medium px-2.5 py-1.5 rounded-lg flex items-center gap-1 transition-colors"
+                    >
+                      <span>Test</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleUpdateLiveUrl}
+                    className="px-4 py-3 bg-stone-800 hover:bg-[#FF5722] text-white font-bold rounded-xl text-xs uppercase tracking-wider transition-colors shrink-0 shadow border border-gray-700 cursor-pointer"
                   >
-                    <span>Open Meet</span>
-                    <ExternalLink className="w-3 h-3" />
-                  </a>
+                    Save & Update Link
+                  </button>
                 </div>
                 <p className="text-[11px] text-gray-500 mt-1.5">
-                  Paste your Google Meet room code or link above. Students enrolled in your courses can enter directly.
+                  Paste your active Google Meet link above and click "Save & Update Link". Students on the portal will immediately see this updated link!
                 </p>
               </div>
 
