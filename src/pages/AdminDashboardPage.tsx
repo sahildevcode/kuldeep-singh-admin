@@ -28,12 +28,15 @@ import {
   RotateCcw,
   ExternalLink,
   Trash2,
-  Edit3
+  Edit3,
+  BookOpen,
+  Video,
+  Users
 } from 'lucide-react';
 import { useStudioData } from '../context/StudioDataContext';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
-import type { Artwork, MediumType, OrderRecord } from '../types';
+import type { Artwork, MediumType, OrderRecord, CourseLecture, EnrolledStudent } from '../types';
 
 interface AdminDashboardPageProps {
   onBackToSite?: () => void;
@@ -43,17 +46,41 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
   const {
     artworks,
     courses,
+    students,
     addArtwork,
     updateArtwork,
     deleteArtwork,
-    updateCourse
+    updateCourse,
+    addStudent,
+    deleteStudent,
+    addLectureToModule,
+    deleteLectureFromModule
   } = useStudioData();
 
   const { adminLogout } = useAuth();
   const { orders, advanceOrderStep, deleteOrder, updateOrder, addOrder } = useCart();
 
-  // Navigation State: 'dashboard' | 'orders' | 'artworks' | 'live-studio' | 'analytics'
-  const [activeNav, setActiveNav] = useState<'dashboard' | 'orders' | 'artworks' | 'live-studio' | 'analytics'>('dashboard');
+  // Navigation State: 'dashboard' | 'orders' | 'artworks' | 'courses' | 'live-studio' | 'analytics'
+  const [activeNav, setActiveNav] = useState<'dashboard' | 'orders' | 'artworks' | 'courses' | 'live-studio' | 'analytics'>('dashboard');
+
+  // Masterclasses & Lectures Management State
+  const [selectedCourseIdForAdmin, setSelectedCourseIdForAdmin] = useState<string>('course-oil-mastery');
+  const [isAddLectureModalOpen, setIsAddLectureModalOpen] = useState(false);
+  const [targetModuleIndexForAdd, setTargetModuleIndexForAdd] = useState<number>(0);
+  const [lectureForm, setLectureForm] = useState({
+    title: '',
+    duration: '45 Mins',
+    videoUrl: '',
+    summary: ''
+  });
+
+  const [isAddStudentModalOpen, setIsAddStudentModalOpen] = useState(false);
+  const [newStudentForm, setNewStudentForm] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    courseId: 'course-oil-mastery'
+  });
 
   const [cashFlowView, setCashFlowView] = useState<'monthly' | 'yearly'>('monthly');
   const [selectedChartMonth, setSelectedChartMonth] = useState<string | null>(null);
@@ -742,6 +769,23 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
               </div>
               <span className="bg-[#242934] text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
                 {artworks.length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveNav('courses')}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
+                activeNav === 'courses'
+                  ? 'bg-[#1D212A] text-white font-semibold shadow-sm border border-gray-700/40'
+                  : 'text-gray-400 hover:text-white hover:bg-[#161920]'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <BookOpen className={`w-4 h-4 ${activeNav === 'courses' ? 'text-[#FF5722]' : 'text-gray-400'}`} />
+                <span>Masterclasses & Lectures</span>
+              </div>
+              <span className="bg-[#242934] text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                {courses.length}
               </span>
             </button>
 
@@ -1627,6 +1671,293 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
               );
             })}
           </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* MASTERCLASSES & LECTURES LMS VIEW (activeNav === 'courses') */}
+      {/* ========================================================= */}
+      {activeNav === 'courses' && (
+        <div className="space-y-8 animate-fade-in">
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] uppercase font-bold text-[#FF5722] tracking-wider px-2 py-0.5 rounded-full bg-[#FF5722]/10 border border-[#FF5722]/20">
+                  LMS & Video Uploads
+                </span>
+                <span className="text-xs text-gray-500">• 24/7 Cloud Synced</span>
+              </div>
+              <h2 className="text-2xl font-bold font-serif text-white tracking-tight mt-1">
+                Masterclasses & Curriculum Management
+              </h2>
+              <p className="text-xs text-gray-400">
+                Upload demonstration lectures, manage modules, and grant enrolled students access.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => {
+                  setNewStudentForm({
+                    name: '',
+                    email: '',
+                    phone: '',
+                    courseId: selectedCourseIdForAdmin
+                  });
+                  setIsAddStudentModalOpen(true);
+                }}
+                className="px-4 py-2.5 rounded-xl text-xs font-semibold bg-[#1D212A] hover:bg-[#252A36] text-white border border-gray-700 transition-colors flex items-center gap-2 cursor-pointer shadow"
+              >
+                <Users className="w-3.5 h-3.5 text-[#FF5722]" />
+                <span>+ Grant Free Student Access</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Course Tabs (Pills) */}
+          <div className="flex items-center gap-3 overflow-x-auto pb-2">
+            {courses.map((c) => {
+              const isSelected = selectedCourseIdForAdmin === c.id;
+              const enrolledForThis = students.filter((s) => s.courseId === c.id).length;
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => setSelectedCourseIdForAdmin(c.id)}
+                  className={`px-5 py-3 rounded-2xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-3 cursor-pointer border ${
+                    isSelected
+                      ? 'bg-gradient-to-r from-[#FF5722] to-[#FF6E40] text-white border-transparent shadow-lg shadow-[#FF5722]/25'
+                      : 'bg-[#14171E] hover:bg-[#1A1E27] text-gray-300 border-[#202530]'
+                  }`}
+                >
+                  <BookOpen className="w-4 h-4 shrink-0" />
+                  <div className="text-left">
+                    <div className="font-semibold">{c.title}</div>
+                    <div className={`text-[10px] ${isSelected ? 'text-white/80' : 'text-gray-500'}`}>
+                      {c.modules.length} Modules • {enrolledForThis} Enrolled Students
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Current Course Dashboard Details */}
+          {(() => {
+            const currentCourse = courses.find((c) => c.id === selectedCourseIdForAdmin) || courses[0];
+            if (!currentCourse) return null;
+            const courseStudents = students.filter((s) => s.courseId === currentCourse.id);
+
+            return (
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                {/* Left 8 Cols: Curriculum Modules & Video Lectures */}
+                <div className="lg:col-span-8 space-y-6">
+                  <div className="bg-[#14171E] border border-[#202530] rounded-3xl p-6 shadow-xl">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-gray-800">
+                      <div>
+                        <span className="text-[10px] uppercase font-bold text-[#FF5722] tracking-wider">
+                          {currentCourse.category} • {currentCourse.durationMonths}
+                        </span>
+                        <h3 className="font-serif text-xl font-bold text-white mt-0.5">
+                          {currentCourse.title}
+                        </h3>
+                        <p className="text-xs text-gray-400 mt-1 max-w-xl">
+                          {currentCourse.summary}
+                        </p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <span className="text-xs text-gray-400 block">Tuition Fee</span>
+                        <span className="text-lg font-bold font-serif text-[#FF5722]">
+                          ${currentCourse.price} USD
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Modules List */}
+                    <div className="mt-6 space-y-6">
+                      {currentCourse.modules.map((mod, modIdx) => (
+                        <div
+                          key={mod.id || modIdx}
+                          className="bg-[#0C0E12] border border-[#1D212A] rounded-2xl p-5 space-y-4"
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-xl bg-[#1D212A] text-[#FF5722] font-bold text-xs flex items-center justify-center border border-gray-700">
+                                {modIdx + 1}
+                              </div>
+                              <div>
+                                <h4 className="font-serif font-bold text-white text-sm sm:text-base">
+                                  {mod.title}
+                                </h4>
+                                <span className="text-[11px] text-gray-400">
+                                  {mod.duration || '3 Weeks'} • {(mod.lectures || []).length} Video Lectures Uploaded
+                                </span>
+                              </div>
+                            </div>
+
+                            <button
+                              onClick={() => {
+                                setTargetModuleIndexForAdd(modIdx);
+                                setLectureForm({
+                                  title: '',
+                                  duration: '45 Mins',
+                                  videoUrl: '',
+                                  summary: ''
+                                });
+                                setIsAddLectureModalOpen(true);
+                              }}
+                              className="px-3.5 py-2 bg-gradient-to-r from-[#FF5722] to-[#FF7A45] hover:opacity-95 text-white rounded-xl text-xs font-bold transition-all shadow flex items-center gap-1.5 cursor-pointer shrink-0"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              <span>+ Add Video Lecture</span>
+                            </button>
+                          </div>
+
+                          {/* Lectures under this module */}
+                          <div className="space-y-2 pt-2 border-t border-gray-800/60">
+                            {mod.lectures && mod.lectures.length > 0 ? (
+                              mod.lectures.map((lec, lecIdx) => (
+                                <div
+                                  key={lec.id || lecIdx}
+                                  className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-xl bg-[#14171E] border border-gray-800/80 gap-3 hover:border-gray-700 transition-colors"
+                                >
+                                  <div className="flex items-start gap-3">
+                                    <div className="w-7 h-7 rounded-lg bg-[#FF5722]/10 text-[#FF5722] flex items-center justify-center shrink-0 mt-0.5">
+                                      <Video className="w-3.5 h-3.5" />
+                                    </div>
+                                    <div>
+                                      <div className="text-xs font-bold text-white flex items-center gap-2">
+                                        <span>{lec.title}</span>
+                                        <span className="text-[10px] font-normal text-gray-400 bg-gray-800 px-2 py-0.5 rounded-full">
+                                          {lec.duration || '45 Mins'}
+                                        </span>
+                                      </div>
+                                      <div className="text-[11px] text-gray-400 truncate max-w-sm mt-0.5 font-mono">
+                                        {lec.videoUrl}
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center gap-2 self-end sm:self-auto">
+                                    <a
+                                      href={lec.videoUrl}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="px-2.5 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white text-xs font-medium flex items-center gap-1 transition-colors"
+                                    >
+                                      <ExternalLink className="w-3 h-3" />
+                                      <span>Test Link</span>
+                                    </a>
+                                    <button
+                                      onClick={() => {
+                                        if (window.confirm(`Delete lecture "${lec.title}"?`)) {
+                                          deleteLectureFromModule(currentCourse.id, modIdx, lecIdx);
+                                          showToast(`Lecture "${lec.title}" removed.`);
+                                        }
+                                      }}
+                                      className="p-1.5 text-gray-500 hover:text-red-400 rounded-lg hover:bg-gray-800 transition-colors cursor-pointer"
+                                      title="Delete Lecture"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                </div>
+                              ))
+                            ) : (
+                              <div className="text-center py-6 text-xs text-gray-500 bg-[#14171E]/50 rounded-xl border border-dashed border-gray-800">
+                                No video lectures uploaded to this module yet. Click "+ Add Video Lecture" above to upload your first lecture!
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right 4 Cols: Enrolled Students List */}
+                <div className="lg:col-span-4 space-y-6">
+                  <div className="bg-[#14171E] border border-[#202530] rounded-3xl p-6 shadow-xl space-y-4">
+                    <div className="flex items-center justify-between pb-3 border-b border-gray-800">
+                      <div className="flex items-center gap-2">
+                        <Users className="w-4 h-4 text-[#FF5722]" />
+                        <h4 className="font-serif font-bold text-white text-base">
+                          Enrolled Students
+                        </h4>
+                      </div>
+                      <span className="text-xs bg-[#FF5722]/15 text-[#FF5722] font-bold px-2 py-0.5 rounded-full">
+                        {courseStudents.length} Active
+                      </span>
+                    </div>
+
+                    <p className="text-[11px] text-gray-400">
+                      These students have unlocked 24/7 access to this course's video lectures.
+                    </p>
+
+                    <div className="space-y-3">
+                      {courseStudents.length > 0 ? (
+                        courseStudents.map((st) => (
+                          <div
+                            key={st.id}
+                            className="p-3 bg-[#0C0E12] border border-gray-800/80 rounded-2xl flex items-center justify-between gap-3"
+                          >
+                            <div className="flex items-center gap-2.5 truncate">
+                              <img
+                                src={st.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=150&auto=format&fit=crop'}
+                                alt={st.name}
+                                className="w-8 h-8 rounded-full object-cover ring-1 ring-gray-700 shrink-0"
+                              />
+                              <div className="truncate">
+                                <div className="text-xs font-bold text-white truncate">
+                                  {st.name}
+                                </div>
+                                <div className="text-[10px] text-gray-400 truncate">
+                                  {st.email}
+                                </div>
+                              </div>
+                            </div>
+
+                            <button
+                              onClick={() => {
+                                if (window.confirm(`Revoke access for student ${st.name} (${st.email})?`)) {
+                                  deleteStudent(st.id);
+                                  showToast(`Access revoked for ${st.name}.`);
+                                }
+                              }}
+                              className="text-gray-500 hover:text-red-400 p-1 rounded-lg transition-colors cursor-pointer shrink-0"
+                              title="Revoke Access"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-center py-6 text-xs text-gray-500">
+                          No students enrolled yet for this course.
+                        </div>
+                      )}
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        setNewStudentForm({
+                          name: '',
+                          email: '',
+                          phone: '',
+                          courseId: currentCourse.id
+                        });
+                        setIsAddStudentModalOpen(true);
+                      }}
+                      className="w-full py-2.5 bg-[#1D212A] hover:bg-[#252A36] text-white border border-gray-700 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow"
+                    >
+                      <Plus className="w-3.5 h-3.5 text-[#FF5722]" />
+                      <span>+ Grant Free Access to a Student</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
 
@@ -2626,6 +2957,262 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                   className="px-6 py-2.5 bg-gradient-to-r from-[#FF5722] to-[#FF6E40] hover:opacity-95 text-white rounded-xl text-xs font-bold shadow-lg shadow-[#FF5722]/30 cursor-pointer"
                 >
                   Publish to Gallery
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* ADD LECTURE / UPLOAD VIDEO MODAL                          */}
+      {/* ========================================================= */}
+      {isAddLectureModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+          <div className="bg-[#14171E] border border-[#242A36] rounded-3xl w-full max-w-xl shadow-2xl p-6 sm:p-8 space-y-6 text-white relative">
+            <div className="flex items-center justify-between pb-4 border-b border-gray-800">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-[#FF5722]/15 text-[#FF5722] flex items-center justify-center font-bold">
+                  <Video className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-serif font-bold text-lg text-white">
+                    Upload Video Lecture
+                  </h3>
+                  <p className="text-xs text-gray-400">
+                    Add demonstration video to curriculum module
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsAddLectureModalOpen(false)}
+                className="p-2 text-gray-400 hover:text-white rounded-full hover:bg-gray-800 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!lectureForm.title.trim() || !lectureForm.videoUrl.trim()) {
+                  alert('Please enter Lecture Title and Video URL.');
+                  return;
+                }
+                const newLec: CourseLecture = {
+                  id: 'lec-' + Date.now(),
+                  title: lectureForm.title.trim(),
+                  duration: lectureForm.duration.trim() || '45 Mins',
+                  videoUrl: lectureForm.videoUrl.trim(),
+                  summary: lectureForm.summary.trim() || `Masterclass practical demonstration covering ${lectureForm.title}.`
+                };
+                addLectureToModule(selectedCourseIdForAdmin, targetModuleIndexForAdd, newLec);
+                showToast(`Video Lecture "${newLec.title}" added to cloud curriculum!`);
+                setIsAddLectureModalOpen(false);
+              }}
+              className="space-y-4"
+            >
+              <div>
+                <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1.5">
+                  Lecture Title *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={lectureForm.title}
+                  onChange={(e) => setLectureForm({ ...lectureForm, title: e.target.value })}
+                  placeholder="e.g. Master Demonstration: Alla Prima Glazing"
+                  className="w-full bg-[#0C0E12] border border-gray-700 rounded-xl py-2.5 px-3.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[#FF5722]"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1.5">
+                    Duration (e.g. 50 Mins)
+                  </label>
+                  <input
+                    type="text"
+                    value={lectureForm.duration}
+                    onChange={(e) => setLectureForm({ ...lectureForm, duration: e.target.value })}
+                    placeholder="45 Mins"
+                    className="w-full bg-[#0C0E12] border border-gray-700 rounded-xl py-2.5 px-3.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[#FF5722]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1.5">
+                    Storage Provider
+                  </label>
+                  <div className="text-xs text-gray-400 bg-[#0C0E12] border border-gray-800 rounded-xl py-2.5 px-3">
+                    Cloudflare R2 / YouTube / MP4
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1.5">
+                  Video Stream URL *
+                </label>
+                <input
+                  type="url"
+                  required
+                  value={lectureForm.videoUrl}
+                  onChange={(e) => setLectureForm({ ...lectureForm, videoUrl: e.target.value })}
+                  placeholder="https://... (Cloudflare R2, YouTube Unlisted, Vimeo, or Direct MP4)"
+                  className="w-full bg-[#0C0E12] border border-gray-700 rounded-xl py-2.5 px-3.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[#FF5722] font-mono text-[11px]"
+                />
+                <p className="text-[11px] text-gray-500 mt-1">
+                  Accepts YouTube embed links, Cloudflare R2 / S3 MP4 URLs, Vimeo, or Google Drive preview links.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1.5">
+                  Lecture Summary & Student Notes
+                </label>
+                <textarea
+                  rows={3}
+                  value={lectureForm.summary}
+                  onChange={(e) => setLectureForm({ ...lectureForm, summary: e.target.value })}
+                  placeholder="Key takeaways, pigment recipes, and recommended brushwork for students..."
+                  className="w-full bg-[#0C0E12] border border-gray-700 rounded-xl py-2 px-3 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[#FF5722] resize-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-800">
+                <button
+                  type="button"
+                  onClick={() => setIsAddLectureModalOpen(false)}
+                  className="px-4 py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl text-xs font-medium cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2.5 bg-gradient-to-r from-[#FF5722] to-[#FF6E40] hover:opacity-95 text-white rounded-xl text-xs font-bold shadow-lg shadow-[#FF5722]/30 cursor-pointer flex items-center gap-1.5"
+                >
+                  <Upload className="w-3.5 h-3.5" />
+                  <span>Upload & Save Lecture</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* GRANT FREE STUDENT ACCESS MODAL                           */}
+      {/* ========================================================= */}
+      {isAddStudentModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+          <div className="bg-[#14171E] border border-[#242A36] rounded-3xl w-full max-w-md shadow-2xl p-6 sm:p-8 space-y-6 text-white relative">
+            <div className="flex items-center justify-between pb-4 border-b border-gray-800">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center font-bold">
+                  <Users className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-serif font-bold text-lg text-white">
+                    Grant Student Course Access
+                  </h3>
+                  <p className="text-xs text-gray-400">
+                    Add student email for immediate course unlocking
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsAddStudentModalOpen(false)}
+                className="p-2 text-gray-400 hover:text-white rounded-full hover:bg-gray-800 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!newStudentForm.email.trim()) {
+                  alert('Please enter a valid student email.');
+                  return;
+                }
+                const selectedCourse = courses.find((c) => c.id === newStudentForm.courseId) || courses[0];
+                const newStudent: EnrolledStudent = {
+                  id: 'stu-' + Date.now(),
+                  name: newStudentForm.name.trim() || newStudentForm.email.split('@')[0],
+                  email: newStudentForm.email.trim().toLowerCase(),
+                  phone: newStudentForm.phone.trim() || '+91 98000 00000',
+                  courseId: newStudentForm.courseId,
+                  courseTitle: selectedCourse?.title || 'Fine Art Masterclass',
+                  batchSchedule: selectedCourse?.schedule || 'Weekend Atelier',
+                  enrolledDate: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+                  feesPaid: selectedCourse?.price || 349,
+                  paymentStatus: 'Paid',
+                  progressPercent: 0,
+                  avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=150&auto=format&fit=crop'
+                };
+                addStudent(newStudent);
+                showToast(`Student ${newStudent.email} enrolled successfully!`);
+                setIsAddStudentModalOpen(false);
+              }}
+              className="space-y-4"
+            >
+              <div>
+                <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1.5">
+                  Student Email *
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={newStudentForm.email}
+                  onChange={(e) => setNewStudentForm({ ...newStudentForm, email: e.target.value })}
+                  placeholder="student@example.com"
+                  className="w-full bg-[#0C0E12] border border-gray-700 rounded-xl py-2.5 px-3.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[#FF5722]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1.5">
+                  Student Full Name (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={newStudentForm.name}
+                  onChange={(e) => setNewStudentForm({ ...newStudentForm, name: e.target.value })}
+                  placeholder="e.g. Elena Rostova"
+                  className="w-full bg-[#0C0E12] border border-gray-700 rounded-xl py-2.5 px-3.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[#FF5722]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1.5">
+                  Select Course to Unlock
+                </label>
+                <select
+                  value={newStudentForm.courseId}
+                  onChange={(e) => setNewStudentForm({ ...newStudentForm, courseId: e.target.value })}
+                  className="w-full bg-[#0C0E12] border border-gray-700 rounded-xl py-2.5 px-3 text-xs text-white focus:outline-none focus:border-[#FF5722]"
+                >
+                  {courses.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.title} (${c.price} USD)
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-800">
+                <button
+                  type="button"
+                  onClick={() => setIsAddStudentModalOpen(false)}
+                  className="px-4 py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl text-xs font-medium cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-lg cursor-pointer"
+                >
+                  Grant Course Access
                 </button>
               </div>
             </form>
