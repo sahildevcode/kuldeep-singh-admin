@@ -24,7 +24,10 @@ const DEFAULT_PROFILE: ArtistProfile = {
   sanctuaryTitle: 'The Sanctuary in Chelsea, New York',
   sanctuaryLocation: 'Where centuries-old techniques meet boundless contemporary scale',
   contactEmail: 'atelier@kuldeepsingh.art',
-  studioAddress: 'West 24th Street, Gallery District, Manhattan, NY 10011'
+  studioAddress: 'West 24th Street, Gallery District, Manhattan, NY 10011',
+  studioVideoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
+  studioVideoTitle: 'Artist Kuldeep Singh • Master Oil Painting in Atelier',
+  studioVideoPoster: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=1200&auto=format&fit=crop'
 };
 
 const INITIAL_STUDENTS: EnrolledStudent[] = [
@@ -103,6 +106,7 @@ interface StudioDataContextType {
   deleteCourse: (id: string) => void;
   // Students CRUD
   addStudent: (student: EnrolledStudent) => void;
+  updateStudent: (id: string, updates: Partial<EnrolledStudent>) => void;
   deleteStudent: (id: string) => void;
   // Lecture & Module Management
   addLectureToModule: (courseId: string, moduleIndex: number, lecture: CourseLecture) => void;
@@ -126,14 +130,24 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const normalizeCourses = (courseList: Course[]): Course[] => {
     return courseList.map((c) => ({
       ...c,
-      modules: c.modules.map((m, mIdx) => {
-        if (m.lectures && m.lectures.length > 0) return m;
+      modules: (c.modules || []).map((m, mIdx) => {
+        // If lectures is already an initialized array (even if empty []), NEVER auto-generate fake lectures
+        if (Array.isArray(m.lectures)) {
+          return {
+            ...m,
+            lectures: m.lectures,
+            lessonsCount: m.lectures.length
+          };
+        }
+        // Only if m.lectures is undefined (legacy unmigrated data)
         const initialLecs: CourseLecture[] = (m.topics || []).map((top, tIdx) => ({
           id: `lec-${c.id}-${m.id || mIdx}-${tIdx + 1}`,
           title: top,
           duration: '45 Mins',
           videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
-          summary: `Master practical demonstration by Artist Kuldeep Singh covering ${top}.`
+          summary: `Master practical demonstration by Artist Kuldeep Singh covering ${top}.`,
+          accessType: 'enrolled',
+          isFreePreview: false
         }));
         return {
           ...m,
@@ -263,7 +277,7 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         const courseRes = await fetch('https://kuldeep-singh-backend.onrender.com/api/courses');
         if (courseRes.ok) {
           const cloudCourses: Course[] = await courseRes.json();
-          if (Array.isArray(cloudCourses) && cloudCourses.length > 0 && isMounted) {
+          if (Array.isArray(cloudCourses) && isMounted) {
             setCourses(normalizeCourses(cloudCourses));
           }
         }
@@ -272,7 +286,7 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         const stuRes = await fetch('https://kuldeep-singh-backend.onrender.com/api/students');
         if (stuRes.ok) {
           const cloudStudents: EnrolledStudent[] = await stuRes.json();
-          if (Array.isArray(cloudStudents) && cloudStudents.length > 0 && isMounted) {
+          if (Array.isArray(cloudStudents) && isMounted) {
             setStudents(cloudStudents);
           }
         }
@@ -282,10 +296,32 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     };
 
     syncAllWithCloud();
-    const interval = setInterval(syncAllWithCloud, 6000);
+    const interval = setInterval(syncAllWithCloud, 2500);
+
+    let eventSource: EventSource | null = null;
+    try {
+      eventSource = new EventSource('https://kuldeep-singh-backend.onrender.com/api/events');
+      eventSource.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(event.data);
+          if (payload.type === 'STUDENT_ENROLLED' && payload.data) {
+            setStudents((prev) => {
+              if (prev.some((s) => s.id === payload.data.id)) return prev;
+              return [payload.data, ...prev];
+            });
+          }
+        } catch {
+          // ignore
+        }
+      };
+    } catch {
+      // fallback to polling
+    }
+
     return () => {
       isMounted = false;
       clearInterval(interval);
+      if (eventSource) eventSource.close();
     };
   }, []);
 
@@ -363,8 +399,17 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   // Course Handlers
-  const addCourse = (course: Course) => {
+  const addCourse = async (course: Course) => {
     setCourses((prev) => [course, ...prev]);
+    try {
+      await fetch('https://kuldeep-singh-backend.onrender.com/api/courses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(course)
+      });
+    } catch (e) {
+      console.error('Failed to sync new course to backend:', e);
+    }
   };
 
   const updateCourse = async (id: string, updates: Partial<Course>) => {
@@ -392,12 +437,20 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   };
 
-  const deleteCourse = (id: string) => {
+  const deleteCourse = async (id: string) => {
     setCourses((prev) => prev.filter((c) => c.id !== id));
+    try {
+      await fetch(`https://kuldeep-singh-backend.onrender.com/api/courses/${id}`, {
+        method: 'DELETE'
+      });
+    } catch (e) {
+      console.error('Failed to delete course from backend:', e);
+    }
   };
 
   // Lecture Handlers (Optimistic Local + 24/7 Cloud Sync)
   const addLectureToModule = async (courseId: string, moduleIndex: number, lecture: CourseLecture) => {
+    let updatedCourse: Course | null = null;
     setCourses((prev) =>
       prev.map((course) => {
         if (course.id !== courseId) return course;
@@ -408,33 +461,44 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           ...newModules[moduleIndex],
           lectures: [...currentLectures, lecture],
           lessonsCount: currentLectures.length + 1,
-          topics: [...newModules[moduleIndex].topics, lecture.title]
+          topics: [...(newModules[moduleIndex].topics || []), lecture.title]
         };
         const total = newModules.reduce((acc, m) => acc + (m.lectures ? m.lectures.length : m.lessonsCount), 0);
-        return {
+        const resCourse = {
           ...course,
           modules: newModules,
           totalLessons: total
         };
+        updatedCourse = resCourse;
+        return resCourse;
       })
     );
+
     try {
       await fetch(`https://kuldeep-singh-backend.onrender.com/api/courses/${courseId}/modules/${moduleIndex}/lectures`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(lecture)
       });
+      if (updatedCourse) {
+        await fetch(`https://kuldeep-singh-backend.onrender.com/api/courses/${courseId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updatedCourse)
+        });
+      }
     } catch (e) {
       console.error('Failed to sync new lecture to backend:', e);
     }
   };
 
-  const updateLectureInModule = (
+  const updateLectureInModule = async (
     courseId: string,
     moduleIndex: number,
     lectureIndex: number,
     updates: Partial<CourseLecture>
   ) => {
+    let updatedCourse: Course | null = null;
     setCourses((prev) =>
       prev.map((course) => {
         if (course.id !== courseId) return course;
@@ -445,14 +509,30 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         currentLectures[lectureIndex] = { ...currentLectures[lectureIndex], ...updates };
         newModules[moduleIndex] = {
           ...newModules[moduleIndex],
-          lectures: currentLectures
+          lectures: currentLectures,
+          topics: currentLectures.map((l) => l.title)
         };
-        return { ...course, modules: newModules };
+        const resCourse = { ...course, modules: newModules };
+        updatedCourse = resCourse;
+        return resCourse;
       })
     );
+
+    if (updatedCourse) {
+      try {
+        await fetch(`https://kuldeep-singh-backend.onrender.com/api/courses/${courseId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updatedCourse)
+        });
+      } catch (e) {
+        console.error('Failed to sync updated lecture to backend:', e);
+      }
+    }
   };
 
-  const deleteLectureFromModule = (courseId: string, moduleIndex: number, lectureIndex: number) => {
+  const deleteLectureFromModule = async (courseId: string, moduleIndex: number, lectureIndex: number) => {
+    let updatedCourse: Course | null = null;
     setCourses((prev) =>
       prev.map((course) => {
         if (course.id !== courseId) return course;
@@ -462,15 +542,34 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         newModules[moduleIndex] = {
           ...newModules[moduleIndex],
           lectures: currentLectures,
-          lessonsCount: currentLectures.length
+          lessonsCount: currentLectures.length,
+          topics: currentLectures.map((l) => l.title)
         };
         const total = newModules.reduce((acc, m) => acc + (m.lectures ? m.lectures.length : m.lessonsCount), 0);
-        return { ...course, modules: newModules, totalLessons: total };
+        const resCourse = { ...course, modules: newModules, totalLessons: total };
+        updatedCourse = resCourse;
+        return resCourse;
       })
     );
+
+    try {
+      await fetch(`https://kuldeep-singh-backend.onrender.com/api/courses/${courseId}/modules/${moduleIndex}/lectures/${lectureIndex}`, {
+        method: 'DELETE'
+      });
+      if (updatedCourse) {
+        await fetch(`https://kuldeep-singh-backend.onrender.com/api/courses/${courseId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updatedCourse)
+        });
+      }
+    } catch (e) {
+      console.error('Failed to sync deleted lecture to backend:', e);
+    }
   };
 
-  const addModuleToCourse = (courseId: string, title?: string, duration?: string) => {
+  const addModuleToCourse = async (courseId: string, title?: string, duration?: string) => {
+    let updatedCourse: Course | null = null;
     setCourses((prev) =>
       prev.map((course) => {
         if (course.id !== courseId) return course;
@@ -479,30 +578,59 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           title: title || `Module ${course.modules.length + 1}: Masterclass Continuation`,
           duration: duration || '3 Weeks',
           lessonsCount: 0,
-          topics: ['Live Studio Demo', 'Technique Practice'],
+          topics: [],
           lectures: []
         };
-        return {
+        const resCourse = {
           ...course,
           modules: [...course.modules, newMod]
         };
+        updatedCourse = resCourse;
+        return resCourse;
       })
     );
+
+    if (updatedCourse) {
+      try {
+        await fetch(`https://kuldeep-singh-backend.onrender.com/api/courses/${courseId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updatedCourse)
+        });
+      } catch (e) {
+        console.error('Failed to sync new module to backend:', e);
+      }
+    }
   };
 
-  const deleteModuleFromCourse = (courseId: string, moduleIndex: number) => {
+  const deleteModuleFromCourse = async (courseId: string, moduleIndex: number) => {
+    let updatedCourse: Course | null = null;
     setCourses((prev) =>
       prev.map((course) => {
         if (course.id !== courseId) return course;
         const newModules = course.modules.filter((_, idx) => idx !== moduleIndex);
         const total = newModules.reduce((acc, m) => acc + (m.lectures ? m.lectures.length : m.lessonsCount), 0);
-        return {
+        const resCourse = {
           ...course,
           modules: newModules,
           totalLessons: total
         };
+        updatedCourse = resCourse;
+        return resCourse;
       })
     );
+
+    if (updatedCourse) {
+      try {
+        await fetch(`https://kuldeep-singh-backend.onrender.com/api/courses/${courseId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updatedCourse)
+        });
+      } catch (e) {
+        console.error('Failed to sync deleted module to backend:', e);
+      }
+    }
   };
 
   // Profile Handlers
@@ -535,6 +663,21 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       });
     } catch (e) {
       console.error('Failed to sync new student to cloud backend:', e);
+    }
+  };
+
+  const updateStudent = async (id: string, updates: Partial<EnrolledStudent>) => {
+    setStudents((prev) =>
+      prev.map((s) => (s.id === id ? { ...s, ...updates } : s))
+    );
+    try {
+      await fetch(`https://kuldeep-singh-backend.onrender.com/api/students/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates)
+      });
+    } catch (e) {
+      console.error('Failed to update student on cloud backend:', e);
     }
   };
 
@@ -580,6 +723,7 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         updateCourse,
         deleteCourse,
         addStudent,
+        updateStudent,
         deleteStudent,
         addLectureToModule,
         updateLectureInModule,
