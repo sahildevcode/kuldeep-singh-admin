@@ -180,8 +180,9 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
     artistProfile?.studioVideoPoster || 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=1200&auto=format&fit=crop'
   );
   const [videoFileFeedback, setVideoFileFeedback] = useState<string>('');
+  const [isUploadingVideo, setIsUploadingVideo] = useState<boolean>(false);
 
-  const handleVideoFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleVideoFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -190,10 +191,59 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
       return;
     }
 
-    const objUrl = URL.createObjectURL(file);
-    setVideoUrl(objUrl);
-    setVideoFileFeedback(`Selected: ${file.name} (${(file.size / (1024 * 1024)).toFixed(1)} MB)`);
-    showToast(`✅ Video "${file.name}" loaded for preview! Click "Publish to Website" to save.`);
+    const fileSizeMB = (file.size / (1024 * 1024)).toFixed(1);
+    setVideoFileFeedback(`⏳ Uploading "${file.name}" (${fileSizeMB} MB) to Bunny Stream Cloud CDN...`);
+    setIsUploadingVideo(true);
+    showToast(`⏳ Uploading "${file.name}" to Bunny Stream Cloud...`);
+
+    try {
+      const formData = new FormData();
+      formData.append('video', file);
+      formData.append('title', videoTitle || file.name);
+
+      let res: Response;
+      try {
+        res = await fetch('https://kuldeep-singh-backend.onrender.com/api/upload/video', {
+          method: 'POST',
+          body: formData,
+        });
+        if (!res.ok) throw new Error('Remote cloud upload failed');
+      } catch {
+        res = await fetch('http://localhost:5000/api/upload/video', {
+          method: 'POST',
+          body: formData,
+        });
+      }
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.details || errData.error || `Upload failed with status ${res.status}`);
+      }
+
+      const result = await res.json();
+      const finalUrl = result.embedUrl || result.directPlayUrl;
+      setVideoUrl(finalUrl);
+      if (result.thumbnailUrl) {
+        setVideoPoster(result.thumbnailUrl);
+      }
+      setVideoFileFeedback(`✅ Successfully uploaded to Bunny Stream! (GUID: ${result.videoGuid})`);
+      showToast('🚀 Video uploaded to Bunny Stream CDN & saved to MongoDB Atlas!');
+
+      // Automatically sync profile to cloud & context
+      updateArtistProfile({
+        studioVideoUrl: finalUrl,
+        studioVideoTitle: videoTitle || file.name,
+        studioVideoPoster: result.thumbnailUrl || videoPoster,
+      });
+    } catch (err: any) {
+      console.error('Bunny video upload error:', err);
+      const objUrl = URL.createObjectURL(file);
+      setVideoUrl(objUrl);
+      setVideoFileFeedback(`⚠️ Cloud upload error: ${err.message}. Showing local preview.`);
+      showToast(`⚠️ Upload failed: ${err.message}`);
+    } finally {
+      setIsUploadingVideo(false);
+    }
   };
 
   const handleVideoPosterUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -209,7 +259,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
     reader.readAsDataURL(file);
   };
 
-  const handleSaveVideoShowcase = () => {
+  const handleSaveVideoShowcase = async () => {
     if (!videoUrl.trim()) {
       showToast('⚠️ Please enter or upload a video');
       return;
@@ -219,6 +269,29 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
       studioVideoTitle: videoTitle,
       studioVideoPoster: videoPoster,
     });
+
+    try {
+      await fetch('https://kuldeep-singh-backend.onrender.com/api/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          studioVideoUrl: videoUrl,
+          studioVideoTitle: videoTitle,
+          studioVideoPoster: videoPoster,
+        }),
+      });
+    } catch {
+      await fetch('http://localhost:5000/api/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          studioVideoUrl: videoUrl,
+          studioVideoTitle: videoTitle,
+          studioVideoPoster: videoPoster,
+        }),
+      }).catch(() => {});
+    }
+
     showToast('🚀 Atelier Video published and live on website!');
   };
 
@@ -1283,13 +1356,23 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                           <p className="text-xs text-white font-medium">Click to select video from your PC</p>
                           <p className="text-[10px] text-gray-500 mt-1">Recommended duration: 1 to 2 minutes</p>
 
-                          <label className="mt-3 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-white font-bold text-xs cursor-pointer border border-gray-700 transition-colors">
-                            <Upload className="w-3.5 h-3.5 text-[#FF5722]" />
-                            <span>Browse Video File</span>
+                          <label className={`mt-3 inline-flex items-center gap-2 px-4 py-2 rounded-xl ${isUploadingVideo ? 'bg-amber-600/30 text-amber-300 border-amber-500/40 cursor-wait' : 'bg-gray-800 hover:bg-gray-700 text-white cursor-pointer border-gray-700'} font-bold text-xs border transition-colors`}>
+                            {isUploadingVideo ? (
+                              <>
+                                <span className="w-3.5 h-3.5 border-2 border-amber-300 border-t-transparent rounded-full animate-spin" />
+                                <span>Uploading to Bunny Stream...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Upload className="w-3.5 h-3.5 text-[#FF5722]" />
+                                <span>Browse Video File</span>
+                              </>
+                            )}
                             <input
                               type="file"
                               accept="video/mp4,video/webm,video/quicktime"
                               onChange={handleVideoFileUpload}
+                              disabled={isUploadingVideo}
                               className="hidden"
                             />
                           </label>
@@ -1392,7 +1475,15 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                         {/* Player Frame */}
                         <div className="relative aspect-video rounded-2xl overflow-hidden bg-black border border-gray-800 shadow-2xl flex items-center justify-center group">
                           {videoUrl ? (
-                            videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be') ? (
+                            videoUrl.includes('mediadelivery.net') ? (
+                              <iframe
+                                src={videoUrl}
+                                title="Bunny Stream Video Preview"
+                                className="w-full h-full border-0"
+                                allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
+                                allowFullScreen
+                              />
+                            ) : videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be') ? (
                               <iframe
                                 src={
                                   videoUrl.includes('youtu.be/')
