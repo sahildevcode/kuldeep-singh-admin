@@ -23,8 +23,10 @@ import {
   Film,
   Link as LinkIcon,
   FileVideo,
-  AlertCircle
+  AlertCircle,
+  Cloud
 } from 'lucide-react';
+import * as tus from 'tus-js-client';
 import { useStudioData } from '../context/StudioDataContext';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
@@ -700,13 +702,17 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
     previewUrl?: string;
   } | null>(null);
   const [isProcessingVideoFile, setIsProcessingVideoFile] = useState(false);
+  const [uploadProgressPercent, setUploadProgressPercent] = useState<number>(0);
+  const [uploadedBytesStr, setUploadedBytesStr] = useState<string>('');
+  const [uploadSpeedStr, setUploadSpeedStr] = useState<string>('');
+  const [currentTusUpload, setCurrentTusUpload] = useState<tus.Upload | null>(null);
 
   const handleVideoFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     const sizeMb = file.size / (1024 * 1024);
-    const sizeStr = sizeMb >= 1024 ? (sizeMb / 1024).toFixed(1) + ' GB' : sizeMb.toFixed(1) + ' MB';
+    const sizeStr = sizeMb >= 1024 ? (sizeMb / 1024).toFixed(2) + ' GB' : sizeMb.toFixed(1) + ' MB';
     const preview = URL.createObjectURL(file);
 
     setSelectedVideoFile({
@@ -727,43 +733,91 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
     }
 
     setIsProcessingVideoFile(true);
-    showToast(`⏳ Uploading "${file.name}" (${sizeStr}) to Bunny Stream CDN...`);
+    setUploadProgressPercent(0);
+    setUploadedBytesStr(`0 MB / ${sizeStr}`);
+    setUploadSpeedStr('');
+    showToast(`⏳ Connecting directly to Bunny.net for "${file.name}" (${sizeStr})...`);
 
     try {
-      const formData = new FormData();
-      formData.append('video', file);
-      formData.append('title', titleToUse);
-      formData.append('isProfileVideo', 'false');
-
-      let res: Response;
+      // 1. Get Direct TUS Upload Token from Backend
+      let tokenRes: Response;
       try {
-        res = await fetch('https://kuldeep-singh-backend.onrender.com/api/upload/video', {
+        tokenRes = await fetch('https://kuldeep-singh-backend.onrender.com/api/upload/bunny-token', {
           method: 'POST',
-          body: formData
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: titleToUse })
         });
-        if (!res.ok) throw new Error('Remote cloud upload failed');
+        if (!tokenRes.ok) throw new Error('Remote token generation failed');
       } catch {
-        res = await fetch('http://localhost:5000/api/upload/video', {
+        tokenRes = await fetch('http://localhost:5000/api/upload/bunny-token', {
           method: 'POST',
-          body: formData
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: titleToUse })
         });
       }
 
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.details || errData.error || `Upload failed status ${res.status}`);
+      if (!tokenRes.ok) {
+        const err = await tokenRes.json().catch(() => ({}));
+        throw new Error(err.details || err.error || `Token request failed status ${tokenRes.status}`);
       }
 
-      const result = await res.json();
-      const finalUrl = result.embedUrl || result.directPlayUrl;
-      setLectureForm((prev) => ({ ...prev, videoUrl: finalUrl }));
-      showToast(`🚀 Video uploaded to Bunny Stream CDN! (GUID: ${result.videoGuid})`);
+      const authData = await tokenRes.json();
+      const { libraryId, videoId, expiration, signature, embedUrl } = authData;
+
+      let lastLoaded = 0;
+      let lastTime = Date.now();
+
+      // 2. Direct TUS Resumable Upload Straight From Browser into Bunny.net CDN
+      const upload = new tus.Upload(file, {
+        endpoint: 'https://video.bunnycdn.com/tusupload',
+        retryDelays: [0, 3000, 5000, 10000, 20000],
+        headers: {
+          AuthorizationSignature: signature,
+          AuthorizationExpire: expiration.toString(),
+          LibraryId: libraryId.toString(),
+          VideoId: videoId
+        },
+        metadata: {
+          filename: file.name,
+          filetype: file.type || 'video/mp4',
+          title: titleToUse
+        },
+        onError: (error) => {
+          console.error('Bunny TUS Direct Upload Error:', error);
+          setIsProcessingVideoFile(false);
+          showToast(`❌ Bunny.net upload error: ${error.message}`);
+        },
+        onProgress: (bytesUploaded, bytesTotal) => {
+          const percent = Math.min(100, Math.round((bytesUploaded / bytesTotal) * 100));
+          const uploadedMb = (bytesUploaded / (1024 * 1024)).toFixed(1);
+          const totalMb = (bytesTotal / (1024 * 1024)).toFixed(1);
+          const now = Date.now();
+          const timeDiff = (now - lastTime) / 1000;
+          if (timeDiff >= 0.8) {
+            const bytesDiff = bytesUploaded - lastLoaded;
+            const speedMb = (bytesDiff / (1024 * 1024) / timeDiff).toFixed(1);
+            setUploadSpeedStr(`${speedMb} MB/s`);
+            lastLoaded = bytesUploaded;
+            lastTime = now;
+          }
+          setUploadProgressPercent(percent);
+          setUploadedBytesStr(`${uploadedMb} MB / ${totalMb} MB`);
+        },
+        onSuccess: () => {
+          setIsProcessingVideoFile(false);
+          setUploadProgressPercent(100);
+          setLectureForm((prev) => ({ ...prev, videoUrl: embedUrl }));
+          showToast(`🎉 100% Uploaded directly to Bunny.net CDN! (GUID: ${videoId})`);
+        }
+      });
+
+      setCurrentTusUpload(upload);
+      upload.start();
     } catch (err: any) {
       console.warn('Bunny Stream lecture upload error:', err);
-      showToast(`⚠️ Cloud upload error: ${err.message}. You can paste a YouTube / Google Drive / MP4 link.`);
-      setLectureForm((prev) => ({ ...prev, videoUrl: preview }));
-    } finally {
+      showToast(`⚠️ Direct Bunny upload error: ${err.message}. You can paste a YouTube / Google Drive / MP4 link.`);
       setIsProcessingVideoFile(false);
+      setLectureForm((prev) => ({ ...prev, videoUrl: preview }));
     }
   };
 
@@ -2514,10 +2568,57 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                             </span>
                           </div>
 
-                          {isProcessingVideoFile && (
-                            <div className="text-[11px] text-amber-400 flex items-center gap-1.5 animate-pulse">
-                              <Sparkles className="w-3.5 h-3.5" />
-                              <span>Uploading to Bunny Stream Cloud CDN & generating secure player...</span>
+                          {/* Live Real-Time TUS Upload Progress Indicator */}
+                          {(isProcessingVideoFile || uploadProgressPercent > 0) && (
+                            <div className="p-3.5 rounded-xl bg-[#0F1218] border border-amber-500/40 space-y-2.5 animate-in fade-in ring-2 ring-amber-500/10">
+                              <div className="flex items-center justify-between text-xs">
+                                <div className="flex items-center gap-2">
+                                  <div className={`w-2.5 h-2.5 rounded-full ${uploadProgressPercent === 100 ? 'bg-emerald-400' : 'bg-amber-400 animate-ping'}`} />
+                                  <span className="font-bold text-white flex items-center gap-1.5">
+                                    <Cloud className="w-3.5 h-3.5 text-amber-400" />
+                                    {uploadProgressPercent === 100
+                                      ? '✅ Uploaded to Bunny.net (100%)'
+                                      : `Uploading to Bunny.net CDN (${uploadProgressPercent}%)`}
+                                  </span>
+                                </div>
+                                <span className="font-mono text-emerald-400 font-bold text-[11px] bg-stone-900 px-2 py-0.5 rounded-md border border-stone-800">
+                                  {uploadedBytesStr} {uploadSpeedStr && `• ${uploadSpeedStr}`}
+                                </span>
+                              </div>
+
+                              {/* Visual Progress Bar Track */}
+                              <div className="w-full h-2.5 bg-stone-900 rounded-full overflow-hidden border border-stone-800 p-0.5">
+                                <div
+                                  className={`h-full rounded-full transition-all duration-300 ${
+                                    uploadProgressPercent === 100
+                                      ? 'bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.8)]'
+                                      : 'bg-gradient-to-r from-amber-500 via-orange-500 to-emerald-400 shadow-[0_0_10px_rgba(245,158,11,0.5)]'
+                                  }`}
+                                  style={{ width: `${Math.max(2, uploadProgressPercent)}%` }}
+                                />
+                              </div>
+
+                              <div className="flex items-center justify-between text-[11px] text-gray-400">
+                                <span>
+                                  {uploadProgressPercent === 100
+                                    ? '🚀 Ready! Click "Upload & Save Lecture" below.'
+                                    : 'Direct TUS Upload to Bunny Stream CDN'}
+                                </span>
+                                {uploadProgressPercent > 0 && uploadProgressPercent < 100 && currentTusUpload && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      currentTusUpload.abort();
+                                      setIsProcessingVideoFile(false);
+                                      setUploadProgressPercent(0);
+                                      showToast('Upload cancelled');
+                                    }}
+                                    className="text-red-400 hover:text-red-300 font-semibold underline cursor-pointer"
+                                  >
+                                    Cancel
+                                  </button>
+                                )}
+                              </div>
                             </div>
                           )}
 
