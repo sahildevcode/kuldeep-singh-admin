@@ -563,8 +563,35 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
     const reader = new FileReader();
     reader.onload = () => {
       if (typeof reader.result === 'string') {
-        setNewBatchForm((prev) => ({ ...prev, thumbnail: reader.result as string }));
-        showToast('✅ Banner image uploaded successfully!');
+        const img = new Image();
+        img.onload = () => {
+          const maxDim = 1200;
+          let width = img.width;
+          let height = img.height;
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            const optimizedBase64 = canvas.toDataURL('image/jpeg', 0.82);
+            setNewBatchForm((prev) => ({ ...prev, thumbnail: optimizedBase64 }));
+            showToast('✅ Banner image optimized and loaded successfully!');
+            return;
+          }
+          setNewBatchForm((prev) => ({ ...prev, thumbnail: reader.result as string }));
+          showToast('✅ Banner image uploaded successfully!');
+        };
+        img.src = reader.result as string;
       }
     };
     reader.readAsDataURL(file);
@@ -674,7 +701,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
   } | null>(null);
   const [isProcessingVideoFile, setIsProcessingVideoFile] = useState(false);
 
-  const handleVideoFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleVideoFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -689,33 +716,54 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
       previewUrl: preview
     });
 
-    // Auto-fill lecture title if empty
+    const cleanTitle = file.name
+      .replace(/\.[^/.]+$/, '')
+      .replace(/[_-]+/g, ' ')
+      .replace(/\b\w/g, (l) => l.toUpperCase());
+
+    const titleToUse = lectureForm.title || cleanTitle;
     if (!lectureForm.title) {
-      const cleanTitle = file.name
-        .replace(/\.[^/.]+$/, '')
-        .replace(/[_-]+/g, ' ')
-        .replace(/\b\w/g, (l) => l.toUpperCase());
       setLectureForm((prev) => ({ ...prev, title: cleanTitle }));
     }
 
-    if (sizeMb <= 45) {
-      setIsProcessingVideoFile(true);
-      const reader = new FileReader();
-      reader.onload = () => {
-        if (typeof reader.result === 'string') {
-          setLectureForm((prev) => ({ ...prev, videoUrl: reader.result as string }));
-          showToast(`✅ Video file "${file.name}" loaded successfully (${sizeStr})!`);
-        }
-        setIsProcessingVideoFile(false);
-      };
-      reader.onerror = () => {
-        setIsProcessingVideoFile(false);
-        showToast('❌ Error reading video file');
-      };
-      reader.readAsDataURL(file);
-    } else {
+    setIsProcessingVideoFile(true);
+    showToast(`⏳ Uploading "${file.name}" (${sizeStr}) to Bunny Stream CDN...`);
+
+    try {
+      const formData = new FormData();
+      formData.append('video', file);
+      formData.append('title', titleToUse);
+      formData.append('isProfileVideo', 'false');
+
+      let res: Response;
+      try {
+        res = await fetch('https://kuldeep-singh-backend.onrender.com/api/upload/video', {
+          method: 'POST',
+          body: formData
+        });
+        if (!res.ok) throw new Error('Remote cloud upload failed');
+      } catch {
+        res = await fetch('http://localhost:5000/api/upload/video', {
+          method: 'POST',
+          body: formData
+        });
+      }
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.details || errData.error || `Upload failed status ${res.status}`);
+      }
+
+      const result = await res.json();
+      const finalUrl = result.embedUrl || result.directPlayUrl;
+      setLectureForm((prev) => ({ ...prev, videoUrl: finalUrl }));
+      showToast(`🚀 Video uploaded to Bunny Stream CDN! (GUID: ${result.videoGuid})`);
+    } catch (err: any) {
+      console.warn('Bunny Stream lecture upload error:', err);
+      showToast(`⚠️ Cloud upload error: ${err.message}. You can paste a YouTube / Google Drive / MP4 link.`);
       setLectureForm((prev) => ({ ...prev, videoUrl: preview }));
-      showToast(`⚠️ File size is ${sizeStr}. Large files work best via Google Drive or YouTube Unlisted!`);
+    } finally {
+      setIsProcessingVideoFile(false);
     }
   };
 
@@ -738,8 +786,16 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
 
   const handleSaveLecture = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isProcessingVideoFile) {
+      showToast('⏳ Video is still uploading to Bunny Stream. Please wait a moment...');
+      return;
+    }
     if (!lectureForm.title.trim() || !lectureForm.videoUrl.trim()) {
       showToast('Please provide lecture title and video stream URL');
+      return;
+    }
+    if (lectureForm.videoUrl.startsWith('data:video')) {
+      showToast('⚠️ Base64 video format not supported. Please wait for Bunny Stream upload or paste video URL.');
       return;
     }
     const finalCourseId = targetCourseIdForUpload || selectedLiveBatchId || (courses[0]?.id);
@@ -2461,7 +2517,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                           {isProcessingVideoFile && (
                             <div className="text-[11px] text-amber-400 flex items-center gap-1.5 animate-pulse">
                               <Sparkles className="w-3.5 h-3.5" />
-                              <span>Loading video file into atelier player...</span>
+                              <span>Uploading to Bunny Stream Cloud CDN & generating secure player...</span>
                             </div>
                           )}
 

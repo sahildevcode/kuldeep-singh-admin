@@ -278,7 +278,38 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         if (courseRes.ok) {
           const cloudCourses: Course[] = await courseRes.json();
           if (Array.isArray(cloudCourses) && isMounted) {
-            setCourses(normalizeCourses(cloudCourses));
+            let savedLocal: Course[] = [];
+            try {
+              const localStr = localStorage.getItem('kuldeep_studio_courses');
+              if (localStr) savedLocal = JSON.parse(localStr);
+            } catch (e) {
+              // ignore
+            }
+
+            const pendingUploads = savedLocal.filter(
+              (localCourse) => !cloudCourses.some((c) => c.id === localCourse.id)
+            );
+
+            if (pendingUploads.length > 0) {
+              for (const pending of pendingUploads) {
+                try {
+                  await fetch('https://kuldeep-singh-backend.onrender.com/api/courses', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(pending)
+                  });
+                } catch (upErr) {
+                  console.warn('Pending course upload error:', upErr);
+                }
+              }
+              const refreshedRes = await fetch('https://kuldeep-singh-backend.onrender.com/api/courses');
+              if (refreshedRes.ok) {
+                const refreshed = await refreshedRes.json();
+                if (isMounted) setCourses(normalizeCourses(refreshed));
+              }
+            } else {
+              setCourses(normalizeCourses(cloudCourses));
+            }
           }
         }
 
