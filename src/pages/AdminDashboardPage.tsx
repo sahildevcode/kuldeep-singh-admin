@@ -768,9 +768,11 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
       let lastTime = Date.now();
 
       // 2. Direct TUS Resumable Upload Straight From Browser into Bunny.net CDN
+      // Optimized 25MB chunk size for high-throughput bandwidth saturation
       const upload = new tus.Upload(file, {
         endpoint: 'https://video.bunnycdn.com/tusupload',
-        retryDelays: [0, 3000, 5000, 10000, 20000],
+        chunkSize: 25 * 1024 * 1024, // 25 MB chunks eliminate HTTP round-trip latency
+        retryDelays: [0, 1000, 3000, 5000],
         headers: {
           AuthorizationSignature: signature,
           AuthorizationExpire: expiration.toString(),
@@ -795,8 +797,12 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
           const timeDiff = (now - lastTime) / 1000;
           if (timeDiff >= 0.8) {
             const bytesDiff = bytesUploaded - lastLoaded;
-            const speedMb = (bytesDiff / (1024 * 1024) / timeDiff).toFixed(1);
-            setUploadSpeedStr(`${speedMb} MB/s`);
+            const bytesPerSec = bytesDiff / timeDiff;
+            const speedMb = (bytesPerSec / (1024 * 1024)).toFixed(1);
+            const remainingBytes = bytesTotal - bytesUploaded;
+            const remainingSec = bytesPerSec > 0 ? Math.round(remainingBytes / bytesPerSec) : 0;
+            const eta = remainingSec > 60 ? `${Math.ceil(remainingSec / 60)}m left` : `${remainingSec}s left`;
+            setUploadSpeedStr(`${speedMb} MB/s (${eta})`);
             lastLoaded = bytesUploaded;
             lastTime = now;
           }
