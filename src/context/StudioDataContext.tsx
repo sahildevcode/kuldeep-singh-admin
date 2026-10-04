@@ -274,8 +274,8 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }
 
         // 2. Courses & Lectures
-        const courseRes = await fetch('https://kuldeep-singh-backend.onrender.com/api/courses');
-        if (courseRes.ok) {
+        const courseRes = await fetch('https://kuldeep-singh-backend.onrender.com/api/courses').catch(() => null);
+        if (courseRes && courseRes.ok) {
           const cloudCourses: Course[] = await courseRes.json();
           if (Array.isArray(cloudCourses) && isMounted) {
             let savedLocal: Course[] = [];
@@ -286,29 +286,68 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
               // ignore
             }
 
-            const pendingUploads = savedLocal.filter(
+            // SMART MERGE: Never allow cloud to wipe out local lectures!
+            let hasLocalLecturesToSync = false;
+            const mergedCourses = cloudCourses.map((cloudC) => {
+              const localC = savedLocal.find((l) => l.id === cloudC.id);
+              if (!localC) return cloudC;
+
+              const mergedModules = (cloudC.modules || []).map((cloudM, mIdx) => {
+                const localM = localC.modules?.[mIdx];
+                if (!localM) return cloudM;
+
+                const cloudLecs = cloudM.lectures || [];
+                const localLecs = localM.lectures || [];
+
+                // Keep local lectures that might not have reached the cloud yet
+                const missingInCloud = localLecs.filter(
+                  (lLec) => !cloudLecs.some((cLec) => cLec.id === lLec.id || (cLec.videoUrl && cLec.videoUrl === lLec.videoUrl))
+                );
+
+                if (missingInCloud.length > 0) {
+                  hasLocalLecturesToSync = true;
+                  const allLecs = [...cloudLecs, ...missingInCloud];
+                  return {
+                    ...cloudM,
+                    lectures: allLecs,
+                    lessonsCount: allLecs.length,
+                    topics: allLecs.map((l) => l.title)
+                  };
+                }
+                return cloudM;
+              });
+
+              return {
+                ...cloudC,
+                modules: mergedModules,
+                totalLessons: mergedModules.reduce((acc, m) => acc + (m.lectures?.length || m.lessonsCount || 0), 0)
+              };
+            });
+
+            // Also keep courses that exist locally but not yet on cloud
+            const pendingNewCourses = savedLocal.filter(
               (localCourse) => !cloudCourses.some((c) => c.id === localCourse.id)
             );
 
-            if (pendingUploads.length > 0) {
-              for (const pending of pendingUploads) {
+            const finalCourses = [...mergedCourses, ...pendingNewCourses];
+
+            if (isMounted) {
+              setCourses(normalizeCourses(finalCourses));
+            }
+
+            // Push pending local courses and lectures back to cloud to keep cloud 100% in sync
+            if (hasLocalLecturesToSync || pendingNewCourses.length > 0) {
+              for (const courseToSync of finalCourses) {
                 try {
-                  await fetch('https://kuldeep-singh-backend.onrender.com/api/courses', {
-                    method: 'POST',
+                  await fetch(`https://kuldeep-singh-backend.onrender.com/api/courses/${courseToSync.id}`, {
+                    method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(pending)
+                    body: JSON.stringify(courseToSync)
                   });
-                } catch (upErr) {
-                  console.warn('Pending course upload error:', upErr);
+                } catch {
+                  // ignore
                 }
               }
-              const refreshedRes = await fetch('https://kuldeep-singh-backend.onrender.com/api/courses');
-              if (refreshedRes.ok) {
-                const refreshed = await refreshedRes.json();
-                if (isMounted) setCourses(normalizeCourses(refreshed));
-              }
-            } else {
-              setCourses(normalizeCourses(cloudCourses));
             }
           }
         }
@@ -479,21 +518,35 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   };
 
-  // Lecture Handlers (Optimistic Local + 24/7 Cloud Sync)
+  // Lecture Handlers (Optimistic Local + Instant LocalStorage + 24/7 Cloud Sync)
   const addLectureToModule = async (courseId: string, moduleIndex: number, lecture: CourseLecture) => {
     let updatedCourse: Course | null = null;
-    setCourses((prev) =>
-      prev.map((course) => {
+    setCourses((prev) => {
+      const updated = prev.map((course) => {
         if (course.id !== courseId) return course;
         const newModules = [...course.modules];
-        if (!newModules[moduleIndex]) return course;
-        const currentLectures = newModules[moduleIndex].lectures || [];
-        newModules[moduleIndex] = {
-          ...newModules[moduleIndex],
-          lectures: [...currentLectures, lecture],
-          lessonsCount: currentLectures.length + 1,
-          topics: [...(newModules[moduleIndex].topics || []), lecture.title]
-        };
+        if (!newModules[moduleIndex]) {
+          newModules[moduleIndex] = {
+            id: `mod-${Date.now()}-1`,
+            title: 'Module 1: Foundations & Live Orientation',
+            duration: '2 Weeks',
+            lessonsCount: 1,
+            topics: [lecture.title],
+            lectures: [lecture]
+          };
+        } else {
+          const currentLectures = newModules[moduleIndex].lectures || [];
+          if (currentLectures.some((l) => l.id === lecture.id || (l.videoUrl && l.videoUrl === lecture.videoUrl))) {
+            return course;
+          }
+          const allLecs = [...currentLectures, lecture];
+          newModules[moduleIndex] = {
+            ...newModules[moduleIndex],
+            lectures: allLecs,
+            lessonsCount: allLecs.length,
+            topics: [...(newModules[moduleIndex].topics || []), lecture.title]
+          };
+        }
         const total = newModules.reduce((acc, m) => acc + (m.lectures ? m.lectures.length : m.lessonsCount), 0);
         const resCourse = {
           ...course,
@@ -502,24 +555,51 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         };
         updatedCourse = resCourse;
         return resCourse;
-      })
-    );
-
-    try {
-      await fetch(`https://kuldeep-singh-backend.onrender.com/api/courses/${courseId}/modules/${moduleIndex}/lectures`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(lecture)
       });
-      if (updatedCourse) {
-        await fetch(`https://kuldeep-singh-backend.onrender.com/api/courses/${courseId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updatedCourse)
-        });
+
+      // Synchronously write to localStorage immediately so page refresh NEVER loses it!
+      try {
+        localStorage.setItem('kuldeep_studio_courses', JSON.stringify(updated));
+      } catch (err) {
+        console.error('LocalStorage write error:', err);
       }
-    } catch (e) {
-      console.error('Failed to sync new lecture to backend:', e);
+
+      return updated;
+    });
+
+    const backendEndpoints = [
+      'https://kuldeep-singh-backend.onrender.com',
+      'http://localhost:5000'
+    ];
+
+    for (const baseUrl of backendEndpoints) {
+      try {
+        const postRes = await fetch(`${baseUrl}/api/courses/${courseId}/modules/${moduleIndex}/lectures`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(lecture)
+        });
+        if (postRes.ok) {
+          console.log(`[StudioData] Synced lecture to ${baseUrl}`);
+          break;
+        }
+      } catch {
+        // try next
+      }
+    }
+
+    if (updatedCourse) {
+      for (const baseUrl of backendEndpoints) {
+        try {
+          await fetch(`${baseUrl}/api/courses/${courseId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updatedCourse)
+          });
+        } catch {
+          // ignore
+        }
+      }
     }
   };
 

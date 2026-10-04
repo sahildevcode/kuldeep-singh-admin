@@ -678,6 +678,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
 
   // Upload Video Lecture Modal State
   const [isAddLectureModalOpen, setIsAddLectureModalOpen] = useState(false);
+  const [previewingLecture, setPreviewingLecture] = useState<CourseLecture | null>(null);
   const [targetCourseIdForUpload, setTargetCourseIdForUpload] = useState<string>('');
   const [targetModuleIndexForAdd, setTargetModuleIndexForAdd] = useState(0);
   const [lectureForm, setLectureForm] = useState<{
@@ -809,11 +810,38 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
           setUploadProgressPercent(percent);
           setUploadedBytesStr(`${uploadedMb} MB / ${totalMb} MB`);
         },
-        onSuccess: () => {
+        onSuccess: async () => {
           setIsProcessingVideoFile(false);
           setUploadProgressPercent(100);
-          setLectureForm((prev) => ({ ...prev, videoUrl: embedUrl }));
-          showToast(`🎉 100% Uploaded directly to Bunny.net CDN! (GUID: ${videoId})`);
+
+          const finalTitle = lectureForm.title.trim() || titleToUse || file.name.replace(/\.[^/.]+$/, '');
+          const finalCourseId = targetCourseIdForUpload || selectedLiveBatchId || (courses[0]?.id);
+          const isFree = lectureForm.accessType === 'free';
+          const finalVideoUrl = embedUrl || `https://iframe.mediadelivery.net/embed/${libraryId}/${videoId}`;
+
+          const newLec: CourseLecture = {
+            id: `lec-${Date.now()}`,
+            title: finalTitle,
+            duration: lectureForm.duration?.trim() || '45 Mins',
+            videoUrl: finalVideoUrl,
+            summary: lectureForm.summary?.trim() || (isFree ? 'Free introductory trailer & demonstration.' : 'Master practical demonstration by Artist Kuldeep Singh.'),
+            accessType: lectureForm.accessType || 'enrolled',
+            isFreePreview: isFree
+          };
+
+          if (finalCourseId) {
+            await addLectureToModule(finalCourseId, targetModuleIndexForAdd, newLec);
+          }
+
+          // Automatically close modal immediately so user does not have to wait or wonder
+          setIsAddLectureModalOpen(false);
+          setSelectedVideoFile(null);
+          setUploadProgressPercent(0);
+          setUploadedBytesStr('');
+          setUploadSpeedStr('');
+          setLectureForm({ title: '', duration: '45 Mins', videoUrl: '', summary: '', accessType: 'enrolled' });
+
+          showToast(`🎉 100% Uploaded & Saved! Lecture "${finalTitle}" is now live in Admin!`);
         }
       });
 
@@ -847,15 +875,13 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
   const handleSaveLecture = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isProcessingVideoFile) {
-      showToast('⏳ Video is still uploading to Bunny Stream. Please wait a moment...');
+      showToast('⏳ Video is still uploading. Please wait until 100%...');
       return;
     }
-    if (!lectureForm.title.trim() || !lectureForm.videoUrl.trim()) {
-      showToast('Please provide lecture title and video stream URL');
-      return;
-    }
-    if (lectureForm.videoUrl.startsWith('data:video')) {
-      showToast('⚠️ Base64 video format not supported. Please wait for Bunny Stream upload or paste video URL.');
+    const finalTitle = lectureForm.title.trim() || selectedVideoFile?.name?.replace(/\.[^/.]+$/, '') || 'Master Class Video Lecture';
+    const finalVideoUrl = lectureForm.videoUrl.trim() || selectedVideoFile?.previewUrl;
+    if (!finalVideoUrl) {
+      showToast('Please provide a video file or paste a video URL');
       return;
     }
     const finalCourseId = targetCourseIdForUpload || selectedLiveBatchId || (courses[0]?.id);
@@ -867,18 +893,22 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
     const isFree = lectureForm.accessType === 'free';
     const newLec: CourseLecture = {
       id: `lec-${Date.now()}`,
-      title: lectureForm.title.trim(),
+      title: finalTitle,
       duration: lectureForm.duration.trim() || '45 Mins',
-      videoUrl: lectureForm.videoUrl.trim(),
+      videoUrl: finalVideoUrl,
       summary: lectureForm.summary.trim() || (isFree ? 'Free introductory trailer & demonstration.' : 'Master practical demonstration by Artist Kuldeep Singh.'),
       accessType: lectureForm.accessType,
       isFreePreview: isFree
     };
 
+    // Close modal immediately so UI does not stay stuck
+    setIsAddLectureModalOpen(false);
+    setSelectedVideoFile(null);
+    setUploadProgressPercent(0);
+    setLectureForm({ title: '', duration: '45 Mins', videoUrl: '', summary: '', accessType: 'enrolled' });
+
     await addLectureToModule(finalCourseId, targetModuleIndexForAdd, newLec);
     showToast(`✅ Video Lecture "${newLec.title}" saved as ${isFree ? 'Free Preview / Trailer' : 'Enrolled Access'}!`);
-    setIsAddLectureModalOpen(false);
-    setLectureForm({ title: '', duration: '45 Mins', videoUrl: '', summary: '', accessType: 'enrolled' });
   };
 
   // Grant Student Access Modal State
@@ -2061,6 +2091,14 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
 
                                   <div className="flex items-center gap-2 self-end sm:self-auto">
                                     <button
+                                      onClick={() => setPreviewingLecture(lec)}
+                                      className="px-2.5 py-1.5 bg-[#1B202B] hover:bg-[#252C3B] text-emerald-400 hover:text-emerald-300 rounded-xl text-xs font-bold border border-emerald-500/20 flex items-center gap-1.5 transition-colors cursor-pointer"
+                                      title="Watch / Preview Video Lecture in Admin"
+                                    >
+                                      <Film className="w-3.5 h-3.5 text-emerald-400" />
+                                      <span>Watch Video</span>
+                                    </button>
+                                    <button
                                       onClick={() => {
                                         if (window.confirm(`Permanently delete video lecture "${lec.title}"?`)) {
                                           deleteLectureFromModule(activeCourse.id, modIdx, lecIdx);
@@ -2200,9 +2238,9 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
       {/* MODAL 1: SCHEDULE NEW LIVE BATCH / MASTERCLASS (Side 2)   */}
       {/* ========================================================= */}
       {isNewBatchModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md overflow-y-auto animate-fade-in">
-          <div className="bg-[#14171E] border border-[#242A36] rounded-3xl w-full max-w-xl p-6 sm:p-8 shadow-2xl my-8 relative text-white">
-            <div className="flex items-center justify-between pb-4 border-b border-gray-800 mb-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md animate-fade-in">
+          <div className="bg-[#14171E] border border-[#242A36] rounded-3xl w-full max-w-xl shadow-2xl my-auto relative text-white flex flex-col max-h-[92vh] overflow-hidden">
+            <div className="flex items-center justify-between p-5 sm:p-8 pb-4 border-b border-gray-800 shrink-0">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#FF5722] to-[#FF7A45] flex items-center justify-center text-white shadow-lg shadow-[#FF5722]/30">
                   <Calendar className="w-5 h-5" />
@@ -2223,7 +2261,8 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
               </button>
             </div>
 
-            <form onSubmit={handleCreateLiveBatch} className="space-y-4 text-xs">
+            <form onSubmit={handleCreateLiveBatch} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+              <div className="p-5 sm:p-8 overflow-y-auto flex-1 space-y-4 text-xs overscroll-contain">
               <div>
                 <label className="block text-gray-300 mb-1.5 font-semibold">Course / Masterclass Batch Title *</label>
                 <input
@@ -2388,7 +2427,9 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-800">
+              </div>
+
+              <div className="flex items-center justify-end gap-3 p-4 sm:p-8 pt-3 border-t border-gray-800 bg-[#14171E] shrink-0">
                 <button type="button" onClick={() => setIsNewBatchModalOpen(false)} className="px-4 py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl text-xs font-semibold cursor-pointer">
                   Cancel
                 </button>
@@ -2409,9 +2450,9 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
           courses.find((c) => c.id === targetCourseIdForUpload) || activeCourse || courses[0];
 
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md overflow-y-auto animate-fade-in">
-            <div className="bg-[#14171E] border border-[#242A36] rounded-3xl w-full max-w-lg p-6 sm:p-8 shadow-2xl relative text-white space-y-5 my-8">
-              <div className="flex items-center justify-between pb-4 border-b border-gray-800">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md animate-fade-in">
+            <div className="bg-[#14171E] border border-[#242A36] rounded-3xl w-full max-w-lg shadow-2xl relative text-white flex flex-col max-h-[92vh] my-auto overflow-hidden">
+              <div className="flex items-center justify-between p-5 sm:p-6 pb-4 border-b border-gray-800 shrink-0">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
                     <Video className="w-5 h-5" />
@@ -2432,7 +2473,8 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                 </button>
               </div>
 
-              <form onSubmit={handleSaveLecture} className="space-y-4 text-xs">
+              <form onSubmit={handleSaveLecture} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+                <div className="p-5 sm:p-6 overflow-y-auto flex-1 space-y-4 text-xs overscroll-contain">
                 {/* 1. Course Selection Dropdown */}
                 <div>
                   <label className="block text-gray-300 mb-1.5 font-semibold">Select Course / Live Batch *</label>
@@ -2767,7 +2809,9 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                   />
                 </div>
 
-                <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-800">
+                </div>
+
+                <div className="flex items-center justify-end gap-3 p-4 sm:p-6 pt-3 border-t border-gray-800 bg-[#14171E] shrink-0">
                   <button
                     type="button"
                     onClick={() => setIsAddLectureModalOpen(false)}
@@ -2787,6 +2831,83 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
           </div>
         );
       })()}
+
+      {/* ========================================================= */}
+      {/* MODAL 2B: WATCH / PREVIEW VIDEO LECTURE (Admin Player)     */}
+      {/* ========================================================= */}
+      {previewingLecture && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-fade-in">
+          <div className="bg-[#14171E] border border-[#242A36] rounded-3xl w-full max-w-3xl overflow-hidden shadow-2xl relative text-white space-y-4 p-5 sm:p-6 my-8">
+            <div className="flex items-center justify-between pb-3 border-b border-gray-800">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                  <Film className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-white text-base font-serif">{previewingLecture.title}</h4>
+                  <p className="text-xs text-gray-400">
+                    {previewingLecture.duration} • {previewingLecture.accessType === 'free' || previewingLecture.isFreePreview ? 'Free Preview Trailer' : 'Enrolled Student Access'}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setPreviewingLecture(null)}
+                className="p-1.5 text-gray-400 hover:text-white rounded-xl bg-gray-800/60 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Video Player Display */}
+            {(() => {
+              const vUrl = previewingLecture.videoUrl || '';
+              return (
+                <div className="relative aspect-video rounded-2xl overflow-hidden bg-black border border-gray-800 shadow-2xl flex items-center justify-center">
+                  {vUrl.includes('mediadelivery.net') || vUrl.includes('/embed/') ? (
+                    <iframe
+                      src={vUrl}
+                      title={previewingLecture.title}
+                      className="w-full h-full border-0"
+                      allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
+                      allowFullScreen
+                    />
+                  ) : vUrl.includes('youtube.com') || vUrl.includes('youtu.be') ? (
+                    <iframe
+                      src={
+                        vUrl.includes('youtu.be/')
+                          ? `https://www.youtube-nocookie.com/embed/${vUrl.split('youtu.be/')[1]?.split('?')[0]}`
+                          : `https://www.youtube-nocookie.com/embed/${vUrl.split('watch?v=')[1]?.split('&')[0]}`
+                      }
+                      title={previewingLecture.title}
+                      className="w-full h-full border-0"
+                      allowFullScreen
+                    />
+                  ) : (
+                    <video
+                      src={vUrl}
+                      controls
+                      autoPlay
+                      className="w-full h-full object-contain"
+                    />
+                  )}
+                </div>
+              );
+            })()}
+
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-gray-400 pt-1">
+              <span className="font-mono text-[11px] truncate max-w-md bg-stone-900 px-3 py-1.5 rounded-xl border border-stone-800">
+                {previewingLecture.videoUrl}
+              </span>
+              <button
+                onClick={() => setPreviewingLecture(null)}
+                className="px-5 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-xl text-xs font-semibold cursor-pointer transition-colors self-end sm:self-auto"
+              >
+                Close Player
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ========================================================= */}
       {/* MODAL 3: GRANT FREE STUDENT ACCESS (Side 2)                */}
