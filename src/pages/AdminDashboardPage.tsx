@@ -1473,9 +1473,9 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                 <div className="space-y-6">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
-                      <h3 className="font-serif font-bold text-2xl text-white">Atelier Studio Video & Process Reel</h3>
+                      <h3 className="font-serif font-bold text-2xl text-white">Atelier 9:16 Portrait Video Reels (Shorts Format)</h3>
                       <p className="text-xs text-gray-400">
-                        Upload or update the 1–2 minute painting video displayed right below the stats strip on the live website.
+                        Upload or update the 9:16 vertical video reel displayed on the live website home page (4 reels displayed in one frame).
                       </p>
                     </div>
 
@@ -1484,7 +1484,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                       className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-red-600 to-[#FF5722] hover:opacity-95 text-white font-bold text-xs flex items-center gap-2 cursor-pointer shadow-lg shadow-red-500/20 shrink-0"
                     >
                       <Sparkles className="w-4 h-4" />
-                      <span>Save & Publish to Website</span>
+                      <span>Save & Publish Reel to Website</span>
                     </button>
                   </div>
 
@@ -1495,12 +1495,12 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                       {/* Step 1: Video File Upload */}
                       <div className="space-y-2">
                         <label className="block text-xs font-semibold uppercase tracking-wider text-gray-300">
-                          1. Upload Video File from Computer (.mp4, .webm, .mov)
+                          1. Upload 9:16 Reel Video File (.mp4, .webm, .mov)
                         </label>
                         <div className="border-2 border-dashed border-gray-700/80 hover:border-[#FF5722]/80 rounded-2xl p-5 text-center transition-all bg-[#0C0E12] group">
                           <FileVideo className="w-8 h-8 text-[#FF5722] mx-auto mb-2 group-hover:scale-110 transition-transform" />
-                          <p className="text-xs text-white font-medium">Click to select video from your PC</p>
-                          <p className="text-[10px] text-gray-500 mt-1">Recommended duration: 1 to 2 minutes</p>
+                          <p className="text-xs text-white font-medium">Click to select portrait reel from your PC / Phone</p>
+                          <p className="text-[10px] text-gray-500 mt-1">Recommended: 9:16 Portrait Reel format (30 to 60 seconds)</p>
 
                           <label className={`mt-3 inline-flex items-center gap-2 px-4 py-2 rounded-xl ${isUploadingVideo ? 'bg-amber-600/30 text-amber-300 border-amber-500/40 cursor-wait' : 'bg-gray-800 hover:bg-gray-700 text-white cursor-pointer border-gray-700'} font-bold text-xs border transition-colors`}>
                             {isUploadingVideo ? (
@@ -1511,7 +1511,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                             ) : (
                               <>
                                 <Upload className="w-3.5 h-3.5 text-[#FF5722]" />
-                                <span>Browse Video File</span>
+                                <span>Browse Portrait Reel File</span>
                               </>
                             )}
                             <input
@@ -1532,32 +1532,32 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                       {/* Step 2: Or Paste Direct Video / YouTube URL */}
                       <div className="space-y-2">
                         <label className="block text-xs font-semibold uppercase tracking-wider text-gray-300">
-                          2. Or Paste Video URL (YouTube, Vimeo, Cloudinary, MP4)
+                          2. Or Paste YouTube Shorts / Reel Video URL
                         </label>
                         <div className="flex items-center gap-2">
                           <input
                             type="text"
                             value={videoUrl}
                             onChange={(e) => setVideoUrl(e.target.value)}
-                            placeholder="https://youtu.be/... or https://domain.com/video.mp4"
+                            placeholder="https://youtube.com/shorts/... or https://domain.com/reel.mp4"
                             className="w-full bg-[#0C0E12] border border-gray-700 rounded-xl py-2.5 px-3.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[#FF5722] font-mono"
                           />
                         </div>
                         <p className="text-[10px] text-gray-500">
-                          You can paste direct MP4 links, YouTube Shorts / videos, or cloud hosted video streams.
+                          Supports YouTube Shorts, Bunny Stream links, Cloud videos, or direct vertical MP4 files.
                         </p>
                       </div>
 
                       {/* Step 3: Video Title */}
                       <div className="space-y-2">
                         <label className="block text-xs font-semibold uppercase tracking-wider text-gray-300">
-                          3. Video Title / Headline
+                          3. Reel Title / Headline
                         </label>
                         <input
                           type="text"
                           value={videoTitle}
                           onChange={(e) => setVideoTitle(e.target.value)}
-                          placeholder="e.g. Artist Kuldeep Singh • Master Oil Painting in Atelier"
+                          placeholder="e.g. Master Sight-Size Portrait Demo in 9:16"
                           className="w-full bg-[#0C0E12] border border-gray-700 rounded-xl py-2.5 px-3.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[#FF5722]"
                         />
                       </div>
@@ -1565,7 +1565,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                       {/* Step 4: Thumbnail / Poster Image */}
                       <div className="space-y-2">
                         <label className="block text-xs font-semibold uppercase tracking-wider text-gray-300">
-                          4. Cover Thumbnail / Poster
+                          4. Cover Thumbnail / Poster (Vertical 9:16 Recommended)
                         </label>
                         <div className="flex items-center gap-3">
                           <input
@@ -1594,7 +1594,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                         <div>
                           <strong className="block font-semibold">100% Zero Website Lag Guarantee:</strong>
                           <span className="text-gray-300 text-[11px] leading-relaxed">
-                            Videos stream on-demand using modern HTML5 byte-streaming. The website loads in milliseconds without freezing 3D animations or slowing down page scroll.
+                            Vertical reels stream on-demand using modern HTML5 byte-streaming. The website loads in milliseconds without freezing 3D animations or slowing down page scroll.
                           </span>
                         </div>
                       </div>
@@ -1604,22 +1604,22 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                         className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-red-600 to-[#FF5722] hover:opacity-95 text-white font-bold text-sm shadow-xl shadow-red-500/25 transition-all flex items-center justify-center gap-2 cursor-pointer"
                       >
                         <Sparkles className="w-4 h-4" />
-                        <span>Publish Video to Live Website</span>
+                        <span>Publish Reel to Website</span>
                       </button>
                     </div>
 
-                    {/* Right: 6 Cols - Live Preview Player */}
+                    {/* Right: 6 Cols - Live Preview Player (9:16 Portrait Reel) */}
                     <div className="lg:col-span-6 space-y-4 bg-[#14171E] border border-[#202530] rounded-3xl p-6 shadow-xl flex flex-col justify-between">
                       <div className="space-y-3">
                         <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold uppercase tracking-wider text-gray-400">Live Website Preview:</span>
+                          <span className="text-xs font-bold uppercase tracking-wider text-gray-400">9:16 Portrait Reel Preview:</span>
                           <span className="text-[10px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 rounded-full font-bold">
-                            Interactive Player
+                            Vertical 9:16 Player
                           </span>
                         </div>
 
-                        {/* Player Frame */}
-                        <div className="relative aspect-video rounded-2xl overflow-hidden bg-black border border-gray-800 shadow-2xl flex items-center justify-center group">
+                        {/* Player Frame (9:16 Portrait Reel) */}
+                        <div className="relative aspect-[9/16] max-w-[280px] mx-auto rounded-3xl overflow-hidden bg-black border border-gray-800 shadow-2xl flex items-center justify-center group">
                           {videoUrl ? (
                             videoUrl.includes('mediadelivery.net') ? (
                               <iframe
