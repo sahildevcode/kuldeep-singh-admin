@@ -25,7 +25,7 @@ const DEFAULT_PROFILE: ArtistProfile = {
   sanctuaryLocation: 'Where centuries-old techniques meet boundless contemporary scale',
   contactEmail: 'atelier@kuldeepsingh.art',
   studioAddress: 'West 24th Street, Gallery District, Manhattan, NY 10011',
-  studioVideoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
+  studioVideoUrl: 'https://vjs.zencdn.net/v/oceans.mp4',
   studioVideoTitle: 'Artist Kuldeep Singh • Master Oil Painting in Atelier',
   studioVideoPoster: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=1200&auto=format&fit=crop'
 };
