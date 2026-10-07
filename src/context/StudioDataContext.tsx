@@ -288,16 +288,47 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
             // SMART MERGE: Never allow cloud to wipe out local lectures!
             let hasLocalLecturesToSync = false;
+            let deletedLecIds: string[] = [];
+            try {
+              deletedLecIds = JSON.parse(localStorage.getItem('kuldeep_studio_deleted_lectures') || '[]');
+            } catch {
+              deletedLecIds = [];
+            }
+
             const mergedCourses = cloudCourses.map((cloudC) => {
               const localC = savedLocal.find((l) => l.id === cloudC.id);
-              if (!localC) return cloudC;
+              if (!localC) {
+                const cleanedModules = (cloudC.modules || []).map((cloudM) => {
+                  const cleanedLecs = (cloudM.lectures || []).filter((cLec) => !deletedLecIds.includes(cLec.id));
+                  return {
+                    ...cloudM,
+                    lectures: cleanedLecs,
+                    lessonsCount: cleanedLecs.length,
+                    topics: cleanedLecs.map((l) => l.title)
+                  };
+                });
+                return {
+                  ...cloudC,
+                  modules: cleanedModules,
+                  totalLessons: cleanedModules.reduce((acc, m) => acc + (m.lectures?.length || m.lessonsCount || 0), 0)
+                };
+              }
 
               const mergedModules = (cloudC.modules || []).map((cloudM, mIdx) => {
                 const localM = localC.modules?.[mIdx];
-                if (!localM) return cloudM;
+                const rawCloudLecs = cloudM.lectures || [];
+                const cloudLecs = rawCloudLecs.filter((cLec) => !deletedLecIds.includes(cLec.id));
+                if (!localM) {
+                  return {
+                    ...cloudM,
+                    lectures: cloudLecs,
+                    lessonsCount: cloudLecs.length,
+                    topics: cloudLecs.map((l) => l.title)
+                  };
+                }
 
-                const cloudLecs = cloudM.lectures || [];
-                const localLecs = localM.lectures || [];
+                const rawLocalLecs = localM.lectures || [];
+                const localLecs = rawLocalLecs.filter((lLec) => !deletedLecIds.includes(lLec.id));
 
                 // Keep local lectures that might not have reached the cloud yet
                 const missingInCloud = localLecs.filter(
@@ -314,7 +345,12 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                     topics: allLecs.map((l) => l.title)
                   };
                 }
-                return cloudM;
+                return {
+                  ...cloudM,
+                  lectures: cloudLecs,
+                  lessonsCount: cloudLecs.length,
+                  topics: cloudLecs.map((l) => l.title)
+                };
               });
 
               return {
@@ -610,8 +646,8 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     updates: Partial<CourseLecture>
   ) => {
     let updatedCourse: Course | null = null;
-    setCourses((prev) =>
-      prev.map((course) => {
+    setCourses((prev) => {
+      const updated = prev.map((course) => {
         if (course.id !== courseId) return course;
         const newModules = [...course.modules];
         if (!newModules[moduleIndex]) return course;
@@ -626,63 +662,133 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         const resCourse = { ...course, modules: newModules };
         updatedCourse = resCourse;
         return resCourse;
-      })
-    );
+      });
 
-    if (updatedCourse) {
       try {
-        await fetch(`https://kuldeep-singh-backend.onrender.com/api/courses/${courseId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updatedCourse)
-        });
-      } catch (e) {
-        console.error('Failed to sync updated lecture to backend:', e);
+        localStorage.setItem('kuldeep_studio_courses', JSON.stringify(updated));
+      } catch (err) {
+        console.error('LocalStorage write error:', err);
+      }
+
+      return updated;
+    });
+
+    let courseToPut = updatedCourse;
+    if (!courseToPut) {
+      try {
+        const stored = JSON.parse(localStorage.getItem('kuldeep_studio_courses') || '[]');
+        courseToPut = stored.find((c: Course) => c.id === courseId) || null;
+      } catch {
+        // ignore
+      }
+    }
+
+    if (courseToPut) {
+      const backendEndpoints = [
+        'https://kuldeep-singh-backend.onrender.com',
+        'http://localhost:5000'
+      ];
+      for (const baseUrl of backendEndpoints) {
+        try {
+          await fetch(`${baseUrl}/api/courses/${courseId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(courseToPut)
+          });
+        } catch {
+          // ignore
+        }
       }
     }
   };
 
   const deleteLectureFromModule = async (courseId: string, moduleIndex: number, lectureIndex: number) => {
     let updatedCourse: Course | null = null;
-    setCourses((prev) =>
-      prev.map((course) => {
+    let targetLectureId: string | null = null;
+
+    setCourses((prev) => {
+      const updated = prev.map((course) => {
         if (course.id !== courseId) return course;
         const newModules = [...course.modules];
         if (!newModules[moduleIndex]) return course;
-        const currentLectures = (newModules[moduleIndex].lectures || []).filter((_, idx) => idx !== lectureIndex);
+        const currentLectures = newModules[moduleIndex].lectures || [];
+        if (currentLectures[lectureIndex]) {
+          targetLectureId = currentLectures[lectureIndex].id;
+        }
+        const filteredLectures = currentLectures.filter((_, idx) => idx !== lectureIndex);
         newModules[moduleIndex] = {
           ...newModules[moduleIndex],
-          lectures: currentLectures,
-          lessonsCount: currentLectures.length,
-          topics: currentLectures.map((l) => l.title)
+          lectures: filteredLectures,
+          lessonsCount: filteredLectures.length,
+          topics: filteredLectures.map((l) => l.title)
         };
         const total = newModules.reduce((acc, m) => acc + (m.lectures ? m.lectures.length : m.lessonsCount), 0);
         const resCourse = { ...course, modules: newModules, totalLessons: total };
         updatedCourse = resCourse;
         return resCourse;
-      })
-    );
-
-    try {
-      await fetch(`https://kuldeep-singh-backend.onrender.com/api/courses/${courseId}/modules/${moduleIndex}/lectures/${lectureIndex}`, {
-        method: 'DELETE'
       });
-      if (updatedCourse) {
-        await fetch(`https://kuldeep-singh-backend.onrender.com/api/courses/${courseId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updatedCourse)
-        });
+
+      // Synchronously write to localStorage and record deleted lecture ID
+      try {
+        localStorage.setItem('kuldeep_studio_courses', JSON.stringify(updated));
+        if (targetLectureId) {
+          const deletedList: string[] = JSON.parse(localStorage.getItem('kuldeep_studio_deleted_lectures') || '[]');
+          if (!deletedList.includes(targetLectureId)) {
+            deletedList.push(targetLectureId);
+            localStorage.setItem('kuldeep_studio_deleted_lectures', JSON.stringify(deletedList));
+          }
+        }
+      } catch (err) {
+        console.error('LocalStorage write error:', err);
       }
-    } catch (e) {
-      console.error('Failed to sync deleted lecture to backend:', e);
+
+      return updated;
+    });
+
+    let courseToPut = updatedCourse;
+    if (!courseToPut) {
+      try {
+        const stored = JSON.parse(localStorage.getItem('kuldeep_studio_courses') || '[]');
+        courseToPut = stored.find((c: Course) => c.id === courseId) || null;
+      } catch {
+        // ignore
+      }
+    }
+
+    const backendEndpoints = [
+      'https://kuldeep-singh-backend.onrender.com',
+      'http://localhost:5000'
+    ];
+
+    for (const baseUrl of backendEndpoints) {
+      try {
+        await fetch(`${baseUrl}/api/courses/${courseId}/modules/${moduleIndex}/lectures/${lectureIndex}`, {
+          method: 'DELETE'
+        });
+      } catch {
+        // ignore
+      }
+    }
+
+    if (courseToPut) {
+      for (const baseUrl of backendEndpoints) {
+        try {
+          await fetch(`${baseUrl}/api/courses/${courseId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(courseToPut)
+          });
+        } catch {
+          // ignore
+        }
+      }
     }
   };
 
   const addModuleToCourse = async (courseId: string, title?: string, duration?: string) => {
     let updatedCourse: Course | null = null;
-    setCourses((prev) =>
-      prev.map((course) => {
+    setCourses((prev) => {
+      const updated = prev.map((course) => {
         if (course.id !== courseId) return course;
         const newMod: CourseModule = {
           id: 'mod-' + Date.now(),
@@ -698,26 +804,50 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         };
         updatedCourse = resCourse;
         return resCourse;
-      })
-    );
+      });
 
-    if (updatedCourse) {
       try {
-        await fetch(`https://kuldeep-singh-backend.onrender.com/api/courses/${courseId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updatedCourse)
-        });
-      } catch (e) {
-        console.error('Failed to sync new module to backend:', e);
+        localStorage.setItem('kuldeep_studio_courses', JSON.stringify(updated));
+      } catch (err) {
+        console.error('LocalStorage write error:', err);
+      }
+
+      return updated;
+    });
+
+    let courseToPut = updatedCourse;
+    if (!courseToPut) {
+      try {
+        const stored = JSON.parse(localStorage.getItem('kuldeep_studio_courses') || '[]');
+        courseToPut = stored.find((c: Course) => c.id === courseId) || null;
+      } catch {
+        // ignore
+      }
+    }
+
+    if (courseToPut) {
+      const backendEndpoints = [
+        'https://kuldeep-singh-backend.onrender.com',
+        'http://localhost:5000'
+      ];
+      for (const baseUrl of backendEndpoints) {
+        try {
+          await fetch(`${baseUrl}/api/courses/${courseId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(courseToPut)
+          });
+        } catch {
+          // ignore
+        }
       }
     }
   };
 
   const deleteModuleFromCourse = async (courseId: string, moduleIndex: number) => {
     let updatedCourse: Course | null = null;
-    setCourses((prev) =>
-      prev.map((course) => {
+    setCourses((prev) => {
+      const updated = prev.map((course) => {
         if (course.id !== courseId) return course;
         const newModules = course.modules.filter((_, idx) => idx !== moduleIndex);
         const total = newModules.reduce((acc, m) => acc + (m.lectures ? m.lectures.length : m.lessonsCount), 0);
@@ -728,18 +858,42 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         };
         updatedCourse = resCourse;
         return resCourse;
-      })
-    );
+      });
 
-    if (updatedCourse) {
       try {
-        await fetch(`https://kuldeep-singh-backend.onrender.com/api/courses/${courseId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updatedCourse)
-        });
-      } catch (e) {
-        console.error('Failed to sync deleted module to backend:', e);
+        localStorage.setItem('kuldeep_studio_courses', JSON.stringify(updated));
+      } catch (err) {
+        console.error('LocalStorage write error:', err);
+      }
+
+      return updated;
+    });
+
+    let courseToPut = updatedCourse;
+    if (!courseToPut) {
+      try {
+        const stored = JSON.parse(localStorage.getItem('kuldeep_studio_courses') || '[]');
+        courseToPut = stored.find((c: Course) => c.id === courseId) || null;
+      } catch {
+        // ignore
+      }
+    }
+
+    if (courseToPut) {
+      const backendEndpoints = [
+        'https://kuldeep-singh-backend.onrender.com',
+        'http://localhost:5000'
+      ];
+      for (const baseUrl of backendEndpoints) {
+        try {
+          await fetch(`${baseUrl}/api/courses/${courseId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(courseToPut)
+          });
+        } catch {
+          // ignore
+        }
       }
     }
   };
