@@ -24,13 +24,77 @@ import {
   Link as LinkIcon,
   FileVideo,
   AlertCircle,
-  Cloud
+  Cloud,
+  Play
 } from 'lucide-react';
 import * as tus from 'tus-js-client';
 import { useStudioData } from '../context/StudioDataContext';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
-import type { Artwork, MediumType, OrderRecord, Course, CourseLecture, EnrolledStudent } from '../types';
+import type { Artwork, MediumType, OrderRecord, Course, CourseLecture, EnrolledStudent, StudioReel } from '../types';
+
+const DEFAULT_STUDIO_REELS: StudioReel[] = [
+  {
+    id: 'reel-1',
+    title: 'Master Oil Glazing & Luminous Flesh Tones',
+    category: 'Featured Reel',
+    duration: '0:58',
+    videoUrl: 'https://vjs.zencdn.net/v/oceans.mp4',
+    thumbnail: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=900&auto=format&fit=crop',
+  },
+  {
+    id: 'reel-2',
+    title: 'Impasto Palette Knife Sculptural Textures',
+    category: 'Palette Knife',
+    duration: '0:45',
+    videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4',
+    thumbnail: 'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?q=80&w=900&auto=format&fit=crop',
+  },
+  {
+    id: 'reel-3',
+    title: 'Sight-Size Charcoal Portrait Anatomy',
+    category: 'Charcoal Study',
+    duration: '1:12',
+    videoUrl: 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4',
+    thumbnail: 'https://images.unsplash.com/photo-1577720643272-265f09367456?q=80&w=900&auto=format&fit=crop',
+  },
+  {
+    id: 'reel-4',
+    title: 'Raw Mineral Pigment & Walnut Oil Prep',
+    category: 'Atelier Secrets',
+    duration: '0:52',
+    videoUrl: 'https://upload.wikimedia.org/wikipedia/commons/transcoded/c/c0/Big_Buck_Bunny_4K.webm/Big_Buck_Bunny_4K.webm.360p.vp9.webm',
+    thumbnail: 'https://images.unsplash.com/photo-1582561424760-0321d75e81fa?q=80&w=900&auto=format&fit=crop',
+  },
+];
+
+const isEmbedUrl = (url: string) => {
+  return (
+    url.includes('mediadelivery.net') ||
+    url.includes('youtube.com') ||
+    url.includes('youtu.be') ||
+    url.includes('vimeo.com')
+  );
+};
+
+const getAdminEmbedUrl = (url: string) => {
+  if (url.includes('mediadelivery.net') || url.includes('vimeo.com')) {
+    return url;
+  }
+  if (url.includes('youtube.com/shorts/')) {
+    const id = url.split('shorts/')[1]?.split('?')[0];
+    return `https://www.youtube-nocookie.com/embed/${id}`;
+  }
+  if (url.includes('youtu.be/')) {
+    const id = url.split('youtu.be/')[1]?.split('?')[0];
+    return `https://www.youtube-nocookie.com/embed/${id}`;
+  }
+  if (url.includes('watch?v=')) {
+    const id = url.split('watch?v=')[1]?.split('&')[0];
+    return `https://www.youtube-nocookie.com/embed/${id}`;
+  }
+  return url;
+};
 
 interface AdminDashboardPageProps {
   onBackToSite?: () => void;
@@ -171,18 +235,89 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
     varnishType: 'Archival Satin Varnish'
   });
 
-  // Atelier Video Showcase State (Video Upload / Update)
-  const [videoTitle, setVideoTitle] = useState(
-    artistProfile?.studioVideoTitle || 'Artist Kuldeep Singh • Master Oil Painting in Atelier'
-  );
-  const [videoUrl, setVideoUrl] = useState(
-    artistProfile?.studioVideoUrl || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4'
-  );
-  const [videoPoster, setVideoPoster] = useState(
-    artistProfile?.studioVideoPoster || 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=1200&auto=format&fit=crop'
-  );
+  // Atelier 4-Reels Video Showcase State (Video Upload / Update)
+  const [activeReelIndex, setActiveReelIndex] = useState<number>(0);
+  const [adminReels, setAdminReels] = useState<StudioReel[]>(() => {
+    if (artistProfile?.studioReels && artistProfile.studioReels.length >= 4) {
+      return artistProfile.studioReels;
+    }
+    const def = [...DEFAULT_STUDIO_REELS];
+    if (artistProfile?.studioVideoUrl) {
+      def[0] = {
+        ...def[0],
+        videoUrl: artistProfile.studioVideoUrl,
+        title: artistProfile.studioVideoTitle || def[0].title,
+        thumbnail: artistProfile.studioVideoPoster || def[0].thumbnail,
+      };
+    }
+    return def;
+  });
+
+  const [videoTitle, setVideoTitle] = useState(() => adminReels[0]?.title || '');
+  const [videoUrl, setVideoUrl] = useState(() => adminReels[0]?.videoUrl || '');
+  const [videoPoster, setVideoPoster] = useState(() => adminReels[0]?.thumbnail || '');
+  const [videoCategory, setVideoCategory] = useState(() => adminReels[0]?.category || 'Featured Reel');
+  const [videoDuration, setVideoDuration] = useState(() => adminReels[0]?.duration || '0:55');
   const [videoFileFeedback, setVideoFileFeedback] = useState<string>('');
   const [isUploadingVideo, setIsUploadingVideo] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (artistProfile?.studioReels && artistProfile.studioReels.length >= 4) {
+      setAdminReels(artistProfile.studioReels);
+      const curr = artistProfile.studioReels[activeReelIndex] || artistProfile.studioReels[0];
+      setVideoTitle(curr.title);
+      setVideoUrl(curr.videoUrl);
+      setVideoPoster(curr.thumbnail);
+      setVideoCategory(curr.category);
+      setVideoDuration(curr.duration);
+    }
+  }, [artistProfile?.studioReels]);
+
+  const handleSelectReelSlot = (index: number) => {
+    // Preserve current edits in adminReels
+    const updated = [...adminReels];
+    if (updated[activeReelIndex]) {
+      updated[activeReelIndex] = {
+        ...updated[activeReelIndex],
+        title: videoTitle,
+        videoUrl: videoUrl,
+        thumbnail: videoPoster,
+        category: videoCategory,
+        duration: videoDuration,
+      };
+      setAdminReels(updated);
+    }
+
+    setActiveReelIndex(index);
+    const target = updated[index] || DEFAULT_STUDIO_REELS[index];
+    if (target) {
+      setVideoTitle(target.title || '');
+      setVideoUrl(target.videoUrl || '');
+      setVideoPoster(target.thumbnail || '');
+      setVideoCategory(target.category || 'Featured Reel');
+      setVideoDuration(target.duration || '0:50');
+      setVideoFileFeedback('');
+    }
+  };
+
+  const updateCurrentReelField = (fields: Partial<StudioReel>) => {
+    if (fields.title !== undefined) setVideoTitle(fields.title);
+    if (fields.videoUrl !== undefined) setVideoUrl(fields.videoUrl);
+    if (fields.thumbnail !== undefined) setVideoPoster(fields.thumbnail);
+    if (fields.category !== undefined) setVideoCategory(fields.category);
+    if (fields.duration !== undefined) setVideoDuration(fields.duration);
+
+    setAdminReels((prev) => {
+      const next = [...prev];
+      if (next[activeReelIndex]) {
+        next[activeReelIndex] = {
+          ...next[activeReelIndex],
+          ...fields,
+        };
+      }
+      return next;
+    });
+  };
 
   const handleVideoFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -196,7 +331,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
     const fileSizeMB = (file.size / (1024 * 1024)).toFixed(1);
     setVideoFileFeedback(`⏳ Uploading "${file.name}" (${fileSizeMB} MB) to Bunny Stream Cloud CDN...`);
     setIsUploadingVideo(true);
-    showToast(`⏳ Uploading "${file.name}" to Bunny Stream Cloud...`);
+    showToast(`⏳ Uploading Reel ${activeReelIndex + 1} to Bunny Stream Cloud...`);
 
     try {
       const formData = new FormData();
@@ -224,19 +359,48 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
 
       const result = await res.json();
       const finalUrl = result.embedUrl || result.directPlayUrl;
+      const finalPoster = result.thumbnailUrl || videoPoster;
+      const finalTitle = videoTitle.trim() || file.name.replace(/\.[^/.]+$/, '');
+
       setVideoUrl(finalUrl);
       if (result.thumbnailUrl) {
         setVideoPoster(result.thumbnailUrl);
       }
       setVideoFileFeedback(`✅ Successfully uploaded to Bunny Stream! (GUID: ${result.videoGuid})`);
-      showToast('🚀 Video uploaded to Bunny Stream CDN & saved to MongoDB Atlas!');
+      showToast(`🚀 Reel ${activeReelIndex + 1} uploaded to Bunny Stream!`);
 
-      // Automatically sync profile to cloud & context
+      // Update in adminReels array immediately
+      const updated = [...adminReels];
+      updated[activeReelIndex] = {
+        ...updated[activeReelIndex],
+        videoUrl: finalUrl,
+        thumbnail: finalPoster,
+        title: finalTitle,
+      };
+      setAdminReels(updated);
+
       updateArtistProfile({
-        studioVideoUrl: finalUrl,
-        studioVideoTitle: videoTitle || file.name,
-        studioVideoPoster: result.thumbnailUrl || videoPoster,
+        studioReels: updated,
+        studioVideoUrl: updated[0]?.videoUrl,
+        studioVideoTitle: updated[0]?.title,
+        studioVideoPoster: updated[0]?.thumbnail,
       });
+
+      // Sync to backend PUT /api/profile
+      try {
+        await fetch('https://kuldeep-singh-backend.onrender.com/api/profile', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            studioReels: updated,
+            studioVideoUrl: updated[0]?.videoUrl,
+            studioVideoTitle: updated[0]?.title,
+            studioVideoPoster: updated[0]?.thumbnail,
+          }),
+        });
+      } catch {
+        // ignore
+      }
     } catch (err: any) {
       console.error('Bunny video upload error:', err);
       const objUrl = URL.createObjectURL(file);
@@ -255,6 +419,11 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
     reader.onload = () => {
       if (typeof reader.result === 'string') {
         setVideoPoster(reader.result);
+        const updated = [...adminReels];
+        if (updated[activeReelIndex]) {
+          updated[activeReelIndex].thumbnail = reader.result;
+          setAdminReels(updated);
+        }
         showToast('✅ Poster image updated!');
       }
     };
@@ -263,38 +432,50 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
 
   const handleSaveVideoShowcase = async () => {
     if (!videoUrl.trim()) {
-      showToast('⚠️ Please enter or upload a video');
+      showToast('⚠️ Please enter or upload a video for this reel');
       return;
     }
+
+    const updated = [...adminReels];
+    updated[activeReelIndex] = {
+      ...updated[activeReelIndex],
+      title: videoTitle.trim() || `Reel ${activeReelIndex + 1}`,
+      videoUrl: videoUrl.trim(),
+      thumbnail: videoPoster.trim() || updated[activeReelIndex].thumbnail,
+      category: videoCategory.trim() || 'Featured Reel',
+      duration: videoDuration.trim() || '0:50',
+    };
+    setAdminReels(updated);
+
     updateArtistProfile({
-      studioVideoUrl: videoUrl,
-      studioVideoTitle: videoTitle,
-      studioVideoPoster: videoPoster,
+      studioReels: updated,
+      studioVideoUrl: updated[0]?.videoUrl,
+      studioVideoTitle: updated[0]?.title,
+      studioVideoPoster: updated[0]?.thumbnail,
     });
+
+    const payload = {
+      studioReels: updated,
+      studioVideoUrl: updated[0]?.videoUrl,
+      studioVideoTitle: updated[0]?.title,
+      studioVideoPoster: updated[0]?.thumbnail,
+    };
 
     try {
       await fetch('https://kuldeep-singh-backend.onrender.com/api/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          studioVideoUrl: videoUrl,
-          studioVideoTitle: videoTitle,
-          studioVideoPoster: videoPoster,
-        }),
+        body: JSON.stringify(payload),
       });
     } catch {
       await fetch('http://localhost:5000/api/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          studioVideoUrl: videoUrl,
-          studioVideoTitle: videoTitle,
-          studioVideoPoster: videoPoster,
-        }),
+        body: JSON.stringify(payload),
       }).catch(() => {});
     }
 
-    showToast('🚀 Atelier Video published and live on website!');
+    showToast(`🎉 Reel ${activeReelIndex + 1} ("${videoTitle}") saved & live on website!`);
   };
 
   // Filtered Orders
@@ -1468,14 +1649,20 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                 </div>
               )}
 
-              {/* ATELIER VIDEO SHOWCASE TAB */}
+              {/* ATELIER VIDEO SHOWCASE TAB - 4 REELS MANAGER */}
               {galleryNav === 'video' && (
                 <div className="space-y-6">
+                  {/* Top Header */}
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
-                      <h3 className="font-serif font-bold text-2xl text-white">Atelier 9:16 Portrait Video Reels (Shorts Format)</h3>
-                      <p className="text-xs text-gray-400">
-                        Upload or update the 9:16 vertical video reel displayed on the live website home page (4 reels displayed in one frame).
+                      <div className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
+                        <h3 className="font-serif font-bold text-2xl text-white">
+                          Atelier 9:16 Portrait Video Reels (4-in-1 Frame)
+                        </h3>
+                      </div>
+                      <p className="text-xs text-gray-400 mt-1">
+                        Manage all 4 portrait reels displayed simultaneously in one frame on the live website homepage. Click any reel slot to upload or edit.
                       </p>
                     </div>
 
@@ -1484,34 +1671,191 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                       className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-red-600 to-[#FF5722] hover:opacity-95 text-white font-bold text-xs flex items-center gap-2 cursor-pointer shadow-lg shadow-red-500/20 shrink-0"
                     >
                       <Sparkles className="w-4 h-4" />
-                      <span>Save & Publish Reel to Website</span>
+                      <span>Save & Publish All 4 Reels to Website</span>
                     </button>
+                  </div>
+
+                  {/* 4-SLOT REEL SELECTOR CARDS */}
+                  <div className="bg-[#14171E] border border-[#202530] rounded-3xl p-5 shadow-xl space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div>
+                        <span className="text-xs font-bold uppercase tracking-wider text-gray-300">
+                          Select Reel Slot to Configure (4 in 1 Frame on Homepage):
+                        </span>
+                        <p className="text-[11px] text-gray-500">
+                          Click any reel card below to change its video, title, thumbnail, or category.
+                        </p>
+                      </div>
+                      <span className="text-xs font-semibold px-3 py-1 rounded-full bg-[#FF5722]/15 text-[#FF5722] border border-[#FF5722]/30 self-start sm:self-auto flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-[#FF5722] animate-ping" />
+                        Currently Editing: Reel #{activeReelIndex + 1}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
+                      {[0, 1, 2, 3].map((idx) => {
+                        const reel = adminReels[idx] || DEFAULT_STUDIO_REELS[idx];
+                        const isSelected = activeReelIndex === idx;
+                        return (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => handleSelectReelSlot(idx)}
+                            className={`relative p-3 rounded-2xl border text-left transition-all duration-200 cursor-pointer group flex flex-col justify-between overflow-hidden ${
+                              isSelected
+                                ? 'bg-[#1C202B] border-[#FF5722] shadow-xl shadow-red-500/15 ring-2 ring-[#FF5722]/50'
+                                : 'bg-[#0C0E12] border-gray-800 hover:border-gray-700 hover:bg-[#14171E]'
+                            }`}
+                          >
+                            {/* Card Top: Slot Number & Active Badge */}
+                            <div className="flex items-center justify-between mb-2 z-10 w-full">
+                              <span
+                                className={`text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${
+                                  isSelected ? 'bg-[#FF5722] text-white' : 'bg-gray-800 text-gray-400 group-hover:text-white'
+                                }`}
+                              >
+                                Reel #{idx + 1}
+                              </span>
+                              {isSelected ? (
+                                <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/15 px-2 py-0.5 rounded-full border border-emerald-500/25">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                                  Editing
+                                </span>
+                              ) : (
+                                <span className="text-[10px] text-gray-500 group-hover:text-gray-400">Click to Edit</span>
+                              )}
+                            </div>
+
+                            {/* Mini 9:16 Aspect Preview Thumbnail */}
+                            <div className="relative aspect-[9/16] w-full max-h-36 rounded-xl overflow-hidden bg-black/60 border border-gray-800 mb-2.5">
+                              {reel.thumbnail ? (
+                                <img
+                                  src={reel.thumbnail}
+                                  alt={reel.title}
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-gray-600">
+                                  <FileVideo className="w-6 h-6" />
+                                </div>
+                              )}
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-black/30" />
+                              <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
+                                <div className="w-8 h-8 rounded-full bg-[#FF5722] text-white flex items-center justify-center shadow-lg">
+                                  <Play className="w-4 h-4 fill-current ml-0.5" />
+                                </div>
+                              </div>
+                              <div className="absolute bottom-1.5 left-1.5 right-1.5 flex items-center justify-between text-[9px] text-white/90">
+                                <span className="bg-black/70 px-1.5 py-0.5 rounded backdrop-blur-sm truncate max-w-[70px]">
+                                  {reel.category || 'Reel'}
+                                </span>
+                                <span className="bg-black/70 px-1.5 py-0.5 rounded font-mono">
+                                  {reel.duration || '0:50'}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Reel Title Snippet */}
+                            <div className="z-10 w-full">
+                              <h5 className="font-serif font-bold text-xs text-white line-clamp-1 group-hover:text-[#FF5722] transition-colors">
+                                {reel.title || `Reel Slot #${idx + 1}`}
+                              </h5>
+                              <span className="text-[10px] text-gray-500 block truncate mt-0.5 font-mono">
+                                {reel.videoUrl ? '✓ Video Linked' : 'No video set'}
+                              </span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
 
                   {/* Main Grid: Upload Controls (Left) & Live Preview (Right) */}
                   <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                    {/* Left: 6 Cols - Controls */}
+                    {/* Left: 6 Cols - Controls for Selected Reel Slot */}
                     <div className="lg:col-span-6 space-y-5 bg-[#14171E] border border-[#202530] rounded-3xl p-6 shadow-xl">
-                      {/* Step 1: Video File Upload */}
+                      {/* Active Slot Header Indicator */}
+                      <div className="p-3 bg-[#0C0E12] rounded-2xl border border-[#FF5722]/30 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full bg-[#FF5722]" />
+                          <span className="text-xs font-bold text-white uppercase tracking-wider">
+                            Editing Slot: Reel #{activeReelIndex + 1}
+                          </span>
+                        </div>
+                        <span className="text-[11px] text-[#FF5722] font-mono">
+                          Slot {activeReelIndex + 1} of 4
+                        </span>
+                      </div>
+
+                      {/* Step 1: Reel Title */}
                       <div className="space-y-2">
                         <label className="block text-xs font-semibold uppercase tracking-wider text-gray-300">
-                          1. Upload 9:16 Reel Video File (.mp4, .webm, .mov)
+                          1. Reel Title / Headline
+                        </label>
+                        <input
+                          type="text"
+                          value={videoTitle}
+                          onChange={(e) => updateCurrentReelField({ title: e.target.value })}
+                          placeholder="e.g. Master Sight-Size Portrait Demo in 9:16"
+                          className="w-full bg-[#0C0E12] border border-gray-700 rounded-xl py-2.5 px-3.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[#FF5722]"
+                        />
+                      </div>
+
+                      {/* Step 2: Category Badge & Duration */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-2">
+                          <label className="block text-xs font-semibold uppercase tracking-wider text-gray-300">
+                            2. Technique Category
+                          </label>
+                          <input
+                            type="text"
+                            value={videoCategory}
+                            onChange={(e) => updateCurrentReelField({ category: e.target.value })}
+                            placeholder="e.g. Oil Glazing, Palette Knife"
+                            className="w-full bg-[#0C0E12] border border-gray-700 rounded-xl py-2.5 px-3.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[#FF5722]"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="block text-xs font-semibold uppercase tracking-wider text-gray-300">
+                            Duration Tag
+                          </label>
+                          <input
+                            type="text"
+                            value={videoDuration}
+                            onChange={(e) => updateCurrentReelField({ duration: e.target.value })}
+                            placeholder="e.g. 0:45 or 1:12"
+                            className="w-full bg-[#0C0E12] border border-gray-700 rounded-xl py-2.5 px-3.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[#FF5722] font-mono"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Step 3: Video File Upload to Bunny Stream */}
+                      <div className="space-y-2">
+                        <label className="block text-xs font-semibold uppercase tracking-wider text-gray-300">
+                          3. Upload 9:16 Reel Video File (.mp4, .webm, .mov)
                         </label>
                         <div className="border-2 border-dashed border-gray-700/80 hover:border-[#FF5722]/80 rounded-2xl p-5 text-center transition-all bg-[#0C0E12] group">
                           <FileVideo className="w-8 h-8 text-[#FF5722] mx-auto mb-2 group-hover:scale-110 transition-transform" />
                           <p className="text-xs text-white font-medium">Click to select portrait reel from your PC / Phone</p>
                           <p className="text-[10px] text-gray-500 mt-1">Recommended: 9:16 Portrait Reel format (30 to 60 seconds)</p>
 
-                          <label className={`mt-3 inline-flex items-center gap-2 px-4 py-2 rounded-xl ${isUploadingVideo ? 'bg-amber-600/30 text-amber-300 border-amber-500/40 cursor-wait' : 'bg-gray-800 hover:bg-gray-700 text-white cursor-pointer border-gray-700'} font-bold text-xs border transition-colors`}>
+                          <label
+                            className={`mt-3 inline-flex items-center gap-2 px-4 py-2 rounded-xl ${
+                              isUploadingVideo
+                                ? 'bg-amber-600/30 text-amber-300 border-amber-500/40 cursor-wait'
+                                : 'bg-gray-800 hover:bg-gray-700 text-white cursor-pointer border-gray-700'
+                            } font-bold text-xs border transition-colors`}
+                          >
                             {isUploadingVideo ? (
                               <>
                                 <span className="w-3.5 h-3.5 border-2 border-amber-300 border-t-transparent rounded-full animate-spin" />
-                                <span>Uploading to Bunny Stream...</span>
+                                <span>Uploading Reel #{activeReelIndex + 1} to Bunny Stream...</span>
                               </>
                             ) : (
                               <>
                                 <Upload className="w-3.5 h-3.5 text-[#FF5722]" />
-                                <span>Browse Portrait Reel File</span>
+                                <span>Browse Video File for Reel #{activeReelIndex + 1}</span>
                               </>
                             )}
                             <input
@@ -1529,16 +1873,16 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                         </div>
                       </div>
 
-                      {/* Step 2: Or Paste Direct Video / YouTube URL */}
+                      {/* Step 4: Or Paste Direct Video / YouTube URL */}
                       <div className="space-y-2">
                         <label className="block text-xs font-semibold uppercase tracking-wider text-gray-300">
-                          2. Or Paste YouTube Shorts / Reel Video URL
+                          4. Or Paste YouTube Shorts / Reel Video URL
                         </label>
                         <div className="flex items-center gap-2">
                           <input
                             type="text"
                             value={videoUrl}
-                            onChange={(e) => setVideoUrl(e.target.value)}
+                            onChange={(e) => updateCurrentReelField({ videoUrl: e.target.value })}
                             placeholder="https://youtube.com/shorts/... or https://domain.com/reel.mp4"
                             className="w-full bg-[#0C0E12] border border-gray-700 rounded-xl py-2.5 px-3.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[#FF5722] font-mono"
                           />
@@ -1548,30 +1892,16 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                         </p>
                       </div>
 
-                      {/* Step 3: Video Title */}
+                      {/* Step 5: Thumbnail / Poster Image */}
                       <div className="space-y-2">
                         <label className="block text-xs font-semibold uppercase tracking-wider text-gray-300">
-                          3. Reel Title / Headline
-                        </label>
-                        <input
-                          type="text"
-                          value={videoTitle}
-                          onChange={(e) => setVideoTitle(e.target.value)}
-                          placeholder="e.g. Master Sight-Size Portrait Demo in 9:16"
-                          className="w-full bg-[#0C0E12] border border-gray-700 rounded-xl py-2.5 px-3.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[#FF5722]"
-                        />
-                      </div>
-
-                      {/* Step 4: Thumbnail / Poster Image */}
-                      <div className="space-y-2">
-                        <label className="block text-xs font-semibold uppercase tracking-wider text-gray-300">
-                          4. Cover Thumbnail / Poster (Vertical 9:16 Recommended)
+                          5. Cover Thumbnail / Poster (Vertical 9:16 Recommended)
                         </label>
                         <div className="flex items-center gap-3">
                           <input
                             type="text"
                             value={videoPoster}
-                            onChange={(e) => setVideoPoster(e.target.value)}
+                            onChange={(e) => updateCurrentReelField({ thumbnail: e.target.value })}
                             placeholder="Thumbnail Image URL..."
                             className="w-full bg-[#0C0E12] border border-gray-700 rounded-xl py-2.5 px-3.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[#FF5722] font-mono text-[11px]"
                           />
@@ -1604,7 +1934,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                         className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-red-600 to-[#FF5722] hover:opacity-95 text-white font-bold text-sm shadow-xl shadow-red-500/25 transition-all flex items-center justify-center gap-2 cursor-pointer"
                       >
                         <Sparkles className="w-4 h-4" />
-                        <span>Publish Reel to Website</span>
+                        <span>Save & Publish All 4 Reels to Live Website</span>
                       </button>
                     </div>
 
@@ -1612,7 +1942,9 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                     <div className="lg:col-span-6 space-y-4 bg-[#14171E] border border-[#202530] rounded-3xl p-6 shadow-xl flex flex-col justify-between">
                       <div className="space-y-3">
                         <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold uppercase tracking-wider text-gray-400">9:16 Portrait Reel Preview:</span>
+                          <span className="text-xs font-bold uppercase tracking-wider text-gray-400">
+                            Reel #{activeReelIndex + 1} Preview (9:16 Portrait):
+                          </span>
                           <span className="text-[10px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 rounded-full font-bold">
                             Vertical 9:16 Player
                           </span>
@@ -1621,23 +1953,12 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                         {/* Player Frame (9:16 Portrait Reel) */}
                         <div className="relative aspect-[9/16] max-w-[280px] mx-auto rounded-3xl overflow-hidden bg-black border border-gray-800 shadow-2xl flex items-center justify-center group">
                           {videoUrl ? (
-                            videoUrl.includes('mediadelivery.net') ? (
+                            isEmbedUrl(videoUrl) ? (
                               <iframe
-                                src={videoUrl}
-                                title="Bunny Stream Video Preview"
+                                src={getAdminEmbedUrl(videoUrl)}
+                                title="Reel Preview"
                                 className="w-full h-full border-0"
                                 allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
-                                allowFullScreen
-                              />
-                            ) : videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be') ? (
-                              <iframe
-                                src={
-                                  videoUrl.includes('youtu.be/')
-                                    ? `https://www.youtube-nocookie.com/embed/${videoUrl.split('youtu.be/')[1]?.split('?')[0]}`
-                                    : `https://www.youtube-nocookie.com/embed/${videoUrl.split('watch?v=')[1]?.split('&')[0]}`
-                                }
-                                title="Video Preview"
-                                className="w-full h-full border-0"
                                 allowFullScreen
                               />
                             ) : (
@@ -1660,17 +1981,32 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                           )}
                         </div>
 
-                        {/* Preview Title */}
-                        <div className="p-3 bg-[#0C0E12] rounded-xl border border-gray-800/80">
-                          <span className="text-[10px] text-gray-500 uppercase block font-semibold">Video Title Display:</span>
-                          <h4 className="font-serif font-bold text-white text-sm sm:text-base mt-0.5">{videoTitle}</h4>
+                        {/* Preview Details Cards */}
+                        <div className="p-3 bg-[#0C0E12] rounded-xl border border-gray-800/80 space-y-1.5">
+                          <span className="text-[10px] text-gray-500 uppercase block font-semibold">
+                            Reel #{activeReelIndex + 1} Title & Badges:
+                          </span>
+                          <h4 className="font-serif font-bold text-white text-sm sm:text-base">
+                            {videoTitle || `Reel Slot #${activeReelIndex + 1}`}
+                          </h4>
+                          <div className="flex items-center gap-2 pt-1">
+                            <span className="text-[10px] uppercase font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                              {videoCategory || 'Featured Reel'}
+                            </span>
+                            <span className="text-[10px] font-mono text-gray-400 bg-gray-800 px-2 py-0.5 rounded border border-gray-700">
+                              ⏱ {videoDuration || '0:50'}
+                            </span>
+                          </div>
                         </div>
                       </div>
 
                       <div className="pt-4 border-t border-gray-800 text-[11px] text-gray-400 flex items-center justify-between">
-                        <span>Status: Ready to stream</span>
+                        <span className="flex items-center gap-1.5 text-emerald-400">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>Status: Ready to Stream</span>
+                        </span>
                         <a
-                          href="https://artist-kuldeepsingh.netlify.app"
+                          href="https://artist-kuldeep-singh.vercel.app"
                           target="_blank"
                           rel="noreferrer"
                           className="text-[#FF5722] hover:underline flex items-center gap-1 font-bold"

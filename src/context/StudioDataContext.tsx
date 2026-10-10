@@ -396,6 +396,18 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             setStudents(cloudStudents);
           }
         }
+
+        // 4. Artist Profile & Studio Reels
+        const profileRes = await fetch('https://kuldeep-singh-backend.onrender.com/api/profile').catch(() => null);
+        if (profileRes && profileRes.ok) {
+          const cloudProfile = await profileRes.json();
+          if (cloudProfile && isMounted) {
+            setArtistProfile((prev) => ({
+              ...prev,
+              ...cloudProfile,
+            }));
+          }
+        }
       } catch (err) {
         console.warn('Cloud sync skipped, using local cache:', err);
       }

@@ -184,6 +184,16 @@ export interface ArtistProfile {
   studioVideoUrl?: string;
   studioVideoTitle?: string;
   studioVideoPoster?: string;
+  studioReels?: StudioReel[];
+}
+
+export interface StudioReel {
+  id: string;
+  title: string;
+  category: string;
+  duration: string;
+  videoUrl: string;
+  thumbnail: string;
 }
 
 export interface EnrolledStudent {
