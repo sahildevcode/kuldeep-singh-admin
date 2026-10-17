@@ -1,8 +1,16 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import type { Artwork, Course, CourseModule, CourseLecture, ArtistProfile, AchievementTimelineItem, Award, EnrolledStudent } from '../types';
+import type { Artwork, Course, CourseModule, CourseLecture, ArtistProfile, AchievementTimelineItem, Award, EnrolledStudent, RegisteredUser } from '../types';
 import { ARTWORKS } from '../data/artworks';
 import { COURSES } from '../data/courses';
 import { TIMELINE, AWARDS } from '../data/achievements';
+
+export const getBackendUrls = (): string[] => {
+  const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+  if (isLocal) {
+    return ['http://localhost:5000', 'https://kuldeep-singh-backend.onrender.com'];
+  }
+  return ['https://kuldeep-singh-backend.onrender.com', 'http://localhost:5000'];
+};
 
 const DEFAULT_PROFILE: ArtistProfile = {
   name: 'Artist Kuldeep Singh',
@@ -30,11 +38,60 @@ const DEFAULT_PROFILE: ArtistProfile = {
   studioVideoPoster: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=1200&auto=format&fit=crop'
 };
 
+const INITIAL_USERS: RegisteredUser[] = [
+  {
+    id: 'usr_1792222003452',
+    name: 'sahil',
+    email: 'sahildevcode@gmail.com',
+    username: 'sahil',
+    plainPassword: 'sahil123456',
+    role: 'student',
+    isEmailVerified: true,
+    enrolledCourseIds: [],
+    createdAt: '2026-10-17T07:26:43.455Z'
+  },
+  {
+    id: 'usr_1792216365704',
+    name: 'Rohan Sharma',
+    email: 'testpatron99@gmail.com',
+    username: 'patron_99',
+    plainPassword: 'patron123456',
+    role: 'student',
+    isEmailVerified: true,
+    enrolledCourseIds: ['course-oil-mastery'],
+    createdAt: '2026-10-17T05:52:45.704Z'
+  },
+  {
+    id: 'usr-student-demo',
+    name: 'Aarav Sharma',
+    email: 'student@kuldeepsingh.art',
+    username: 'aarav_sharma',
+    plainPassword: 'student123',
+    role: 'student',
+    isEmailVerified: true,
+    enrolledCourseIds: ['course-oil-mastery', 'course-realistic-sketching'],
+    createdAt: '2026-09-01T00:00:00.000Z'
+  },
+  {
+    id: 'usr-collector-demo',
+    name: 'Countess Vivienne',
+    email: 'collector@kuldeepsingh.art',
+    username: 'countess_vivienne',
+    plainPassword: 'collector123',
+    role: 'collector',
+    isEmailVerified: true,
+    enrolledCourseIds: [],
+    createdAt: '2026-09-01T00:00:00.000Z'
+  }
+];
+
 const INITIAL_STUDENTS: EnrolledStudent[] = [
   {
     id: 'stu-101',
     name: 'Aarav Sharma',
     email: 'aarav.sharma@gmail.com',
+    username: 'aarav_sharma',
+    plainPassword: 'student123',
     phone: '+91 98201 45892',
     courseId: 'course-oil-mastery',
     courseTitle: 'The Master Oil Painting Diploma',
@@ -43,12 +100,15 @@ const INITIAL_STUDENTS: EnrolledStudent[] = [
     feesPaid: 349,
     paymentStatus: 'Paid',
     progressPercent: 68,
-    avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=150&auto=format&fit=crop'
+    avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=150&auto=format&fit=crop',
+    attendanceStatus: 'Attended'
   },
   {
     id: 'stu-102',
     name: 'Elena Rostova',
     email: 'elena.rostova@artacademy.eu',
+    username: 'elena_rostova',
+    plainPassword: 'art123456',
     phone: '+44 7700 900077',
     courseId: 'course-realistic-sketching',
     courseTitle: 'Foundations of Realistic Sketching & Human Anatomy',
@@ -57,35 +117,25 @@ const INITIAL_STUDENTS: EnrolledStudent[] = [
     feesPaid: 249,
     paymentStatus: 'Paid',
     progressPercent: 42,
-    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=150&auto=format&fit=crop'
+    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=150&auto=format&fit=crop',
+    attendanceStatus: 'Pending'
   },
   {
     id: 'stu-103',
     name: 'Dev Patel',
     email: 'dev.patel.design@outlook.com',
+    username: 'dev_patel',
+    plainPassword: 'art123456',
     phone: '+91 98112 33455',
-    courseId: 'course-watercolor-alchemy',
+    courseId: 'course-watercolor-fluid',
     courseTitle: 'Expressive Watercolor & Fluid Pigment Painting',
     batchSchedule: 'Wednesday & Friday • 6:30 PM – 8:30 PM IST',
     enrolledDate: 'Aug 28, 2026',
     feesPaid: 219,
     paymentStatus: 'Paid',
     progressPercent: 85,
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=150&auto=format&fit=crop'
-  },
-  {
-    id: 'stu-104',
-    name: 'Sophia Laurent',
-    email: 'sophia.l@parisart.fr',
-    phone: '+33 6 12 34 56 78',
-    courseId: 'course-oil-mastery',
-    courseTitle: 'The Master Oil Painting Diploma',
-    batchSchedule: 'Saturday & Sunday • 6:00 PM – 8:00 PM IST',
-    enrolledDate: 'Sep 5, 2026',
-    feesPaid: 349,
-    paymentStatus: 'Paid',
-    progressPercent: 20,
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=150&auto=format&fit=crop'
+    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=150&auto=format&fit=crop',
+    attendanceStatus: 'Attended'
   }
 ];
 
@@ -93,6 +143,7 @@ interface StudioDataContextType {
   artworks: Artwork[];
   courses: Course[];
   students: EnrolledStudent[];
+  users: RegisteredUser[];
   artistProfile: ArtistProfile;
   timeline: AchievementTimelineItem[];
   awards: Award[];
@@ -108,6 +159,9 @@ interface StudioDataContextType {
   addStudent: (student: EnrolledStudent) => void;
   updateStudent: (id: string, updates: Partial<EnrolledStudent>) => void;
   deleteStudent: (id: string) => void;
+  // Users (Registered Accounts) CRUD
+  updateUser: (id: string, updates: Partial<RegisteredUser> & { password?: string }) => void;
+  deleteUser: (id: string) => void;
   // Lecture & Module Management
   addLectureToModule: (courseId: string, moduleIndex: number, lecture: CourseLecture) => void;
   updateLectureInModule: (courseId: string, moduleIndex: number, lectureIndex: number, updates: Partial<CourseLecture>) => void;
@@ -226,6 +280,24 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       console.error(e);
     }
   }, [students]);
+
+  // 7. Registered Users State (All Website Logins)
+  const [users, setUsers] = useState<RegisteredUser[]>(() => {
+    try {
+      const saved = localStorage.getItem('kuldeep_studio_users');
+      return saved ? JSON.parse(saved) : INITIAL_USERS;
+    } catch {
+      return INITIAL_USERS;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('kuldeep_studio_users', JSON.stringify(users));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [users]);
 
   // Sync with Remote 24/7 Cloud Backend (Artworks, Courses & Lectures, Students)
   useEffect(() => {
@@ -388,24 +460,76 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           }
         }
 
-        // 3. Students
-        const stuRes = await fetch('https://kuldeep-singh-backend.onrender.com/api/students');
-        if (stuRes.ok) {
-          const cloudStudents: EnrolledStudent[] = await stuRes.json();
-          if (Array.isArray(cloudStudents) && isMounted) {
-            setStudents(cloudStudents);
+        // 3. Students (Enrolled in Masterclasses)
+        let cloudStudents: EnrolledStudent[] | null = null;
+        for (const base of getBackendUrls()) {
+          try {
+            const stuRes = await fetch(`${base}/api/students`);
+            if (stuRes.ok) {
+              cloudStudents = await stuRes.json();
+              break;
+            }
+          } catch {
+            // try next
           }
         }
 
-        // 4. Artist Profile & Studio Reels
-        const profileRes = await fetch('https://kuldeep-singh-backend.onrender.com/api/profile').catch(() => null);
-        if (profileRes && profileRes.ok) {
-          const cloudProfile = await profileRes.json();
-          if (cloudProfile && isMounted) {
-            setArtistProfile((prev) => ({
-              ...prev,
-              ...cloudProfile,
-            }));
+        if (Array.isArray(cloudStudents) && isMounted) {
+          let deletedList: string[] = [];
+          try {
+            deletedList = JSON.parse(localStorage.getItem('ks_deleted_students') || '[]');
+          } catch {
+            deletedList = [];
+          }
+          const cleanStudents = cloudStudents.filter(
+            (s) => !deletedList.includes(s.id) && (!s._id || !deletedList.includes(s._id))
+          );
+          setStudents(cleanStudents);
+        }
+
+        // 4. Registered Users (All Website Logins)
+        let cloudUsers: RegisteredUser[] | null = null;
+        for (const base of getBackendUrls()) {
+          try {
+            const userRes = await fetch(`${base}/api/users`);
+            if (userRes.ok) {
+              cloudUsers = await userRes.json();
+              break;
+            }
+          } catch {
+            // try next
+          }
+        }
+
+        if (Array.isArray(cloudUsers) && isMounted) {
+          let deletedUserList: string[] = [];
+          try {
+            deletedUserList = JSON.parse(localStorage.getItem('ks_deleted_users') || '[]');
+          } catch {
+            deletedUserList = [];
+          }
+          const cleanUsers = cloudUsers.filter(
+            (u) => !deletedUserList.includes(u.id) && (!u._id || !deletedUserList.includes(u._id))
+          );
+          setUsers(cleanUsers);
+        }
+
+        // 5. Artist Profile & Studio Reels
+        for (const base of getBackendUrls()) {
+          try {
+            const profileRes = await fetch(`${base}/api/profile`);
+            if (profileRes.ok) {
+              const cloudProfile = await profileRes.json();
+              if (cloudProfile && isMounted) {
+                setArtistProfile((prev) => ({
+                  ...prev,
+                  ...cloudProfile,
+                }));
+                break;
+              }
+            }
+          } catch {
+            // try next
           }
         }
       } catch (err) {
@@ -418,15 +542,24 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     let eventSource: EventSource | null = null;
     try {
-      eventSource = new EventSource('https://kuldeep-singh-backend.onrender.com/api/events');
+      const liveEventUrl = getBackendUrls()[0] + '/api/events';
+      eventSource = new EventSource(liveEventUrl);
       eventSource.onmessage = (event) => {
         try {
           const payload = JSON.parse(event.data);
           if (payload.type === 'STUDENT_ENROLLED' && payload.data) {
             setStudents((prev) => {
-              if (prev.some((s) => s.id === payload.data.id)) return prev;
+              if (prev.some((s) => s.id === payload.data.id || (payload.data._id && s._id === payload.data._id))) return prev;
               return [payload.data, ...prev];
             });
+          } else if (payload.type === 'STUDENT_DELETED' && payload.data?.id) {
+            setStudents((prev) => prev.filter((s) => s.id !== payload.data.id && s._id !== payload.data.id));
+          } else if (payload.type === 'STUDENT_UPDATED' && payload.data?.id) {
+            setStudents((prev) => prev.map((s) => (s.id === payload.data.id || s._id === payload.data.id) ? { ...s, ...payload.data } : s));
+          } else if (payload.type === 'USER_DELETED' && payload.data?.id) {
+            setUsers((prev) => prev.filter((u) => u.id !== payload.data.id && u._id !== payload.data.id));
+          } else if (payload.type === 'USER_UPDATED' && payload.data?.id) {
+            setUsers((prev) => prev.map((u) => (u.id === payload.data.id || u._id === payload.data.id) ? { ...u, ...payload.data } : u));
           }
         } catch {
           // ignore
@@ -929,43 +1062,144 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setTimeline((prev) => prev.filter((_, idx) => idx !== index));
   };
 
-  // Student Handlers (Optimistic Local + 24/7 Cloud Sync)
+  // Student Handlers (Optimistic Local + 24/7 Cloud Sync + Anti-Resurrection)
   const addStudent = async (student: EnrolledStudent) => {
     setStudents((prev) => [student, ...prev]);
-    try {
-      await fetch('https://kuldeep-singh-backend.onrender.com/api/students', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(student)
-      });
-    } catch (e) {
-      console.error('Failed to sync new student to cloud backend:', e);
+    for (const base of getBackendUrls()) {
+      try {
+        await fetch(`${base}/api/students`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(student)
+        });
+      } catch (e) {
+        console.error('Failed to sync new student to backend:', e);
+      }
     }
   };
 
   const updateStudent = async (id: string, updates: Partial<EnrolledStudent>) => {
     setStudents((prev) =>
-      prev.map((s) => (s.id === id ? { ...s, ...updates } : s))
+      prev.map((s) => (s.id === id || s._id === id ? { ...s, ...updates } : s))
     );
-    try {
-      await fetch(`https://kuldeep-singh-backend.onrender.com/api/students/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updates)
-      });
-    } catch (e) {
-      console.error('Failed to update student on cloud backend:', e);
+
+    // If password or credentials changed, sync with matching user in users state
+    if (updates.plainPassword) {
+      setUsers((prev) =>
+        prev.map((u) => {
+          if (u.email && updates.email && u.email.toLowerCase() === updates.email.toLowerCase()) {
+            return {
+              ...u,
+              plainPassword: updates.plainPassword,
+              name: updates.name || u.name,
+              username: updates.username || u.username
+            };
+          }
+          return u;
+        })
+      );
+    }
+
+    for (const base of getBackendUrls()) {
+      try {
+        await fetch(`${base}/api/students/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updates)
+        });
+      } catch (e) {
+        console.error('Failed to update student on backend:', e);
+      }
     }
   };
 
   const deleteStudent = async (id: string) => {
-    setStudents((prev) => prev.filter((s) => s.id !== id));
+    // 1. Add to permanent deleted list in localStorage so polling never restores it
+    let deletedList: string[] = [];
     try {
-      await fetch(`https://kuldeep-singh-backend.onrender.com/api/students/${id}`, {
-        method: 'DELETE'
-      });
-    } catch (e) {
-      console.error('Failed to delete student from cloud backend:', e);
+      deletedList = JSON.parse(localStorage.getItem('ks_deleted_students') || '[]');
+    } catch {
+      deletedList = [];
+    }
+    if (!deletedList.includes(id)) {
+      deletedList.push(id);
+      localStorage.setItem('ks_deleted_students', JSON.stringify(deletedList));
+    }
+
+    // 2. Remove immediately from local state
+    setStudents((prev) => prev.filter((s) => s.id !== id && s._id !== id));
+
+    // 3. Delete across all backend instances
+    for (const base of getBackendUrls()) {
+      try {
+        await fetch(`${base}/api/students/${id}`, {
+          method: 'DELETE'
+        });
+      } catch (e) {
+        console.error('Failed to delete student from backend:', e);
+      }
+    }
+  };
+
+  // User Handlers (Website Accounts & Login Credentials)
+  const updateUser = async (id: string, updates: Partial<RegisteredUser> & { password?: string }) => {
+    setUsers((prev) =>
+      prev.map((u) => (u.id === id || u._id === id ? { ...u, ...updates } : u))
+    );
+
+    // If password or credentials changed, sync with matching enrolled student
+    const newPass = updates.password || updates.plainPassword;
+    if (newPass || updates.name || updates.username) {
+      setStudents((prev) =>
+        prev.map((s) => {
+          if (s.email && updates.email && s.email.toLowerCase() === updates.email.toLowerCase()) {
+            return {
+              ...s,
+              plainPassword: newPass || s.plainPassword,
+              name: updates.name || s.name,
+              username: updates.username || s.username
+            };
+          }
+          return s;
+        })
+      );
+    }
+
+    for (const base of getBackendUrls()) {
+      try {
+        await fetch(`${base}/api/users/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updates)
+        });
+      } catch (e) {
+        console.error('Failed to update user on backend:', e);
+      }
+    }
+  };
+
+  const deleteUser = async (id: string) => {
+    let deletedUserList: string[] = [];
+    try {
+      deletedUserList = JSON.parse(localStorage.getItem('ks_deleted_users') || '[]');
+    } catch {
+      deletedUserList = [];
+    }
+    if (!deletedUserList.includes(id)) {
+      deletedUserList.push(id);
+      localStorage.setItem('ks_deleted_users', JSON.stringify(deletedUserList));
+    }
+
+    setUsers((prev) => prev.filter((u) => u.id !== id && u._id !== id));
+
+    for (const base of getBackendUrls()) {
+      try {
+        await fetch(`${base}/api/users/${id}`, {
+          method: 'DELETE'
+        });
+      } catch (e) {
+        console.error('Failed to delete user from backend:', e);
+      }
     }
   };
 
@@ -974,12 +1208,16 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     localStorage.removeItem('kuldeep_studio_artworks');
     localStorage.removeItem('kuldeep_studio_courses');
     localStorage.removeItem('kuldeep_studio_students');
+    localStorage.removeItem('kuldeep_studio_users');
+    localStorage.removeItem('ks_deleted_students');
+    localStorage.removeItem('ks_deleted_users');
     localStorage.removeItem('kuldeep_studio_profile');
     localStorage.removeItem('kuldeep_studio_timeline');
     localStorage.removeItem('kuldeep_studio_awards');
     setArtworks(ARTWORKS);
     setCourses(COURSES);
     setStudents(INITIAL_STUDENTS);
+    setUsers(INITIAL_USERS);
     setArtistProfile(DEFAULT_PROFILE);
     setTimeline(TIMELINE);
   };
@@ -990,6 +1228,7 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         artworks,
         courses,
         students,
+        users,
         artistProfile,
         timeline,
         awards,
@@ -1002,6 +1241,8 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         addStudent,
         updateStudent,
         deleteStudent,
+        updateUser,
+        deleteUser,
         addLectureToModule,
         updateLectureInModule,
         deleteLectureFromModule,

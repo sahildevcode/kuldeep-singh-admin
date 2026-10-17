@@ -25,13 +25,19 @@ import {
   FileVideo,
   AlertCircle,
   Cloud,
-  Play
+  Play,
+  Eye,
+  EyeOff,
+  Copy,
+  KeyRound,
+  ShieldCheck,
+  Check
 } from 'lucide-react';
 import * as tus from 'tus-js-client';
 import { useStudioData } from '../context/StudioDataContext';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
-import type { Artwork, MediumType, OrderRecord, Course, CourseLecture, EnrolledStudent, StudioReel } from '../types';
+import type { Artwork, MediumType, OrderRecord, Course, CourseLecture, EnrolledStudent, StudioReel, RegisteredUser } from '../types';
 
 const DEFAULT_STUDIO_REELS: StudioReel[] = [
   {
@@ -105,6 +111,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
     artworks,
     courses,
     students,
+    users,
     artistProfile,
     updateArtistProfile,
     addArtwork,
@@ -116,6 +123,8 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
     addStudent,
     updateStudent,
     deleteStudent,
+    updateUser,
+    deleteUser,
     addLectureToModule,
     updateLectureInModule,
     deleteLectureFromModule
@@ -153,10 +162,10 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
   });
 
   // Sub-Navigation for Mode 2: Live Académie & Masterclasses
-  const [academyNav, setAcademyNav] = useState<'batches' | 'curriculum' | 'students'>(() => {
+  const [academyNav, setAcademyNav] = useState<'batches' | 'curriculum' | 'students' | 'users'>(() => {
     try {
       const saved = localStorage.getItem('ks_admin_academy_nav');
-      if (saved === 'batches' || saved === 'curriculum' || saved === 'students') return saved;
+      if (saved === 'batches' || saved === 'curriculum' || saved === 'students' || saved === 'users') return saved;
     } catch (e) {
       console.warn(e);
     }
@@ -1110,6 +1119,45 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
 
   const [studentSearchQuery, setStudentSearchQuery] = useState('');
 
+  // User Accounts & Password Management States
+  const [userSearchQuery, setUserSearchQuery] = useState('');
+  const [visibleUserPasswords, setVisibleUserPasswords] = useState<Record<string, boolean>>({});
+  const [visibleStudentPasswords, setVisibleStudentPasswords] = useState<Record<string, boolean>>({});
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  // Edit User Modal
+  const [editingUser, setEditingUser] = useState<RegisteredUser | null>(null);
+  const [editUserForm, setEditUserForm] = useState({
+    name: '',
+    username: '',
+    email: '',
+    password: '',
+    role: 'student' as 'student' | 'collector' | 'admin'
+  });
+  const [isEditUserModalOpen, setIsEditUserModalOpen] = useState(false);
+
+  // Edit Student Modal
+  const [editingStudent, setEditingStudent] = useState<EnrolledStudent | null>(null);
+  const [editStudentForm, setEditStudentForm] = useState({
+    name: '',
+    email: '',
+    username: '',
+    plainPassword: '',
+    courseId: '',
+    courseTitle: '',
+    feesPaid: 349,
+    batchSchedule: ''
+  });
+  const [isEditStudentModalOpen, setIsEditStudentModalOpen] = useState(false);
+
+  const handleCopyPassword = (text: string, id: string) => {
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+    setCopiedKey(id);
+    showToast('🔑 Password copied to clipboard!');
+    setTimeout(() => setCopiedKey(null), 2500);
+  };
+
   return (
     <div className="min-h-screen bg-[#0C0E12] text-[#E1E4EA] font-sans flex flex-col antialiased selection:bg-[#FF5722] selection:text-white">
       {/* Toast Notification */}
@@ -1339,6 +1387,23 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                     </div>
                     <span className="bg-[#242934] text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
                       {students.length}
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => setAcademyNav('users')}
+                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
+                      academyNav === 'users'
+                        ? 'bg-[#1D212A] text-white font-semibold shadow-sm border border-gray-700/40'
+                        : 'text-gray-400 hover:text-white hover:bg-[#161920]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <KeyRound className={`w-4 h-4 ${academyNav === 'users' ? 'text-[#FF5722]' : 'text-gray-400'}`} />
+                      <span>Registered Logins</span>
+                    </div>
+                    <span className="bg-emerald-500/20 text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-500/30">
+                      {users.length}
                     </span>
                   </button>
                 </>
@@ -2499,6 +2564,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                           <th className="pb-3 font-semibold">Student</th>
                           <th className="pb-3 font-semibold">Enrolled Course / Batch</th>
                           <th className="pb-3 font-semibold">Tuition Fee</th>
+                          <th className="pb-3 font-semibold">Student Password</th>
                           <th className="pb-3 font-semibold text-center">Live Attendance</th>
                           <th className="pb-3 font-semibold text-right">Actions</th>
                         </tr>
@@ -2507,19 +2573,55 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                         {students
                           .filter((s) => {
                             const q = studentSearchQuery.toLowerCase();
-                            return s.name.toLowerCase().includes(q) || s.email.toLowerCase().includes(q) || s.courseTitle.toLowerCase().includes(q);
+                            return (
+                              (s.name || '').toLowerCase().includes(q) ||
+                              (s.email || '').toLowerCase().includes(q) ||
+                              (s.courseTitle || '').toLowerCase().includes(q) ||
+                              (s.username || '').toLowerCase().includes(q)
+                            );
                           })
                           .map((stu) => {
                             const isAttended = stu.attendanceStatus === 'Attended';
+                            const isRevealed = visibleStudentPasswords[stu.id];
+                            const passText = stu.plainPassword || 'art123456';
                             return (
                               <tr key={stu.id} className="hover:bg-gray-900/40 transition-colors">
                                 <td className="py-3.5">
-                                  <div className="font-bold text-white">{stu.name}</div>
+                                  <div className="font-bold text-white flex items-center gap-2">
+                                    <span>{stu.name}</span>
+                                    {stu.username && (
+                                      <span className="text-[11px] text-gray-500 font-mono font-normal">@{stu.username}</span>
+                                    )}
+                                  </div>
                                   <div className="text-[11px] text-gray-400 font-mono">{stu.email}</div>
                                 </td>
-                                <td className="py-3.5 text-gray-300 font-medium">{stu.courseTitle}</td>
+                                <td className="py-3.5 text-gray-300 font-medium">
+                                  <div>{stu.courseTitle}</div>
+                                  <div className="text-[10px] text-gray-500">{stu.batchSchedule || 'Weekend Atelier'}</div>
+                                </td>
                                 <td className="py-3.5 font-bold text-emerald-400">
                                   ₹{(stu.feesPaid || 9999).toLocaleString('en-IN')} <span className="text-[10px] text-emerald-500/80">Paid ✓</span>
+                                </td>
+                                <td className="py-3.5">
+                                  <div className="inline-flex items-center gap-1.5 bg-[#1B1F2A] border border-gray-700/60 rounded-xl px-2.5 py-1 font-mono text-xs text-emerald-400">
+                                    <span>{isRevealed ? passText : '••••••••'}</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => setVisibleStudentPasswords((prev) => ({ ...prev, [stu.id]: !prev[stu.id] }))}
+                                      className="text-gray-400 hover:text-white p-0.5 cursor-pointer"
+                                      title={isRevealed ? 'Hide Password' : 'Show Password'}
+                                    >
+                                      {isRevealed ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleCopyPassword(passText, `stu-${stu.id}`)}
+                                      className="text-gray-400 hover:text-emerald-400 p-0.5 cursor-pointer"
+                                      title="Copy Password"
+                                    >
+                                      {copiedKey === `stu-${stu.id}` ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                                    </button>
+                                  </div>
                                 </td>
                                 <td className="py-3.5 text-center">
                                   <button
@@ -2545,17 +2647,181 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                                   </button>
                                 </td>
                                 <td className="py-3.5 text-right">
-                                  <button
-                                    onClick={() => {
-                                      if (window.confirm(`Remove ${stu.name}?`)) {
-                                        deleteStudent(stu.id);
-                                        showToast('Student access removed.');
-                                      }
-                                    }}
-                                    className="text-gray-500 hover:text-red-400 p-1.5"
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </button>
+                                  <div className="inline-flex items-center gap-2">
+                                    <button
+                                      onClick={() => {
+                                        setEditingStudent(stu);
+                                        setEditStudentForm({
+                                          name: stu.name,
+                                          email: stu.email,
+                                          username: stu.username || stu.email.split('@')[0],
+                                          plainPassword: stu.plainPassword || '',
+                                          courseId: stu.courseId,
+                                          courseTitle: stu.courseTitle,
+                                          feesPaid: stu.feesPaid || 349,
+                                          batchSchedule: stu.batchSchedule || ''
+                                        });
+                                        setIsEditStudentModalOpen(true);
+                                      }}
+                                      className="p-1.5 rounded-lg bg-gray-800 hover:bg-[#FF5722] text-gray-300 hover:text-white transition-all cursor-pointer"
+                                      title="Edit Student & Password"
+                                    >
+                                      <Edit3 className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        if (window.confirm(`Remove ${stu.name} from enrolled masterclasses?`)) {
+                                          deleteStudent(stu.id);
+                                          showToast('Student access removed.');
+                                        }
+                                      }}
+                                      className="p-1.5 rounded-lg bg-gray-800 hover:bg-red-600 text-gray-400 hover:text-white transition-all cursor-pointer"
+                                      title="Remove Student Access"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* REGISTERED USERS & WEBSITE LOGINS TAB */}
+              {academyNav === 'users' && (
+                <div className="space-y-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                      <h3 className="font-serif font-bold text-2xl text-white">Registered Accounts & Website Logins</h3>
+                      <p className="text-xs text-gray-400">View registered student accounts, manage passwords, or update login credentials if a student forgets their password.</p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center gap-2">
+                        <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                        <span>{users.length} Active Accounts</span>
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Search input */}
+                  <div className="flex items-center gap-2 bg-[#14171E] border border-[#202530] rounded-2xl px-4 py-2.5 text-xs">
+                    <Search className="w-4 h-4 text-gray-500" />
+                    <input
+                      type="text"
+                      value={userSearchQuery}
+                      onChange={(e) => setUserSearchQuery(e.target.value)}
+                      placeholder="Search accounts by name, email, or @username..."
+                      className="bg-transparent text-white placeholder-gray-500 text-xs w-full focus:outline-none"
+                    />
+                  </div>
+
+                  {/* Users Table */}
+                  <div className="bg-[#14171E] border border-[#202530] rounded-3xl p-6 shadow-xl overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead>
+                        <tr className="border-b border-gray-800 text-gray-400 text-[11px] uppercase tracking-wider">
+                          <th className="pb-3 font-semibold">User Profile</th>
+                          <th className="pb-3 font-semibold">Email Address</th>
+                          <th className="pb-3 font-semibold">Website Login Password</th>
+                          <th className="pb-3 font-semibold text-center">Courses Enrolled</th>
+                          <th className="pb-3 font-semibold text-center">Role</th>
+                          <th className="pb-3 font-semibold text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-800/60">
+                        {users
+                          .filter((u) => {
+                            const q = userSearchQuery.toLowerCase();
+                            return (
+                              (u.name || '').toLowerCase().includes(q) ||
+                              (u.email || '').toLowerCase().includes(q) ||
+                              (u.username || '').toLowerCase().includes(q)
+                            );
+                          })
+                          .map((u) => {
+                            const isRevealed = visibleUserPasswords[u.id];
+                            const passText = u.plainPassword || 'art123456';
+                            return (
+                              <tr key={u.id} className="hover:bg-gray-900/40 transition-colors">
+                                <td className="py-3.5">
+                                  <div className="font-bold text-white flex items-center gap-2">
+                                    <span>{u.name}</span>
+                                    <span className="text-[11px] text-gray-500 font-mono font-normal">@{u.username || u.email.split('@')[0]}</span>
+                                  </div>
+                                </td>
+                                <td className="py-3.5 text-gray-300 font-mono text-[11px]">{u.email}</td>
+                                <td className="py-3.5">
+                                  <div className="inline-flex items-center gap-2 bg-[#1B1F2A] border border-gray-700/60 rounded-xl px-2.5 py-1 font-mono text-xs text-emerald-400">
+                                    <span>{isRevealed ? passText : '••••••••'}</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => setVisibleUserPasswords((prev) => ({ ...prev, [u.id]: !prev[u.id] }))}
+                                      className="text-gray-400 hover:text-white p-0.5 cursor-pointer"
+                                      title={isRevealed ? 'Hide Password' : 'Show Password'}
+                                    >
+                                      {isRevealed ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleCopyPassword(passText, `user-${u.id}`)}
+                                      className="text-gray-400 hover:text-emerald-400 p-0.5 cursor-pointer"
+                                      title="Copy Password"
+                                    >
+                                      {copiedKey === `user-${u.id}` ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                                    </button>
+                                  </div>
+                                </td>
+                                <td className="py-3.5 text-center">
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                                    {(u.enrolledCourseIds || []).length} Courses
+                                  </span>
+                                </td>
+                                <td className="py-3.5 text-center">
+                                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                                    u.role === 'collector'
+                                      ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
+                                      : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                  }`}>
+                                    {u.role || 'student'}
+                                  </span>
+                                </td>
+                                <td className="py-3.5 text-right">
+                                  <div className="inline-flex items-center gap-2">
+                                    <button
+                                      onClick={() => {
+                                        setEditingUser(u);
+                                        setEditUserForm({
+                                          name: u.name || '',
+                                          username: u.username || u.email.split('@')[0],
+                                          email: u.email || '',
+                                          password: u.plainPassword || '',
+                                          role: u.role || 'student'
+                                        });
+                                        setIsEditUserModalOpen(true);
+                                      }}
+                                      className="p-1.5 rounded-lg bg-gray-800 hover:bg-[#FF5722] text-gray-300 hover:text-white transition-all cursor-pointer"
+                                      title="Edit Login ID & Password"
+                                    >
+                                      <Edit3 className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        if (window.confirm(`Permanently delete user account "${u.name}" (${u.email})?`)) {
+                                          deleteUser(u.id);
+                                          showToast('User account deleted.');
+                                        }
+                                      }}
+                                      className="p-1.5 rounded-lg bg-gray-800 hover:bg-red-600 text-gray-400 hover:text-white transition-all cursor-pointer"
+                                      title="Delete Account"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
                                 </td>
                               </tr>
                             );
@@ -3334,6 +3600,234 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                 </button>
                 <button type="submit" className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-lg cursor-pointer">
                   Grant Immediate Access
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* MODAL 3B: EDIT REGISTERED USER ACCOUNT & PASSWORD         */}
+      {/* ========================================================= */}
+      {isEditUserModalOpen && editingUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md overflow-y-auto animate-fade-in">
+          <div className="bg-[#14171E] border border-[#242A36] rounded-3xl w-full max-w-md p-6 sm:p-8 shadow-2xl relative text-white space-y-5">
+            <div className="flex items-center justify-between pb-4 border-b border-gray-800">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-[#FF5722]/20 text-[#FF5722] flex items-center justify-center">
+                  <KeyRound className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold font-serif text-white">Edit Login ID & Password</h3>
+                  <p className="text-xs text-gray-400">Update account credentials for @{editingUser.username || editingUser.email.split('@')[0]}</p>
+                </div>
+              </div>
+              <button onClick={() => setIsEditUserModalOpen(false)} className="p-1.5 text-gray-400 hover:text-white rounded-xl bg-gray-800/50 cursor-pointer">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                updateUser(editingUser.id, {
+                  name: editUserForm.name.trim(),
+                  username: editUserForm.username.trim(),
+                  email: editUserForm.email.trim(),
+                  plainPassword: editUserForm.password.trim(),
+                  password: editUserForm.password.trim(),
+                  role: editUserForm.role
+                });
+                showToast(`Login credentials for ${editUserForm.name || editUserForm.email} updated!`);
+                setIsEditUserModalOpen(false);
+              }}
+              className="space-y-4 text-xs"
+            >
+              <div>
+                <label className="block text-gray-300 mb-1.5 font-semibold">Student Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={editUserForm.name}
+                  onChange={(e) => setEditUserForm({ ...editUserForm, name: e.target.value })}
+                  placeholder="Full Name"
+                  className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-[#FF5722]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-gray-300 mb-1.5 font-semibold">Username (@)</label>
+                <input
+                  type="text"
+                  required
+                  value={editUserForm.username}
+                  onChange={(e) => setEditUserForm({ ...editUserForm, username: e.target.value })}
+                  placeholder="username_without_spaces"
+                  className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white font-mono focus:outline-none focus:border-[#FF5722]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-gray-300 mb-1.5 font-semibold">Email Address *</label>
+                <input
+                  type="email"
+                  required
+                  value={editUserForm.email}
+                  onChange={(e) => setEditUserForm({ ...editUserForm, email: e.target.value })}
+                  placeholder="student@example.com"
+                  className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white font-mono focus:outline-none focus:border-[#FF5722]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-gray-300 mb-1.5 font-semibold">Login Password * (Visible / Editable)</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    required
+                    value={editUserForm.password}
+                    onChange={(e) => setEditUserForm({ ...editUserForm, password: e.target.value })}
+                    placeholder="Enter new password"
+                    className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-emerald-400 font-mono text-sm focus:outline-none focus:border-[#FF5722]"
+                  />
+                </div>
+                <p className="text-[10px] text-gray-500 mt-1">If the student forgot their password, you can change it here and tell them directly.</p>
+              </div>
+
+              <div>
+                <label className="block text-gray-300 mb-1.5 font-semibold">Account Role</label>
+                <select
+                  value={editUserForm.role}
+                  onChange={(e) => setEditUserForm({ ...editUserForm, role: e.target.value as any })}
+                  className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-[#FF5722]"
+                >
+                  <option value="student">Academy Student</option>
+                  <option value="collector">Art Collector</option>
+                </select>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-800">
+                <button type="button" onClick={() => setIsEditUserModalOpen(false)} className="px-4 py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl text-xs font-semibold cursor-pointer">
+                  Cancel
+                </button>
+                <button type="submit" className="px-6 py-2.5 bg-[#FF5722] hover:bg-[#FF7043] text-white rounded-xl text-xs font-bold shadow-lg shadow-[#FF5722]/30 cursor-pointer">
+                  Save Credentials
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* MODAL 3C: EDIT ENROLLED STUDENT & COURSE ACCESS           */}
+      {/* ========================================================= */}
+      {isEditStudentModalOpen && editingStudent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md overflow-y-auto animate-fade-in">
+          <div className="bg-[#14171E] border border-[#242A36] rounded-3xl w-full max-w-md p-6 sm:p-8 shadow-2xl relative text-white space-y-5">
+            <div className="flex items-center justify-between pb-4 border-b border-gray-800">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                  <Edit3 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold font-serif text-white">Edit Enrolled Student</h3>
+                  <p className="text-xs text-gray-400">Update course tuition fee, password and details</p>
+                </div>
+              </div>
+              <button onClick={() => setIsEditStudentModalOpen(false)} className="p-1.5 text-gray-400 hover:text-white rounded-xl bg-gray-800/50 cursor-pointer">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                updateStudent(editingStudent.id, {
+                  name: editStudentForm.name.trim(),
+                  email: editStudentForm.email.trim(),
+                  plainPassword: editStudentForm.plainPassword.trim(),
+                  courseId: editStudentForm.courseId,
+                  courseTitle: editStudentForm.courseTitle,
+                  feesPaid: Number(editStudentForm.feesPaid) || 349,
+                  batchSchedule: editStudentForm.batchSchedule
+                });
+                showToast(`Enrolled student ${editStudentForm.name} updated!`);
+                setIsEditStudentModalOpen(false);
+              }}
+              className="space-y-4 text-xs"
+            >
+              <div>
+                <label className="block text-gray-300 mb-1.5 font-semibold">Student Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={editStudentForm.name}
+                  onChange={(e) => setEditStudentForm({ ...editStudentForm, name: e.target.value })}
+                  className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-[#FF5722]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-gray-300 mb-1.5 font-semibold">Email Address *</label>
+                <input
+                  type="email"
+                  required
+                  value={editStudentForm.email}
+                  onChange={(e) => setEditStudentForm({ ...editStudentForm, email: e.target.value })}
+                  className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white font-mono focus:outline-none focus:border-[#FF5722]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-gray-300 mb-1.5 font-semibold">Student Account Password *</label>
+                <input
+                  type="text"
+                  value={editStudentForm.plainPassword}
+                  onChange={(e) => setEditStudentForm({ ...editStudentForm, plainPassword: e.target.value })}
+                  placeholder="Set or view password"
+                  className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-emerald-400 font-mono text-sm focus:outline-none focus:border-[#FF5722]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-gray-300 mb-1.5 font-semibold">Enrolled Course</label>
+                <select
+                  value={editStudentForm.courseId}
+                  onChange={(e) => {
+                    const selCourse = courses.find((c) => c.id === e.target.value);
+                    setEditStudentForm({
+                      ...editStudentForm,
+                      courseId: e.target.value,
+                      courseTitle: selCourse ? selCourse.title : editStudentForm.courseTitle,
+                      batchSchedule: selCourse ? selCourse.schedule : editStudentForm.batchSchedule
+                    });
+                  }}
+                  className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-[#FF5722]"
+                >
+                  {courses.map((c) => (
+                    <option key={c.id} value={c.id}>{c.title}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-gray-300 mb-1.5 font-semibold">Tuition Fee Paid (₹)</label>
+                <input
+                  type="number"
+                  value={editStudentForm.feesPaid}
+                  onChange={(e) => setEditStudentForm({ ...editStudentForm, feesPaid: Number(e.target.value) || 0 })}
+                  className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white font-mono focus:outline-none focus:border-[#FF5722]"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-800">
+                <button type="button" onClick={() => setIsEditStudentModalOpen(false)} className="px-4 py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl text-xs font-semibold cursor-pointer">
+                  Cancel
+                </button>
+                <button type="submit" className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-lg cursor-pointer">
+                  Update Enrolled Student
                 </button>
               </div>
             </form>

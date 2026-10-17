@@ -196,10 +196,28 @@ export interface StudioReel {
   thumbnail: string;
 }
 
-export interface EnrolledStudent {
+export interface RegisteredUser {
   id: string;
+  _id?: string;
   name: string;
   email: string;
+  username: string;
+  plainPassword?: string;
+  role: 'student' | 'collector' | 'admin';
+  isEmailVerified?: boolean;
+  enrolledCourseIds?: string[];
+  lastLoginAt?: string;
+  createdAt?: string;
+  isBlocked?: boolean;
+}
+
+export interface EnrolledStudent {
+  id: string;
+  _id?: string;
+  name: string;
+  email: string;
+  username?: string;
+  plainPassword?: string;
   phone?: string;
   courseId: string;
   courseTitle: string;
