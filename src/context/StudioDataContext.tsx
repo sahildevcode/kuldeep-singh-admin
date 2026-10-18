@@ -357,25 +357,24 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             savedLocal = (Array.isArray(savedLocal) ? savedLocal : []).filter((c) => !deletedCourseIds.includes(c.id));
             const validCloudCourses = cloudCourses.filter((c) => !deletedCourseIds.includes(c.id));
 
-            // SMART MERGE: Never allow cloud to wipe out local lectures!
+            // SMART MERGE: Never suppress cloud lectures; always trust real database lectures
             let hasLocalLecturesToSync = false;
-            let deletedLecIds: string[] = [];
             try {
-              deletedLecIds = JSON.parse(localStorage.getItem('kuldeep_studio_deleted_lectures') || '[]');
+              localStorage.removeItem('kuldeep_studio_deleted_lectures');
             } catch {
-              deletedLecIds = [];
+              // ignore
             }
 
             const mergedCourses = validCloudCourses.map((cloudC) => {
               const localC = savedLocal.find((l) => l.id === cloudC.id);
               if (!localC) {
                 const cleanedModules = (cloudC.modules || []).map((cloudM) => {
-                  const cleanedLecs = (cloudM.lectures || []).filter((cLec) => !deletedLecIds.includes(cLec.id));
+                  const cloudLecs = Array.isArray(cloudM.lectures) ? cloudM.lectures : [];
                   return {
                     ...cloudM,
-                    lectures: cleanedLecs,
-                    lessonsCount: cleanedLecs.length,
-                    topics: cleanedLecs.map((l) => l.title)
+                    lectures: cloudLecs,
+                    lessonsCount: cloudLecs.length,
+                    topics: cloudLecs.map((l) => l.title)
                   };
                 });
                 return {
@@ -387,8 +386,7 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
               const mergedModules = (cloudC.modules || []).map((cloudM, mIdx) => {
                 const localM = localC.modules?.[mIdx];
-                const rawCloudLecs = cloudM.lectures || [];
-                const cloudLecs = rawCloudLecs.filter((cLec) => !deletedLecIds.includes(cLec.id));
+                const cloudLecs = Array.isArray(cloudM.lectures) ? cloudM.lectures : [];
                 if (!localM) {
                   return {
                     ...cloudM,
@@ -398,8 +396,7 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                   };
                 }
 
-                const rawLocalLecs = localM.lectures || [];
-                const localLecs = rawLocalLecs.filter((lLec) => !deletedLecIds.includes(lLec.id));
+                const localLecs = Array.isArray(localM.lectures) ? localM.lectures : [];
 
                 // Keep local lectures that might not have reached the cloud yet
                 const missingInCloud = localLecs.filter(
@@ -686,12 +683,13 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       return updated;
     });
 
+    const payloadToSend = updates.modules ? updatedCourse : updates;
     for (const base of getBackendUrls()) {
       try {
         await fetch(`${base}/api/courses/${id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updatedCourse || updates)
+          body: JSON.stringify(payloadToSend || updates)
         });
         if (updates.liveClassStatus !== undefined) {
           await fetch(`${base}/api/live`, {
