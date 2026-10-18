@@ -128,7 +128,7 @@ const AdminPortalContent: React.FC = () => {
           {/* Public website link */}
           <div className="mt-6 text-center">
             <a
-              href="https://sahildevcode.github.io/artist-kuldeep-singh/"
+              href="https://www.artistkuldeepsingh.com"
               target="_blank"
               rel="noreferrer"
               className="inline-flex items-center gap-1.5 text-xs text-gray-400 hover:text-[#E63946] transition-colors"
@@ -156,7 +156,7 @@ const AdminPortalContent: React.FC = () => {
         </div>
         <div className="flex items-center gap-4">
           <a
-            href="https://sahildevcode.github.io/artist-kuldeep-singh/"
+            href="https://www.artistkuldeepsingh.com"
             target="_blank"
             rel="noreferrer"
             className="text-gray-400 hover:text-white flex items-center gap-1 transition-colors"

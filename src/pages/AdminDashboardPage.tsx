@@ -1329,7 +1329,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
         {/* Right Quick Controls */}
         <div className="flex items-center gap-3">
           <a
-            href="http://localhost:5173"
+            href="https://www.artistkuldeepsingh.com/#student-portal"
             target="_blank"
             rel="noreferrer"
             className="px-3 py-1.5 rounded-xl bg-[#181C24] hover:bg-[#202530] text-gray-300 hover:text-white text-xs font-medium border border-gray-700/60 transition-colors flex items-center gap-1.5"
