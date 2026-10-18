@@ -654,14 +654,16 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   // Course Handlers
   const addCourse = async (course: Course) => {
     setCourses((prev) => [course, ...prev]);
-    try {
-      await fetch('https://kuldeep-singh-backend.onrender.com/api/courses', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(course)
-      });
-    } catch (e) {
-      console.error('Failed to sync new course to backend:', e);
+    for (const base of getBackendUrls()) {
+      try {
+        await fetch(`${base}/api/courses`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(course)
+        });
+      } catch (e) {
+        // try next
+      }
     }
   };
 
@@ -669,24 +671,26 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setCourses((prev) =>
       prev.map((c) => (c.id === id ? { ...c, ...updates } : c))
     );
-    try {
-      await fetch(`https://kuldeep-singh-backend.onrender.com/api/courses/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updates)
-      });
-      if (updates.liveClassStatus !== undefined) {
-        await fetch('https://kuldeep-singh-backend.onrender.com/api/live', {
-          method: 'POST',
+    for (const base of getBackendUrls()) {
+      try {
+        await fetch(`${base}/api/courses/${id}`, {
+          method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            isLive: updates.liveClassStatus === 'live',
-            liveStreamUrl: updates.liveClassUrl
-          })
+          body: JSON.stringify(updates)
         });
+        if (updates.liveClassStatus !== undefined) {
+          await fetch(`${base}/api/live`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              isLive: updates.liveClassStatus === 'live',
+              liveStreamUrl: updates.liveClassUrl
+            })
+          });
+        }
+      } catch (e) {
+        // try next
       }
-    } catch (e) {
-      console.error('Failed to sync course update to backend:', e);
     }
   };
 
@@ -705,12 +709,14 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     } catch (err) {
       console.warn('Error saving deleted course to localStorage:', err);
     }
-    try {
-      await fetch(`https://kuldeep-singh-backend.onrender.com/api/courses/${id}`, {
-        method: 'DELETE'
-      });
-    } catch (e) {
-      console.error('Failed to delete course from backend:', e);
+    for (const base of getBackendUrls()) {
+      try {
+        await fetch(`${base}/api/courses/${id}`, {
+          method: 'DELETE'
+        });
+      } catch (e) {
+        // try next
+      }
     }
   };
 
