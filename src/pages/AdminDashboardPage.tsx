@@ -688,7 +688,19 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
   const [courseToEdit, setCourseToEdit] = useState<Course | null>(null);
   const [categorySelect, setCategorySelect] = useState<string>('Oil Painting');
   const [customCategory, setCustomCategory] = useState<string>('');
-  const [newBatchForm, setNewBatchForm] = useState({
+  const [batchImageUrlInput, setBatchImageUrlInput] = useState('');
+  const [newBatchForm, setNewBatchForm] = useState<{
+    title: string;
+    startDate: string;
+    schedule: string;
+    price: number;
+    durationMonths: string;
+    maxSeats: number;
+    thumbnail: string;
+    images: string[];
+    liveClassUrl: string;
+    summary: string;
+  }>({
     title: '',
     startDate: '22 Oct, 2026',
     schedule: 'Saturday & Sunday • 6:00 PM – 8:00 PM IST',
@@ -696,6 +708,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
     durationMonths: '2 Months',
     maxSeats: 25,
     thumbnail: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=1400&auto=format&fit=crop',
+    images: ['https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=1400&auto=format&fit=crop'],
     liveClassUrl: 'https://meet.google.com/ks-studio-atelier',
     summary: 'Direct atelier mentorship, live easel demonstration and critique with Artist Kuldeep Singh.'
   });
@@ -712,6 +725,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
     setCourseToEdit(null);
     setCategorySelect('Oil Painting');
     setCustomCategory('');
+    setBatchImageUrlInput('');
     setNewBatchForm({
       title: '',
       startDate: '22 Oct, 2026',
@@ -720,6 +734,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
       durationMonths: '2 Months',
       maxSeats: 25,
       thumbnail: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=1400&auto=format&fit=crop',
+      images: ['https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=1400&auto=format&fit=crop'],
       liveClassUrl: 'https://meet.google.com/ks-studio-atelier',
       summary: 'Direct atelier mentorship, live easel demonstration and critique with Artist Kuldeep Singh.'
     });
@@ -735,6 +750,10 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
       setCategorySelect('Other');
       setCustomCategory(course.category || '');
     }
+    setBatchImageUrlInput('');
+    const rawImages = Array.isArray(course.images) && course.images.length > 0
+      ? course.images
+      : (course.thumbnail ? [course.thumbnail] : []);
     setNewBatchForm({
       title: course.title,
       startDate: course.startDate || '22 Oct, 2026',
@@ -742,51 +761,119 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
       price: course.price,
       durationMonths: course.durationMonths || '2 Months',
       maxSeats: 25,
-      thumbnail: course.thumbnail || 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=1400&auto=format&fit=crop',
+      thumbnail: rawImages[0] || course.thumbnail || '',
+      images: rawImages,
       liveClassUrl: course.liveClassUrl || 'https://meet.google.com/ks-studio-atelier',
       summary: course.summary || course.description || ''
     });
     setIsNewBatchModalOpen(true);
   };
 
-  const handleImageFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === 'string') {
-        const img = new Image();
-        img.onload = () => {
-          const maxDim = 1200;
-          let width = img.width;
-          let height = img.height;
-          if (width > maxDim || height > maxDim) {
-            if (width > height) {
-              height = Math.round((height * maxDim) / width);
-              width = maxDim;
-            } else {
-              width = Math.round((width * maxDim) / height);
-              height = maxDim;
-            }
+  const handleMultipleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const fileList = Array.from(files);
+    const processImage = (file: File): Promise<string> => {
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          if (typeof reader.result === 'string') {
+            const img = new Image();
+            img.onload = () => {
+              const maxDim = 1200;
+              let width = img.width;
+              let height = img.height;
+              if (width > maxDim || height > maxDim) {
+                if (width > height) {
+                  height = Math.round((height * maxDim) / width);
+                  width = maxDim;
+                } else {
+                  width = Math.round((width * maxDim) / height);
+                  height = maxDim;
+                }
+              }
+              const canvas = document.createElement('canvas');
+              canvas.width = width;
+              canvas.height = height;
+              const ctx = canvas.getContext('2d');
+              if (ctx) {
+                ctx.drawImage(img, 0, 0, width, height);
+                resolve(canvas.toDataURL('image/jpeg', 0.82));
+                return;
+              }
+              resolve(reader.result as string);
+            };
+            img.onerror = () => resolve(reader.result as string);
+            img.src = reader.result as string;
+          } else {
+            resolve('');
           }
-          const canvas = document.createElement('canvas');
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          if (ctx) {
-            ctx.drawImage(img, 0, 0, width, height);
-            const optimizedBase64 = canvas.toDataURL('image/jpeg', 0.82);
-            setNewBatchForm((prev) => ({ ...prev, thumbnail: optimizedBase64 }));
-            showToast('✅ Banner image optimized and loaded successfully!');
-            return;
-          }
-          setNewBatchForm((prev) => ({ ...prev, thumbnail: reader.result as string }));
-          showToast('✅ Banner image uploaded successfully!');
         };
-        img.src = reader.result as string;
-      }
+        reader.readAsDataURL(file);
+      });
     };
-    reader.readAsDataURL(file);
+
+    try {
+      const results = await Promise.all(fileList.map(processImage));
+      const validImages = results.filter((img) => Boolean(img));
+      if (validImages.length > 0) {
+        setNewBatchForm((prev) => {
+          const updated = [...prev.images, ...validImages];
+          return {
+            ...prev,
+            images: updated,
+            thumbnail: prev.thumbnail || updated[0]
+          };
+        });
+        showToast(`✅ ${validImages.length} image(s) uploaded successfully!`);
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Error uploading images');
+    }
+    e.target.value = '';
+  };
+
+  const handleAddBatchImageUrl = () => {
+    if (!batchImageUrlInput.trim()) return;
+    const url = batchImageUrlInput.trim();
+    setNewBatchForm((prev) => {
+      const updated = [...prev.images, url];
+      return {
+        ...prev,
+        images: updated,
+        thumbnail: prev.thumbnail || updated[0]
+      };
+    });
+    setBatchImageUrlInput('');
+    showToast('✅ Image URL added to gallery!');
+  };
+
+  const handleRemoveBatchImage = (indexToRemove: number) => {
+    setNewBatchForm((prev) => {
+      const updated = prev.images.filter((_, idx) => idx !== indexToRemove);
+      return {
+        ...prev,
+        images: updated,
+        thumbnail: updated[0] || ''
+      };
+    });
+    showToast('Image removed from batch');
+  };
+
+  const handleSetPrimaryImage = (indexToPrimary: number) => {
+    setNewBatchForm((prev) => {
+      const target = prev.images[indexToPrimary];
+      const remaining = prev.images.filter((_, idx) => idx !== indexToPrimary);
+      const reordered = [target, ...remaining];
+      return {
+        ...prev,
+        images: reordered,
+        thumbnail: target
+      };
+    });
+    showToast('Set as main banner');
   };
 
   const handleCreateLiveBatch = async (e: React.FormEvent) => {
@@ -801,6 +888,11 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
         ? (customCategory.trim() || 'Fine Art')
         : categorySelect;
 
+    const finalImages = newBatchForm.images.length > 0 
+      ? newBatchForm.images 
+      : (newBatchForm.thumbnail ? [newBatchForm.thumbnail] : []);
+    const primaryThumbnail = finalImages[0] || newBatchForm.thumbnail || 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=1400&auto=format&fit=crop';
+
     if (courseToEdit) {
       updateCourse(courseToEdit.id, {
         title: newBatchForm.title,
@@ -809,7 +901,8 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
         category: finalCategory,
         price: Number(newBatchForm.price),
         durationMonths: newBatchForm.durationMonths,
-        thumbnail: newBatchForm.thumbnail,
+        thumbnail: primaryThumbnail,
+        images: finalImages,
         liveClassUrl: newBatchForm.liveClassUrl,
         summary: newBatchForm.summary,
         description: newBatchForm.summary
@@ -830,12 +923,13 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
         startDate: newBatchForm.startDate,
         mode: 'Live Studio Broadcast + HD Video Recordings',
         certification: 'Kuldeep Singh Atelier Master Diploma',
-        totalLessons: 12,
+        totalLessons: 0,
         price: Number(newBatchForm.price),
         originalPrice: Number(newBatchForm.price) * 1.5,
         rating: 5.0,
         studentsEnrolled: 0,
-        thumbnail: newBatchForm.thumbnail || 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=1400&auto=format&fit=crop',
+        thumbnail: primaryThumbnail,
+        images: finalImages,
         summary: newBatchForm.summary,
         description: newBatchForm.summary,
         whatYouWillLearn: [
@@ -2920,65 +3014,111 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                 </div>
               </div>
 
-              {/* Class Banner Image Upload & Preview */}
-              <div className="space-y-2.5 bg-[#181C24]/80 border border-[#242A36] rounded-2xl p-4">
+              {/* Class Images & Gallery (Multiple Photos for Students) */}
+              <div className="space-y-3 bg-[#181C24]/80 border border-[#242A36] rounded-2xl p-4">
                 <div className="flex items-center justify-between">
                   <label className="text-gray-300 font-semibold flex items-center gap-2">
                     <ImageIcon className="w-4 h-4 text-[#FF5722]" />
-                    <span>Class Banner / Thumbnail Image</span>
+                    <span>Batch Images & Student Gallery (Multiple Photos)</span>
                   </label>
-                  <span className="text-[10px] text-gray-400">Ratio: 16:9 Banner</span>
+                  <span className="text-[10px] text-gray-400">
+                    {newBatchForm.images.length} Image{newBatchForm.images.length === 1 ? '' : 's'} Selected
+                  </span>
                 </div>
 
-                <div className="flex flex-col sm:flex-row items-center gap-4">
-                  {/* Thumbnail Preview Box */}
-                  <div className="w-full sm:w-44 h-24 rounded-xl overflow-hidden bg-black/50 border border-gray-700/60 relative shrink-0 flex items-center justify-center group shadow-inner">
-                    {newBatchForm.thumbnail ? (
-                      <img
-                        src={newBatchForm.thumbnail}
-                        alt="Class Banner Preview"
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src =
-                            'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=1400&auto=format&fit=crop';
-                        }}
-                      />
-                    ) : (
-                      <div className="text-center p-2 text-gray-500">
-                        <ImageIcon className="w-6 h-6 mx-auto mb-1 opacity-50" />
-                        <span className="text-[10px]">No Banner</span>
-                      </div>
-                    )}
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-[10px] font-bold text-white pointer-events-none">
-                      Preview
-                    </div>
+                {/* Multiple Images Grid Preview */}
+                {newBatchForm.images.length > 0 ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 max-h-48 overflow-y-auto p-1 bg-black/30 rounded-xl border border-gray-800">
+                    {newBatchForm.images.map((imgUrl, imgIdx) => {
+                      const isPrimary = imgIdx === 0;
+                      return (
+                        <div
+                          key={imgIdx}
+                          className={`relative rounded-xl overflow-hidden aspect-video border group shadow-md ${
+                            isPrimary ? 'border-[#FF5722] ring-2 ring-[#FF5722]/40' : 'border-gray-700 hover:border-gray-500'
+                          }`}
+                        >
+                          <img
+                            src={imgUrl}
+                            alt={`Batch image ${imgIdx + 1}`}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src =
+                                'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=600&auto=format&fit=crop';
+                            }}
+                          />
+                          {isPrimary && (
+                            <span className="absolute top-1 left-1 bg-[#FF5722] text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow">
+                              ★ Main Banner
+                            </span>
+                          )}
+                          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 p-1">
+                            {!isPrimary && (
+                              <button
+                                type="button"
+                                onClick={() => handleSetPrimaryImage(imgIdx)}
+                                className="px-1.5 py-1 rounded bg-[#FF5722] hover:brightness-110 text-white text-[9px] font-bold cursor-pointer"
+                                title="Set as Main Banner"
+                              >
+                                Set Main
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveBatchImage(imgIdx)}
+                              className="p-1 rounded bg-red-600 hover:bg-red-700 text-white cursor-pointer"
+                              title="Delete Image"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
+                ) : (
+                  <div className="text-center py-5 border border-dashed border-gray-700 rounded-xl bg-black/20 text-gray-400">
+                    <ImageIcon className="w-8 h-8 mx-auto mb-1 text-gray-500 opacity-60" />
+                    <p className="text-xs">No images added yet.</p>
+                    <p className="text-[10px] text-gray-500 mt-0.5">Upload photos below to showcase syllabus paintings & atelier demonstrations to students.</p>
+                  </div>
+                )}
 
-                  {/* Upload button & Direct URL input */}
-                  <div className="w-full space-y-2">
-                    <div>
-                      <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-red-600 to-[#FF5722] hover:opacity-95 text-white font-bold text-xs shadow-md shadow-red-500/10 transition-all">
-                        <Upload className="w-3.5 h-3.5" />
-                        <span>Upload Banner Image</span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handleImageFileUpload}
-                          className="hidden"
-                        />
-                      </label>
-                    </div>
+                {/* Upload Buttons & URL Input */}
+                <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                  <label className="cursor-pointer inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-red-600 to-[#FF5722] hover:opacity-95 text-white font-bold text-xs shadow-md shadow-red-500/10 transition-all shrink-0">
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>Upload Multiple Images</span>
+                    <input
+                      type="file"
+                      multiple
+                      accept="image/*"
+                      onChange={handleMultipleImageUpload}
+                      className="hidden"
+                    />
+                  </label>
 
-                    <div>
-                      <span className="text-[10px] text-gray-400 block mb-1">Or paste image URL:</span>
-                      <input
-                        type="url"
-                        value={newBatchForm.thumbnail}
-                        onChange={(e) => setNewBatchForm({ ...newBatchForm, thumbnail: e.target.value })}
-                        placeholder="https://images.unsplash.com/..."
-                        className="w-full bg-[#12141A] border border-[#242A36] rounded-xl px-3 py-1.5 text-white text-xs placeholder-gray-500 focus:outline-none focus:border-[#FF5722]"
-                      />
-                    </div>
+                  <div className="flex items-center gap-1.5 flex-1">
+                    <input
+                      type="url"
+                      value={batchImageUrlInput}
+                      onChange={(e) => setBatchImageUrlInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddBatchImageUrl();
+                        }
+                      }}
+                      placeholder="Paste image URL (https://...)"
+                      className="w-full bg-[#12141A] border border-[#242A36] rounded-xl px-3 py-2 text-white text-xs placeholder-gray-500 focus:outline-none focus:border-[#FF5722]"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddBatchImageUrl}
+                      className="px-3 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-xl text-xs font-semibold whitespace-nowrap cursor-pointer border border-gray-700"
+                    >
+                      + Add URL
+                    </button>
                   </div>
                 </div>
               </div>

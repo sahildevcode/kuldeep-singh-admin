@@ -62,6 +62,7 @@ export interface Course {
   rating: number;
   studentsEnrolled: number;
   thumbnail: string;
+  images?: string[];
   previewVideoUrl?: string;
   summary: string;
   description: string;

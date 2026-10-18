@@ -179,34 +179,20 @@ interface StudioDataContextType {
 
 const StudioDataContext = createContext<StudioDataContextType | undefined>(undefined);
 
+const DUMMY_COURSE_IDS = ['course-oil-mastery', 'course-realistic-sketching', 'course-watercolor-fluid', 'course-color-alchemy'];
+
 export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Helper to ensure all course modules have lecture objects
+  // Helper to ensure all course modules have lecture objects without auto-generating fake ones
   const normalizeCourses = (courseList: Course[]): Course[] => {
-    return courseList.map((c) => ({
+    return (courseList || []).map((c) => ({
       ...c,
-      modules: (c.modules || []).map((m, mIdx) => {
-        // If lectures is already an initialized array (even if empty []), NEVER auto-generate fake lectures
-        if (Array.isArray(m.lectures)) {
-          return {
-            ...m,
-            lectures: m.lectures,
-            lessonsCount: m.lectures.length
-          };
-        }
-        // Only if m.lectures is undefined (legacy unmigrated data)
-        const initialLecs: CourseLecture[] = (m.topics || []).map((top, tIdx) => ({
-          id: `lec-${c.id}-${m.id || mIdx}-${tIdx + 1}`,
-          title: top,
-          duration: '45 Mins',
-          videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
-          summary: `Master practical demonstration by Artist Kuldeep Singh covering ${top}.`,
-          accessType: 'enrolled',
-          isFreePreview: false
-        }));
+      modules: (c.modules || []).map((m) => {
+        const lecs = Array.isArray(m.lectures) ? m.lectures : [];
         return {
           ...m,
-          lectures: initialLecs,
-          lessonsCount: initialLecs.length
+          lectures: lecs,
+          lessonsCount: lecs.length,
+          topics: lecs.map((l) => l.title)
         };
       })
     }));
@@ -226,10 +212,11 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [courses, setCourses] = useState<Course[]>(() => {
     try {
       const saved = localStorage.getItem('kuldeep_studio_courses');
-      const loaded: Course[] = saved ? JSON.parse(saved) : COURSES;
-      return normalizeCourses(loaded);
+      const loaded: Course[] = saved ? JSON.parse(saved) : [];
+      const clean = (Array.isArray(loaded) ? loaded : []).filter((c) => !DUMMY_COURSE_IDS.includes(c.id));
+      return normalizeCourses(clean);
     } catch {
-      return normalizeCourses(COURSES);
+      return [];
     }
   });
 
@@ -358,6 +345,18 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
               // ignore
             }
 
+            let deletedCourseIds: string[] = [...DUMMY_COURSE_IDS];
+            try {
+              const storedDeleted = JSON.parse(localStorage.getItem('kuldeep_studio_deleted_courses') || '[]');
+              deletedCourseIds = [...new Set([...deletedCourseIds, ...storedDeleted])];
+            } catch {
+              // ignore
+            }
+
+            // Exclude all deleted and dummy courses from savedLocal and cloudCourses
+            savedLocal = (Array.isArray(savedLocal) ? savedLocal : []).filter((c) => !deletedCourseIds.includes(c.id));
+            const validCloudCourses = cloudCourses.filter((c) => !deletedCourseIds.includes(c.id));
+
             // SMART MERGE: Never allow cloud to wipe out local lectures!
             let hasLocalLecturesToSync = false;
             let deletedLecIds: string[] = [];
@@ -367,7 +366,7 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
               deletedLecIds = [];
             }
 
-            const mergedCourses = cloudCourses.map((cloudC) => {
+            const mergedCourses = validCloudCourses.map((cloudC) => {
               const localC = savedLocal.find((l) => l.id === cloudC.id);
               if (!localC) {
                 const cleanedModules = (cloudC.modules || []).map((cloudM) => {
@@ -432,15 +431,18 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
               };
             });
 
-            // Also keep courses that exist locally but not yet on cloud
+            // Also keep courses that exist locally but not yet on cloud (excluding deleted and dummy courses)
             const pendingNewCourses = savedLocal.filter(
-              (localCourse) => !cloudCourses.some((c) => c.id === localCourse.id)
+              (localCourse) => !deletedCourseIds.includes(localCourse.id) && !validCloudCourses.some((c) => c.id === localCourse.id)
             );
 
             const finalCourses = [...mergedCourses, ...pendingNewCourses];
 
             if (isMounted) {
               setCourses(normalizeCourses(finalCourses));
+              try {
+                localStorage.setItem('kuldeep_studio_courses', JSON.stringify(finalCourses));
+              } catch {}
             }
 
             // Push pending local courses and lectures back to cloud to keep cloud 100% in sync
@@ -690,6 +692,19 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   const deleteCourse = async (id: string) => {
     setCourses((prev) => prev.filter((c) => c.id !== id));
+    try {
+      const stored = JSON.parse(localStorage.getItem('kuldeep_studio_deleted_courses') || '[]');
+      if (!stored.includes(id)) {
+        localStorage.setItem('kuldeep_studio_deleted_courses', JSON.stringify([...stored, id]));
+      }
+      const savedLocalStr = localStorage.getItem('kuldeep_studio_courses');
+      if (savedLocalStr) {
+        const parsed: Course[] = JSON.parse(savedLocalStr);
+        localStorage.setItem('kuldeep_studio_courses', JSON.stringify(parsed.filter((c) => c.id !== id)));
+      }
+    } catch (err) {
+      console.warn('Error saving deleted course to localStorage:', err);
+    }
     try {
       await fetch(`https://kuldeep-singh-backend.onrender.com/api/courses/${id}`, {
         method: 'DELETE'
