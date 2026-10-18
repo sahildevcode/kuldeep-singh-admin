@@ -668,15 +668,30 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   const updateCourse = async (id: string, updates: Partial<Course>) => {
-    setCourses((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, ...updates } : c))
-    );
+    let updatedCourse: Course | null = null;
+    setCourses((prev) => {
+      const updated = prev.map((c) => {
+        if (c.id === id) {
+          const res = { ...c, ...updates };
+          updatedCourse = res;
+          return res;
+        }
+        return c;
+      });
+      try {
+        localStorage.setItem('kuldeep_studio_courses', JSON.stringify(updated));
+      } catch (err) {
+        console.error('LocalStorage write error:', err);
+      }
+      return updated;
+    });
+
     for (const base of getBackendUrls()) {
       try {
         await fetch(`${base}/api/courses/${id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updates)
+          body: JSON.stringify(updatedCourse || updates)
         });
         if (updates.liveClassStatus !== undefined) {
           await fetch(`${base}/api/live`, {

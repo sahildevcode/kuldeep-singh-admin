@@ -1007,13 +1007,16 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
       previewUrl: preview
     });
 
-    const cleanTitle = file.name
-      .replace(/\.[^/.]+$/, '')
-      .replace(/[_-]+/g, ' ')
-      .replace(/\b\w/g, (l) => l.toUpperCase());
+    const isWhatsAppOrNumber = /whatsapp|^\d+$/i.test(file.name.replace(/\.[^/.]+$/, '').trim());
+    const cleanTitle = isWhatsAppOrNumber
+      ? `Lecture Session (${new Date().toLocaleDateString('en-GB')})`
+      : file.name
+          .replace(/\.[^/.]+$/, '')
+          .replace(/[_-]+/g, ' ')
+          .replace(/\b\w/g, (l) => l.toUpperCase());
 
-    const titleToUse = lectureForm.title || cleanTitle;
-    if (!lectureForm.title) {
+    const titleToUse = lectureForm.title.trim() || cleanTitle;
+    if (!lectureForm.title.trim()) {
       setLectureForm((prev) => ({ ...prev, title: cleanTitle }));
     }
 
@@ -1193,6 +1196,54 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
 
     await addLectureToModule(finalCourseId, targetModuleIndexForAdd, newLec);
     showToast(`✅ Video Lecture "${newLec.title}" saved as ${isFree ? 'Free Preview / Trailer' : 'Enrolled Access'}!`);
+  };
+
+  // Edit Lecture Modal State
+  const [isEditLectureModalOpen, setIsEditLectureModalOpen] = useState(false);
+  const [lectureToEdit, setLectureToEdit] = useState<{
+    courseId: string;
+    moduleIndex: number;
+    lectureIndex: number;
+    lecture: CourseLecture;
+  } | null>(null);
+  const [editLectureForm, setEditLectureForm] = useState({
+    title: '',
+    duration: '',
+    videoUrl: '',
+    summary: '',
+    accessType: 'enrolled' as 'enrolled' | 'free'
+  });
+
+  const handleOpenEditLecture = (courseId: string, moduleIndex: number, lectureIndex: number, lec: CourseLecture) => {
+    setLectureToEdit({ courseId, moduleIndex, lectureIndex, lecture: lec });
+    setEditLectureForm({
+      title: lec.title || '',
+      duration: lec.duration || '45 Mins',
+      videoUrl: lec.videoUrl || '',
+      summary: lec.summary || '',
+      accessType: lec.accessType || (lec.isFreePreview ? 'free' : 'enrolled')
+    });
+    setIsEditLectureModalOpen(true);
+  };
+
+  const handleSaveEditedLecture = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!lectureToEdit) return;
+    const finalTitle = editLectureForm.title.trim() || 'Master Class Video Lecture';
+    const isFree = editLectureForm.accessType === 'free';
+    
+    await updateLectureInModule(lectureToEdit.courseId, lectureToEdit.moduleIndex, lectureToEdit.lectureIndex, {
+      title: finalTitle,
+      duration: editLectureForm.duration.trim() || '45 Mins',
+      videoUrl: editLectureForm.videoUrl.trim() || lectureToEdit.lecture.videoUrl,
+      summary: editLectureForm.summary.trim() || (isFree ? 'Free introductory trailer & demonstration.' : 'Master practical demonstration by Artist Kuldeep Singh.'),
+      accessType: editLectureForm.accessType,
+      isFreePreview: isFree
+    });
+
+    setIsEditLectureModalOpen(false);
+    setLectureToEdit(null);
+    showToast(`✅ Video Lecture updated to "${finalTitle}"!`);
   };
 
   // Grant Student Access Modal State
@@ -2666,6 +2717,14 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                                       <span>Watch Video</span>
                                     </button>
                                     <button
+                                      onClick={() => handleOpenEditLecture(activeCourse.id, modIdx, lecIdx, lec)}
+                                      className="px-2.5 py-1.5 bg-[#1B202B] hover:bg-[#252C3B] text-amber-400 hover:text-amber-300 rounded-xl text-xs font-bold border border-amber-500/20 flex items-center gap-1.5 transition-colors cursor-pointer"
+                                      title="Edit Lecture Title, Duration, Access & Summary"
+                                    >
+                                      <Edit3 className="w-3.5 h-3.5 text-amber-400" />
+                                      <span>Edit</span>
+                                    </button>
+                                    <button
                                       onClick={() => {
                                         if (window.confirm(`Permanently delete video lecture "${lec.title}"?`)) {
                                           deleteLectureFromModule(activeCourse.id, modIdx, lecIdx);
@@ -3362,6 +3421,9 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                     }
                     className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-[#FF5722]"
                   />
+                  <p className="text-[10px] text-amber-400/90 mt-1">
+                    💡 Ye naam students ko portal me dikhega. Yahan saaf title likhein (jaise "Lesson 1: Oil Painting Foundations").
+                  </p>
                 </div>
 
                 {/* 4. Video Source (Computer File vs Stream Link) */}
@@ -3645,6 +3707,111 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
           </div>
         );
       })()}
+
+      {/* ========================================================= */}
+      {/* MODAL 2A: EDIT VIDEO LECTURE (Title, Duration, Access)    */}
+      {/* ========================================================= */}
+      {isEditLectureModalOpen && lectureToEdit && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md animate-fade-in">
+          <div className="bg-[#14171E] border border-[#242A36] rounded-3xl w-full max-w-lg p-6 sm:p-8 shadow-2xl relative text-white space-y-4 my-8">
+            <div className="flex items-center justify-between pb-3 border-b border-gray-800">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-500/15 text-amber-400 flex items-center justify-center">
+                  <Edit3 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold font-serif text-white">Edit Video Lecture</h3>
+                  <p className="text-xs text-gray-400">Change lecture title, duration, and permissions</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsEditLectureModalOpen(false)}
+                className="p-1.5 text-gray-400 hover:text-white rounded-xl bg-gray-800/50 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditedLecture} className="space-y-4 text-xs">
+              <div>
+                <label className="block text-gray-300 mb-1 font-semibold">Lecture Title *</label>
+                <input
+                  type="text"
+                  required
+                  value={editLectureForm.title}
+                  onChange={(e) => setEditLectureForm({ ...editLectureForm, title: e.target.value })}
+                  placeholder="e.g. Lesson 1: Foundations of Oil Glazing"
+                  className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-[#FF5722]"
+                />
+                <p className="text-[10px] text-gray-500 mt-1">This is the title students will see on the student portal and course curriculum.</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-gray-300 mb-1 font-semibold">Duration</label>
+                  <input
+                    type="text"
+                    value={editLectureForm.duration}
+                    onChange={(e) => setEditLectureForm({ ...editLectureForm, duration: e.target.value })}
+                    placeholder="45 Mins"
+                    className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2 text-white focus:outline-none focus:border-[#FF5722]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-300 mb-1 font-semibold">Access Permission</label>
+                  <select
+                    value={editLectureForm.accessType}
+                    onChange={(e) => setEditLectureForm({ ...editLectureForm, accessType: e.target.value as any })}
+                    className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2 text-white focus:outline-none focus:border-[#FF5722]"
+                  >
+                    <option value="enrolled">🔒 Enrolled Students Only</option>
+                    <option value="free">🎬 Free Preview / Trailer</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-gray-300 mb-1 font-semibold">Summary & Description</label>
+                <textarea
+                  rows={2}
+                  value={editLectureForm.summary}
+                  onChange={(e) => setEditLectureForm({ ...editLectureForm, summary: e.target.value })}
+                  placeholder="Summary of what is demonstrated in this class..."
+                  className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2 text-white focus:outline-none focus:border-[#FF5722]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-gray-300 mb-1 font-semibold">Video Embed URL (Bunny / YouTube / MP4)</label>
+                <input
+                  type="text"
+                  value={editLectureForm.videoUrl}
+                  onChange={(e) => setEditLectureForm({ ...editLectureForm, videoUrl: e.target.value })}
+                  placeholder="https://..."
+                  className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2 text-white font-mono text-[11px] focus:outline-none focus:border-[#FF5722]"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-800">
+                <button
+                  type="button"
+                  onClick={() => setIsEditLectureModalOpen(false)}
+                  className="px-4 py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl text-xs font-semibold cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white rounded-xl text-xs font-bold shadow-lg cursor-pointer"
+                >
+                  Save Lecture Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* ========================================================= */}
       {/* MODAL 2B: WATCH / PREVIEW VIDEO LECTURE (Admin Player)     */}
