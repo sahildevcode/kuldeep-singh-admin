@@ -615,6 +615,13 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
 
   const activeCourse = courses.find((c) => c.id === selectedLiveBatchId) || courses[0];
 
+  const [cloudLiveInfo, setCloudLiveInfo] = useState<{
+    isLive: boolean;
+    liveStreamUrl: string;
+    courseId?: string | null;
+    courseTitle?: string | null;
+  } | null>(null);
+
   const [liveStreamUrl, setLiveStreamUrl] = useState<string>(
     activeCourse?.liveClassUrl || 'https://meet.google.com/ks-studio-atelier'
   );
@@ -628,38 +635,83 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
       .then((res) => res.json())
       .then((data) => {
         if (data) {
-          if (data.isLive !== undefined) setIsLiveBroadcasting(Boolean(data.isLive));
-          if (data.liveStreamUrl) setLiveStreamUrl(data.liveStreamUrl);
+          setCloudLiveInfo(data);
+          if (data.liveStreamUrl && (!activeCourse?.liveClassUrl || activeCourse?.id === data.courseId)) {
+            setLiveStreamUrl(data.liveStreamUrl);
+          }
         }
       })
       .catch((err) => console.warn('Could not fetch cloud live status:', err));
   }, []);
 
+  // Update controls whenever selected batch changes or cloudLiveInfo updates
+  useEffect(() => {
+    if (activeCourse) {
+      if (activeCourse.liveClassUrl) {
+        setLiveStreamUrl(activeCourse.liveClassUrl);
+      }
+      const isBatchLive =
+        activeCourse.liveClassStatus === 'live' ||
+        Boolean(cloudLiveInfo?.isLive && cloudLiveInfo?.courseId === activeCourse.id);
+      setIsLiveBroadcasting(isBatchLive);
+    }
+  }, [selectedLiveBatchId, activeCourse?.id, activeCourse?.liveClassStatus, cloudLiveInfo]);
+
   const handleToggleBroadcast = async () => {
     const willBeLive = !isLiveBroadcasting;
     setIsLiveBroadcasting(willBeLive);
+
+    const targetCourseId = willBeLive ? (activeCourse ? activeCourse.id : null) : null;
+    const targetCourseTitle = willBeLive ? (activeCourse ? activeCourse.title : null) : null;
+
+    setCloudLiveInfo({
+      isLive: willBeLive,
+      liveStreamUrl: liveStreamUrl,
+      courseId: targetCourseId,
+      courseTitle: targetCourseTitle
+    });
+
     try {
       await fetch('https://kuldeep-singh-backend.onrender.com/api/live', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           isLive: willBeLive,
-          liveStreamUrl: liveStreamUrl
+          liveStreamUrl: liveStreamUrl,
+          courseId: targetCourseId,
+          courseTitle: targetCourseTitle
         })
       });
     } catch (e) {
       console.error('Failed to sync live broadcast to cloud:', e);
     }
+
     if (activeCourse) {
-      updateCourse(activeCourse.id, {
-        liveClassStatus: willBeLive ? 'live' : 'offline',
-        liveClassUrl: liveStreamUrl
-      });
+      if (willBeLive) {
+        courses.forEach((c) => {
+          if (c.id === activeCourse.id) {
+            updateCourse(c.id, {
+              liveClassStatus: 'live',
+              liveClassUrl: liveStreamUrl
+            });
+          } else if (c.liveClassStatus === 'live') {
+            updateCourse(c.id, {
+              liveClassStatus: 'offline'
+            });
+          }
+        });
+      } else {
+        updateCourse(activeCourse.id, {
+          liveClassStatus: 'offline',
+          liveClassUrl: liveStreamUrl
+        });
+      }
     }
+
     showToast(
       willBeLive
-        ? '🔴 Live Studio Broadcast is ON AIR! Google Meet link active.'
-        : 'Live Studio broadcast ended.'
+        ? `🔴 Live Broadcast ON AIR for "${activeCourse?.title || 'Selected Course'}"! Google Meet active for enrolled students.`
+        : `Live Broadcast ended for "${activeCourse?.title || 'Course'}".`
     );
   };
 
@@ -670,7 +722,9 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           isLive: isLiveBroadcasting,
-          liveStreamUrl: liveStreamUrl
+          liveStreamUrl: liveStreamUrl,
+          courseId: isLiveBroadcasting ? (activeCourse ? activeCourse.id : null) : null,
+          courseTitle: isLiveBroadcasting ? (activeCourse ? activeCourse.title : null) : null
         })
       });
       if (activeCourse) {
@@ -2379,9 +2433,17 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                             }`}
                           >
                             <div className="flex items-center justify-between">
-                              <span className="text-[10px] uppercase font-bold text-[#FF5722] bg-[#FF5722]/10 px-2.5 py-0.5 rounded-full border border-[#FF5722]/20">
-                                Starts: {c.startDate || '22 Oct, 2026'}
-                              </span>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-[10px] uppercase font-bold text-[#FF5722] bg-[#FF5722]/10 px-2.5 py-0.5 rounded-full border border-[#FF5722]/20">
+                                  Starts: {c.startDate || '22 Oct, 2026'}
+                                </span>
+                                {(c.liveClassStatus === 'live' || (cloudLiveInfo?.isLive && cloudLiveInfo?.courseId === c.id)) && (
+                                  <span className="text-[9px] uppercase font-black text-white bg-red-600 px-2 py-0.5 rounded-full animate-pulse shadow flex items-center gap-1">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-white"></span>
+                                    LIVE NOW
+                                  </span>
+                                )}
+                              </div>
                               <div className="flex items-center gap-1.5">
                                 <span className="text-xs font-bold text-white mr-1">₹{c.price.toLocaleString('en-IN')}</span>
 
@@ -2471,7 +2533,13 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                             </span>
                             <div>
                               <div className="font-bold text-xs">{isLiveBroadcasting ? '🔴 CLASS IS CURRENTLY LIVE' : 'Class is Offline'}</div>
-                              <div className="text-[10px] text-gray-400">{isLiveBroadcasting ? 'Students see "Join Live Class" button' : 'Awaiting live session'}</div>
+                              <div className="text-[10px] text-gray-400">
+                                {isLiveBroadcasting
+                                  ? `Only enrolled students of "${activeCourse.title}" see "Join Live Class"`
+                                  : cloudLiveInfo?.isLive && cloudLiveInfo.courseId && cloudLiveInfo.courseId !== activeCourse.id
+                                  ? `(Note: "${cloudLiveInfo.courseTitle || 'Another batch'}" is currently live on air)`
+                                  : 'Awaiting live session'}
+                              </div>
                             </div>
                           </div>
 
