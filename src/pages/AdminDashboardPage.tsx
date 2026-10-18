@@ -1739,12 +1739,27 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                           <div className="absolute top-3 left-3 bg-black/70 backdrop-blur-md px-2.5 py-1 rounded-full text-[10px] font-bold text-white uppercase tracking-wider">
                             {art.medium}
                           </div>
-                          <div className={`absolute top-3 right-3 px-2.5 py-1 rounded-full text-[10px] font-bold ${
-                            art.status === 'sold'
-                              ? 'bg-red-500/80 text-white'
-                              : 'bg-emerald-500/80 text-white'
-                          }`}>
-                            {art.status === 'sold' ? 'Sold' : 'Available'}
+                          <div className="absolute top-3 right-3 z-10">
+                            <select
+                              value={art.status || 'available'}
+                              onChange={(e) => {
+                                const newStatus = e.target.value as 'available' | 'sold' | 'reserved';
+                                updateArtwork(art.id, { status: newStatus });
+                                showToast(`Artwork "${art.title}" status changed to ${newStatus.toUpperCase()}`);
+                              }}
+                              className={`px-3 py-1 rounded-full text-[10px] font-bold border backdrop-blur-md shadow-lg cursor-pointer focus:outline-none transition-all ${
+                                art.status === 'sold'
+                                  ? 'bg-red-500/90 text-white border-red-400'
+                                  : art.status === 'reserved'
+                                  ? 'bg-amber-500/90 text-white border-amber-400'
+                                  : 'bg-emerald-500/90 text-white border-emerald-400'
+                              }`}
+                              title="Click to change Artwork Status"
+                            >
+                              <option value="available" className="bg-[#14171E] text-emerald-400 font-semibold">🟢 Available</option>
+                              <option value="reserved" className="bg-[#14171E] text-amber-400 font-semibold">🟡 Reserved</option>
+                              <option value="sold" className="bg-[#14171E] text-red-400 font-semibold">🔴 Sold</option>
+                            </select>
                           </div>
                         </div>
 
@@ -1753,6 +1768,63 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                             <div className="text-xs text-gray-400 font-mono">{art.dimensions} • {art.year}</div>
                             <h4 className="font-serif font-bold text-white text-lg mt-0.5">{art.title}</h4>
                             <p className="text-xs text-gray-400 line-clamp-2 mt-1">{art.description}</p>
+                          </div>
+
+                          {/* Quick 1-Click Status Changer */}
+                          <div className="bg-[#181C24] p-2.5 rounded-2xl border border-[#242A36] flex items-center justify-between">
+                            <span className="text-[11px] text-gray-400 font-semibold flex items-center gap-1.5">
+                              <span className={`w-2 h-2 rounded-full ${
+                                art.status === 'sold' ? 'bg-red-500' : art.status === 'reserved' ? 'bg-amber-500' : 'bg-emerald-500'
+                              }`} />
+                              Status:
+                            </span>
+
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => {
+                                  updateArtwork(art.id, { status: 'available' });
+                                  showToast(`"${art.title}" marked as AVAILABLE`);
+                                }}
+                                className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                                  art.status === 'available' || !art.status
+                                    ? 'bg-emerald-500 text-white shadow'
+                                    : 'bg-gray-800 text-gray-400 hover:text-white'
+                                }`}
+                                title="Mark as Available in Atelier"
+                              >
+                                Available
+                              </button>
+
+                              <button
+                                onClick={() => {
+                                  updateArtwork(art.id, { status: 'reserved' });
+                                  showToast(`"${art.title}" marked as RESERVED`);
+                                }}
+                                className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                                  art.status === 'reserved'
+                                    ? 'bg-amber-500 text-white shadow'
+                                    : 'bg-gray-800 text-gray-400 hover:text-white'
+                                }`}
+                                title="Mark as Reserved for Exhibition"
+                              >
+                                Reserved
+                              </button>
+
+                              <button
+                                onClick={() => {
+                                  updateArtwork(art.id, { status: 'sold' });
+                                  showToast(`"${art.title}" marked as SOLD`);
+                                }}
+                                className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                                  art.status === 'sold'
+                                    ? 'bg-red-500 text-white shadow'
+                                    : 'bg-gray-800 text-gray-400 hover:text-white'
+                                }`}
+                                title="Mark as Sold"
+                              >
+                                Sold
+                              </button>
+                            </div>
                           </div>
 
                           <div className="pt-3 border-t border-gray-800 flex items-center justify-between">
