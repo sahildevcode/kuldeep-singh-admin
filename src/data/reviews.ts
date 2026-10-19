@@ -10,7 +10,9 @@ export const REVIEWS: CollectorReview[] = [
     artworkAcquired: 'Symphony of the Solitary Tide',
     comment: 'Acquiring an original Kuldeep Singh oil canvas was one of the most rewarding additions to our family collection. The physical presence and luminosity when evening sunlight strikes the canvas is extraordinary.',
     rating: 5,
-    verifiedPurchase: true
+    verifiedPurchase: true,
+    category: 'collector',
+    isActive: true
   },
   {
     id: 'rev-02',
@@ -21,7 +23,9 @@ export const REVIEWS: CollectorReview[] = [
     artworkAcquired: 'Echoes of the Florentine Dusk',
     comment: 'The depth of craftsmanship is on par with European museum masters. The framing, documentation, and archival provenance arrived impeccably packed in bespoke wooden crates.',
     rating: 5,
-    verifiedPurchase: true
+    verifiedPurchase: true,
+    category: 'collector',
+    isActive: true
   },
   {
     id: 'rev-03',
@@ -32,7 +36,9 @@ export const REVIEWS: CollectorReview[] = [
     courseTaken: 'The Master Oil Painting Diploma',
     comment: 'I had been terrified of oils for years due to drying times and muddy colors. Kuldeep’s breakdown of glazing and split-primary mixing completely revolutionized my workflow. Worth 10x the tuition.',
     rating: 5,
-    verifiedPurchase: true
+    verifiedPurchase: true,
+    category: 'student',
+    isActive: true
   },
   {
     id: 'rev-04',
@@ -43,7 +49,35 @@ export const REVIEWS: CollectorReview[] = [
     courseTaken: 'Foundations of Realistic Sketching & Human Anatomy',
     comment: 'Kuldeep explains anatomical drawing with the precision of a surgeon and the soul of a poet. In just 4 weeks my charcoal portraits went from flat sketches to three-dimensional sculptural forms.',
     rating: 5,
-    verifiedPurchase: true
+    verifiedPurchase: true,
+    category: 'student',
+    isActive: true
+  },
+  {
+    id: 'rev-05',
+    name: 'Pooja Verma',
+    role: 'Upcoming Venetian Oil Glazing Scholar',
+    location: 'New Delhi, India',
+    avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=200&auto=format&fit=crop',
+    courseTaken: 'Venetian Oil Glazing Masterclass',
+    comment: 'I pre-booked the Venetian Glazing upcoming batch immediately after seeing Kuldeep Sir’s live demonstration. His knowledge of historical pigments and multi-layered Grisaille is unmatched in India.',
+    rating: 5,
+    verifiedPurchase: true,
+    category: 'upcoming',
+    isActive: true
+  },
+  {
+    id: 'rev-06',
+    name: 'Rohan Singhania',
+    role: 'Architect & Hyper-Realism Alumnus',
+    location: 'Mumbai, India',
+    avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?q=80&w=200&auto=format&fit=crop',
+    courseTaken: 'Hyper-Realistic Charcoal Anatomy',
+    comment: 'The focus on structural bone landmarks, graphite gradations, and edge control took my architectural sketching to international gallery standards. Kuldeep Sir’s personal feedback on every assignment was incredible.',
+    rating: 5,
+    verifiedPurchase: true,
+    category: 'student',
+    isActive: true
   }
 ];
 

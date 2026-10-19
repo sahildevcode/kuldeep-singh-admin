@@ -46,7 +46,7 @@ import * as tus from 'tus-js-client';
 import { useStudioData } from '../context/StudioDataContext';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
-import type { Artwork, MediumType, OrderRecord, Course, CourseLecture, EnrolledStudent, StudioReel, RegisteredUser, UpcomingCourse } from '../types';
+import type { Artwork, MediumType, OrderRecord, Course, CourseLecture, EnrolledStudent, StudioReel, RegisteredUser, UpcomingCourse, CollectorReview } from '../types';
 
 const DEFAULT_STUDIO_REELS: StudioReel[] = [
   {
@@ -143,7 +143,11 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
     upcomingCourses,
     addUpcomingCourse,
     updateUpcomingCourse,
-    deleteUpcomingCourse
+    deleteUpcomingCourse,
+    reviews,
+    addReview,
+    updateReview,
+    deleteReview
   } = useStudioData();
 
   const { adminLogout } = useAuth();
@@ -167,10 +171,10 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
   });
 
   // Sub-Navigation for Mode 1: Art Gallery & Sales
-  const [galleryNav, setGalleryNav] = useState<'orders' | 'artworks' | 'inquiries' | 'analytics' | 'settings' | 'video'>(() => {
+  const [galleryNav, setGalleryNav] = useState<'orders' | 'artworks' | 'inquiries' | 'analytics' | 'settings' | 'video' | 'testimonials'>(() => {
     try {
       const saved = localStorage.getItem('ks_admin_gallery_nav');
-      if (saved === 'orders' || saved === 'artworks' || saved === 'inquiries' || saved === 'analytics' || saved === 'settings' || saved === 'video') return saved as any;
+      if (saved === 'orders' || saved === 'artworks' || saved === 'inquiries' || saved === 'analytics' || saved === 'settings' || saved === 'video' || saved === 'testimonials') return saved as any;
     } catch (e) {
       console.warn(e);
     }
@@ -178,10 +182,10 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
   });
 
   // Sub-Navigation for Mode 2: Live Académie & Masterclasses
-  const [academyNav, setAcademyNav] = useState<'batches' | 'curriculum' | 'upcoming' | 'students' | 'users'>(() => {
+  const [academyNav, setAcademyNav] = useState<'batches' | 'curriculum' | 'upcoming' | 'students' | 'users' | 'testimonials'>(() => {
     try {
       const saved = localStorage.getItem('ks_admin_academy_nav');
-      if (saved === 'batches' || saved === 'curriculum' || saved === 'upcoming' || saved === 'students' || saved === 'users') return saved;
+      if (saved === 'batches' || saved === 'curriculum' || saved === 'upcoming' || saved === 'students' || saved === 'users' || saved === 'testimonials') return saved;
     } catch (e) {
       console.warn(e);
     }
@@ -267,6 +271,26 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
       quote: '',
       rating: 5
     }
+  });
+
+  // Testimonials / Reviews Management
+  const [testimonialSearchQuery, setTestimonialSearchQuery] = useState('');
+  const [testimonialCategoryFilter, setTestimonialCategoryFilter] = useState<'all' | 'student' | 'upcoming' | 'collector'>('all');
+  const [isTestimonialModalOpen, setIsTestimonialModalOpen] = useState(false);
+  const [editingTestimonial, setEditingTestimonial] = useState<CollectorReview | null>(null);
+  const [testimonialSectionTitleInput, setTestimonialSectionTitleInput] = useState(() => artistProfile?.testimonialSectionTitle || 'Collector & Student Testimonials');
+  const [testimonialSectionSubtitleInput, setTestimonialSectionSubtitleInput] = useState(() => artistProfile?.testimonialSectionSubtitle || 'Acclaimed by Patrons & Academy Scholars');
+  const [testimonialForm, setTestimonialForm] = useState<Partial<CollectorReview>>({
+    name: '',
+    role: 'Student & Fine Arts Scholar',
+    location: 'Delhi, India',
+    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=200&auto=format&fit=crop',
+    comment: '',
+    rating: 5,
+    verifiedPurchase: true,
+    category: 'student',
+    courseTaken: 'Venetian Oil Glazing Masterclass',
+    isActive: true
   });
 
   // Artwork Management
@@ -604,6 +628,75 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
   const newInquiriesCount = useMemo(() => {
     return (inquiries || []).filter((i) => i.status === 'new').length;
   }, [inquiries]);
+
+  const filteredTestimonials = useMemo(() => {
+    return (reviews || []).filter((r) => {
+      const q = testimonialSearchQuery.trim().toLowerCase();
+      const matchesSearch =
+        !q ||
+        r.name.toLowerCase().includes(q) ||
+        r.comment.toLowerCase().includes(q) ||
+        (r.role && r.role.toLowerCase().includes(q)) ||
+        (r.courseTaken && r.courseTaken.toLowerCase().includes(q)) ||
+        (r.artworkAcquired && r.artworkAcquired.toLowerCase().includes(q)) ||
+        (r.location && r.location.toLowerCase().includes(q));
+
+      const matchesCategory =
+        testimonialCategoryFilter === 'all' ||
+        (testimonialCategoryFilter === 'student' && (r.category === 'student' || (!r.category && r.courseTaken))) ||
+        (testimonialCategoryFilter === 'upcoming' && r.category === 'upcoming') ||
+        (testimonialCategoryFilter === 'collector' && (r.category === 'collector' || (!r.category && r.artworkAcquired)));
+
+      return matchesSearch && matchesCategory;
+    });
+  }, [reviews, testimonialSearchQuery, testimonialCategoryFilter]);
+
+  const handleSaveTestimonial = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!testimonialForm.name?.trim()) {
+      showToast('Please enter author name');
+      return;
+    }
+    if (!testimonialForm.comment?.trim()) {
+      showToast('Please enter review comment');
+      return;
+    }
+
+    const payload: CollectorReview = {
+      id: editingTestimonial ? editingTestimonial.id : `rev-${Date.now()}`,
+      name: testimonialForm.name.trim(),
+      role: testimonialForm.role?.trim() || 'Fine Arts Scholar',
+      location: testimonialForm.location?.trim() || 'Delhi, India',
+      avatar: testimonialForm.avatar?.trim() || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=200&auto=format&fit=crop',
+      comment: testimonialForm.comment.trim(),
+      rating: Number(testimonialForm.rating) || 5,
+      verifiedPurchase: testimonialForm.verifiedPurchase !== false,
+      category: testimonialForm.category || 'student',
+      courseTaken: testimonialForm.courseTaken?.trim() || undefined,
+      artworkAcquired: testimonialForm.artworkAcquired?.trim() || undefined,
+      isActive: testimonialForm.isActive !== false
+    };
+
+    if (editingTestimonial) {
+      updateReview(editingTestimonial.id, payload);
+      showToast(`Testimonial by "${payload.name}" updated successfully!`);
+    } else {
+      addReview(payload);
+      showToast(`New testimonial by "${payload.name}" published!`);
+    }
+
+    setIsTestimonialModalOpen(false);
+    setEditingTestimonial(null);
+  };
+
+  const handleSaveTestimonialSectionSettings = (e: React.FormEvent) => {
+    e.preventDefault();
+    updateArtistProfile({
+      testimonialSectionTitle: testimonialSectionTitleInput.trim() || 'Collector & Student Testimonials',
+      testimonialSectionSubtitle: testimonialSectionSubtitleInput.trim() || 'Acclaimed by Patrons & Academy Scholars'
+    });
+    showToast('✅ Homepage Testimonial section titles updated live!');
+  };
 
   const handleSaveUpcomingCourse = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1490,6 +1583,269 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
     setTimeout(() => setCopiedKey(null), 2500);
   };
 
+  const renderTestimonialsTabContent = () => (
+    <div className="space-y-6">
+      {/* 1. Header & Live Section Title Settings */}
+      <div className="bg-[#161920] p-6 rounded-2xl border border-gray-800 space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <Star className="w-5 h-5 text-amber-400 fill-amber-400" />
+              <h3 className="font-serif font-bold text-2xl text-white">Collector & Student Testimonials Management</h3>
+            </div>
+            <p className="text-xs text-gray-400 max-w-2xl">
+              Manage student reviews, upcoming course anticipation testimonials, and art collector feedback displayed on the live website homepage. Customize the section heading, review quotes, star ratings, and student details.
+            </p>
+          </div>
+
+          <button
+            onClick={() => {
+              setEditingTestimonial(null);
+              setTestimonialForm({
+                name: '',
+                role: 'Student & Fine Arts Scholar',
+                location: 'Delhi, India',
+                avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=200&auto=format&fit=crop',
+                comment: '',
+                rating: 5,
+                verifiedPurchase: true,
+                category: 'student',
+                courseTaken: 'Venetian Oil Glazing Masterclass',
+                isActive: true
+              });
+              setIsTestimonialModalOpen(true);
+            }}
+            className="px-4 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-black font-bold text-xs rounded-xl transition-all shadow-md flex items-center gap-2 shrink-0 cursor-pointer self-start sm:self-auto"
+          >
+            <Plus className="w-4 h-4" />
+            <span>+ Add New Testimonial</span>
+          </button>
+        </div>
+
+        {/* Live Section Title Customization Form */}
+        <form onSubmit={handleSaveTestimonialSectionSettings} className="pt-4 border-t border-gray-800/80 grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+          <div className="md:col-span-5">
+            <label className="block text-[11px] font-semibold text-gray-300 mb-1">
+              Homepage Section Main Title:
+            </label>
+            <input
+              type="text"
+              value={testimonialSectionTitleInput}
+              onChange={(e) => setTestimonialSectionTitleInput(e.target.value)}
+              placeholder="e.g. Collector & Student Testimonials or Upcoming Courses"
+              className="w-full bg-[#101216] border border-gray-700 rounded-xl px-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-amber-500"
+            />
+          </div>
+
+          <div className="md:col-span-5">
+            <label className="block text-[11px] font-semibold text-gray-300 mb-1">
+              Top Subtitle / Tagline:
+            </label>
+            <input
+              type="text"
+              value={testimonialSectionSubtitleInput}
+              onChange={(e) => setTestimonialSectionSubtitleInput(e.target.value)}
+              placeholder="e.g. Acclaimed by Patrons & Academy Scholars"
+              className="w-full bg-[#101216] border border-gray-700 rounded-xl px-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-amber-500"
+            />
+          </div>
+
+          <div className="md:col-span-2">
+            <button
+              type="submit"
+              className="w-full py-2 bg-[#222834] hover:bg-gray-700 text-amber-300 font-bold text-xs rounded-xl border border-amber-500/30 transition-all cursor-pointer flex items-center justify-center gap-1.5"
+            >
+              <Check className="w-3.5 h-3.5" />
+              <span>Save Titles</span>
+            </button>
+          </div>
+        </form>
+      </div>
+
+      {/* 2. Metrics Summary */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="bg-[#161920] p-4 rounded-xl border border-gray-800">
+          <span className="text-xs text-gray-400 block font-medium">Total Testimonials</span>
+          <span className="text-2xl font-bold text-white mt-1 block">{reviews.length}</span>
+        </div>
+        <div className="bg-[#161920] p-4 rounded-xl border border-gray-800">
+          <span className="text-xs text-gray-400 block font-medium">Active on Homepage</span>
+          <span className="text-2xl font-bold text-emerald-400 mt-1 block">
+            {reviews.filter((r) => r.isActive !== false).length}
+          </span>
+        </div>
+        <div className="bg-[#161920] p-4 rounded-xl border border-gray-800">
+          <span className="text-xs text-gray-400 block font-medium">Student & Upcoming Scholars</span>
+          <span className="text-2xl font-bold text-amber-400 mt-1 block">
+            {reviews.filter((r) => r.category === 'student' || r.category === 'upcoming' || r.courseTaken).length}
+          </span>
+        </div>
+        <div className="bg-[#161920] p-4 rounded-xl border border-gray-800">
+          <span className="text-xs text-gray-400 block font-medium">Art Collectors</span>
+          <span className="text-2xl font-bold text-purple-400 mt-1 block">
+            {reviews.filter((r) => r.category === 'collector' || r.artworkAcquired).length}
+          </span>
+        </div>
+      </div>
+
+      {/* 3. Search and Category Filter Toolbar */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-[#161920] p-3 rounded-xl border border-gray-800">
+        <div className="relative w-full sm:w-80">
+          <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            placeholder="Search reviews by name, quote, course, or location..."
+            value={testimonialSearchQuery}
+            onChange={(e) => setTestimonialSearchQuery(e.target.value)}
+            className="w-full bg-[#101216] border border-gray-800 rounded-lg pl-9 pr-3 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-amber-500/50"
+          />
+        </div>
+
+        <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto">
+          {[
+            { id: 'all', label: `All (${reviews.length})` },
+            { id: 'student', label: `Student Reviews (${reviews.filter((r) => r.category === 'student' || (!r.category && r.courseTaken)).length})` },
+            { id: 'upcoming', label: `Upcoming Batch (${reviews.filter((r) => r.category === 'upcoming').length})` },
+            { id: 'collector', label: `Collectors (${reviews.filter((r) => r.category === 'collector' || (!r.category && r.artworkAcquired)).length})` }
+          ].map((cat) => (
+            <button
+              key={cat.id}
+              onClick={() => setTestimonialCategoryFilter(cat.id as any)}
+              className={`px-3 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-colors cursor-pointer ${
+                testimonialCategoryFilter === cat.id
+                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                  : 'bg-[#101216] text-gray-400 hover:text-white border border-gray-800'
+              }`}
+            >
+              {cat.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* 4. Testimonials Cards Grid */}
+      {filteredTestimonials.length === 0 ? (
+        <div className="bg-[#161920] p-12 text-center rounded-2xl border border-gray-800">
+          <Star className="w-8 h-8 text-gray-500 mx-auto mb-2" />
+          <p className="text-sm font-semibold text-gray-300">No testimonials match your filter.</p>
+          <p className="text-xs text-gray-500 mt-1">Click &quot;+ Add New Testimonial&quot; to publish a new scholar review.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredTestimonials.map((r) => (
+            <div
+              key={r.id}
+              className={`bg-[#161920] rounded-2xl p-5 border flex flex-col justify-between space-y-4 transition-all ${
+                r.isActive !== false ? 'border-gray-800 hover:border-gray-700' : 'border-red-900/40 opacity-70'
+              }`}
+            >
+              <div className="space-y-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-1 text-amber-400">
+                    {[...Array(r.rating || 5)].map((_, i) => (
+                      <Star key={i} className="w-3.5 h-3.5 fill-amber-400" />
+                    ))}
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-gray-800 text-gray-300 border border-gray-700">
+                      {r.category === 'upcoming'
+                        ? 'Upcoming Course'
+                        : r.category === 'student' || r.courseTaken
+                        ? 'Student Alumnus'
+                        : 'Art Collector'}
+                    </span>
+                    <span
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        r.isActive !== false ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'
+                      }`}
+                    >
+                      {r.isActive !== false ? 'Live' : 'Hidden'}
+                    </span>
+                  </div>
+                </div>
+
+                <p className="text-xs text-gray-300 italic leading-relaxed">
+                  &quot;{r.comment}&quot;
+                </p>
+
+                {(r.courseTaken || r.artworkAcquired) && (
+                  <div className="pt-1">
+                    <span className="inline-block text-[11px] font-medium text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                      {r.courseTaken ? `🎓 ${r.courseTaken}` : `🎨 Acquired: ${r.artworkAcquired}`}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-3 border-t border-gray-800/80 flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <img
+                    src={r.avatar}
+                    alt={r.name}
+                    className="w-9 h-9 rounded-full object-cover border border-gray-700"
+                  />
+                  <div>
+                    <h5 className="font-bold text-xs text-white leading-tight">{r.name}</h5>
+                    <p className="text-[10px] text-gray-400 leading-tight mt-0.5">
+                      {r.role} {r.location ? `• ${r.location}` : ''}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Card Action Buttons */}
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    onClick={() => {
+                      updateReview(r.id, { isActive: !r.isActive });
+                      showToast(r.isActive !== false ? 'Testimonial hidden from website' : 'Testimonial is now live on website!');
+                    }}
+                    className={`px-2 py-1 rounded text-[10px] font-semibold cursor-pointer transition-colors ${
+                      r.isActive !== false
+                        ? 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/30'
+                        : 'bg-yellow-500/10 text-yellow-400 hover:bg-yellow-500/20 border border-yellow-500/30'
+                    }`}
+                  >
+                    {r.isActive !== false ? 'Hide' : 'Publish'}
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setEditingTestimonial(r);
+                      setTestimonialForm({
+                        ...r,
+                        category: r.category || (r.courseTaken ? 'student' : 'collector'),
+                        isActive: r.isActive !== false
+                      });
+                      setIsTestimonialModalOpen(true);
+                    }}
+                    className="p-1 rounded bg-[#242934] hover:bg-gray-700 text-gray-300 hover:text-white transition-colors cursor-pointer"
+                    title="Edit Testimonial"
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      if (window.confirm(`Delete testimonial by "${r.name}"?`)) {
+                        deleteReview(r.id);
+                        showToast(`Testimonial by "${r.name}" deleted.`);
+                      }
+                    }}
+                    className="p-1 rounded bg-red-500/10 hover:bg-red-500/20 text-red-400 transition-colors cursor-pointer"
+                    title="Delete Testimonial"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-[#0C0E12] text-[#E1E4EA] font-sans flex flex-col antialiased selection:bg-[#FF5722] selection:text-white">
       {/* Toast Notification */}
@@ -1695,6 +2051,23 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                       Live Reel
                     </span>
                   </button>
+
+                  <button
+                    onClick={() => setGalleryNav('testimonials')}
+                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
+                      galleryNav === 'testimonials'
+                        ? 'bg-[#1D212A] text-white font-semibold shadow-sm border border-gray-700/40'
+                        : 'text-gray-400 hover:text-white hover:bg-[#161920]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Star className={`w-4 h-4 ${galleryNav === 'testimonials' ? 'text-amber-400' : 'text-gray-400'}`} />
+                      <span>Testimonials & Reviews</span>
+                    </div>
+                    <span className="bg-amber-500/20 text-amber-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-500/30">
+                      {reviews.length}
+                    </span>
+                  </button>
                 </>
               ) : (
                 <>
@@ -1777,6 +2150,23 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                     </div>
                     <span className="bg-emerald-500/20 text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-500/30">
                       {users.length}
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => setAcademyNav('testimonials')}
+                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
+                      academyNav === 'testimonials'
+                        ? 'bg-[#1D212A] text-white font-semibold shadow-sm border border-gray-700/40'
+                        : 'text-gray-400 hover:text-white hover:bg-[#161920]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Quote className={`w-4 h-4 ${academyNav === 'testimonials' ? 'text-amber-400' : 'text-gray-400'}`} />
+                      <span>Student Testimonials</span>
+                    </div>
+                    <span className="bg-amber-500/20 text-amber-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-500/30">
+                      {reviews.length}
                     </span>
                   </button>
                 </>
@@ -2788,6 +3178,9 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                   )}
                 </div>
               )}
+
+              {/* TESTIMONIALS & REVIEWS TAB (Gallery Console) */}
+              {galleryNav === 'testimonials' && renderTestimonialsTabContent()}
             </div>
           )}
 
@@ -3816,6 +4209,9 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                   </div>
                 </div>
               )}
+
+              {/* TESTIMONIALS & REVIEWS TAB (Academy Console) */}
+              {academyNav === 'testimonials' && renderTestimonialsTabContent()}
             </div>
           )}
         </main>
@@ -5584,6 +5980,172 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                   className="px-6 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-black rounded-xl text-xs font-bold shadow-lg cursor-pointer"
                 >
                   {editingUpcomingCourse ? 'Update Upcoming Course' : 'Publish Upcoming Course'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* TESTIMONIAL CREATE / EDIT MODAL */}
+      {isTestimonialModalOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-[#14171E] border border-gray-800 rounded-3xl p-6 sm:p-8 max-w-2xl w-full my-8 max-h-[90vh] overflow-y-auto shadow-2xl">
+            <div className="flex items-center justify-between pb-4 border-b border-gray-800">
+              <div className="flex items-center gap-2">
+                <Star className="w-5 h-5 text-amber-400 fill-amber-400" />
+                <h3 className="font-serif font-bold text-xl text-white">
+                  {editingTestimonial ? 'Edit Testimonial & Review' : 'Create New Testimonial & Review'}
+                </h3>
+              </div>
+              <button
+                onClick={() => {
+                  setIsTestimonialModalOpen(false);
+                  setEditingTestimonial(null);
+                }}
+                className="text-gray-400 hover:text-white p-1 rounded-lg hover:bg-gray-800 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveTestimonial} className="mt-6 space-y-4 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-gray-300 mb-1 font-semibold">Author / Scholar Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={testimonialForm.name || ''}
+                    onChange={(e) => setTestimonialForm({ ...testimonialForm, name: e.target.value })}
+                    placeholder="e.g. Eleanor Sterling or Aarav Sharma"
+                    className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-300 mb-1 font-semibold">Author Role / Title</label>
+                  <input
+                    type="text"
+                    value={testimonialForm.role || ''}
+                    onChange={(e) => setTestimonialForm({ ...testimonialForm, role: e.target.value })}
+                    placeholder="e.g. Masterclass Scholar or Art Collector"
+                    className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-gray-300 mb-1 font-semibold">City / Country Location</label>
+                  <input
+                    type="text"
+                    value={testimonialForm.location || ''}
+                    onChange={(e) => setTestimonialForm({ ...testimonialForm, location: e.target.value })}
+                    placeholder="e.g. Delhi, India or London"
+                    className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-300 mb-1 font-semibold">Category Type</label>
+                  <select
+                    value={testimonialForm.category || 'student'}
+                    onChange={(e) => setTestimonialForm({ ...testimonialForm, category: e.target.value as any })}
+                    className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400"
+                  >
+                    <option value="student">Student / Academy Scholar</option>
+                    <option value="upcoming">Upcoming Course Scholar</option>
+                    <option value="collector">Art Collector / Patron</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-gray-300 mb-1 font-semibold">Star Rating</label>
+                  <select
+                    value={testimonialForm.rating ?? 5}
+                    onChange={(e) => setTestimonialForm({ ...testimonialForm, rating: Number(e.target.value) })}
+                    className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400"
+                  >
+                    <option value={5}>★★★★★ (5 Stars - Masterpiece)</option>
+                    <option value={4}>★★★★☆ (4 Stars - Exceptional)</option>
+                    <option value={3}>★★★☆☆ (3 Stars - Good)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-gray-300 mb-1 font-semibold">Course Name (if scholar)</label>
+                  <input
+                    type="text"
+                    value={testimonialForm.courseTaken || ''}
+                    onChange={(e) => setTestimonialForm({ ...testimonialForm, courseTaken: e.target.value })}
+                    placeholder="e.g. Venetian Oil Glazing Masterclass"
+                    className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-300 mb-1 font-semibold">Artwork Acquired (if collector)</label>
+                  <input
+                    type="text"
+                    value={testimonialForm.artworkAcquired || ''}
+                    onChange={(e) => setTestimonialForm({ ...testimonialForm, artworkAcquired: e.target.value })}
+                    placeholder="e.g. Symphony of the Solitary Tide"
+                    className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-gray-300 mb-1 font-semibold">Author Photo / Avatar URL</label>
+                <input
+                  type="url"
+                  value={testimonialForm.avatar || ''}
+                  onChange={(e) => setTestimonialForm({ ...testimonialForm, avatar: e.target.value })}
+                  placeholder="https://images.unsplash.com/photo-..."
+                  className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400"
+                />
+              </div>
+
+              <div>
+                <label className="block text-gray-300 mb-1 font-semibold">Review Quote / Testimonial Feedback *</label>
+                <textarea
+                  rows={4}
+                  required
+                  value={testimonialForm.comment || ''}
+                  onChange={(e) => setTestimonialForm({ ...testimonialForm, comment: e.target.value })}
+                  placeholder="Write the scholar or collector review quote..."
+                  className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400"
+                />
+              </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="testimonialIsActive"
+                  checked={testimonialForm.isActive !== false}
+                  onChange={(e) => setTestimonialForm({ ...testimonialForm, isActive: e.target.checked })}
+                  className="rounded border-gray-700 text-amber-500 focus:ring-amber-500 w-4 h-4 bg-gray-900 cursor-pointer"
+                />
+                <label htmlFor="testimonialIsActive" className="text-gray-300 font-semibold cursor-pointer">
+                  Show on Website Homepage (Testimonials section)
+                </label>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-800">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsTestimonialModalOpen(false);
+                    setEditingTestimonial(null);
+                  }}
+                  className="px-4 py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl text-xs font-semibold cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-black rounded-xl text-xs font-bold shadow-lg cursor-pointer"
+                >
+                  {editingTestimonial ? 'Update Testimonial' : 'Publish Testimonial'}
                 </button>
               </div>
             </form>

@@ -1,9 +1,10 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import type { Artwork, Course, CourseModule, CourseLecture, ArtistProfile, AchievementTimelineItem, Award, EnrolledStudent, RegisteredUser, Inquiry, UpcomingCourse } from '../types';
+import type { Artwork, Course, CourseModule, CourseLecture, ArtistProfile, AchievementTimelineItem, Award, EnrolledStudent, RegisteredUser, Inquiry, UpcomingCourse, CollectorReview } from '../types';
 import { ARTWORKS } from '../data/artworks';
 import { COURSES } from '../data/courses';
 import { TIMELINE, AWARDS } from '../data/achievements';
 import { INITIAL_UPCOMING_COURSES } from '../data/upcomingCourses';
+import { REVIEWS } from '../data/reviews';
 
 export const getBackendUrls = (): string[] => {
   const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
@@ -154,6 +155,11 @@ interface StudioDataContextType {
   addUpcomingCourse: (course: UpcomingCourse) => void;
   updateUpcomingCourse: (id: string, updates: Partial<UpcomingCourse>) => void;
   deleteUpcomingCourse: (id: string) => void;
+  // Testimonials / Reviews CRUD
+  reviews: CollectorReview[];
+  addReview: (review: CollectorReview) => void;
+  updateReview: (id: string, updates: Partial<CollectorReview>) => void;
+  deleteReview: (id: string) => void;
   // Paintings CRUD
   addArtwork: (artwork: Artwork) => void;
   updateArtwork: (id: string, updates: Partial<Artwork>) => void;
@@ -332,6 +338,23 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   }, [upcomingCourses]);
 
+  // 10. Testimonials / Reviews State
+  const [reviews, setReviews] = useState<CollectorReview[]>(() => {
+    try {
+      const saved = localStorage.getItem('kuldeep_studio_testimonials');
+      return saved ? JSON.parse(saved) : REVIEWS;
+    } catch {
+      return REVIEWS;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('kuldeep_studio_testimonials', JSON.stringify(reviews));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [reviews]);
 
   // Sync with Remote 24/7 Cloud Backend (Artworks, Courses & Lectures, Students, Inquiries)
   useEffect(() => {
@@ -613,6 +636,23 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
               const list = upData?.upcomingCourses || (Array.isArray(upData) ? upData : null);
               if (Array.isArray(list) && isMounted && list.length > 0) {
                 setUpcomingCourses(list);
+                break;
+              }
+            }
+          } catch {
+            // try next
+          }
+        }
+
+        // 7. Testimonials / Reviews
+        for (const base of getBackendUrls()) {
+          try {
+            const testRes = await fetch(`${base}/api/testimonials`);
+            if (testRes.ok) {
+              const testData = await testRes.json();
+              const list = testData?.testimonials || (Array.isArray(testData) ? testData : null);
+              if (Array.isArray(list) && isMounted && list.length > 0) {
+                setReviews(list);
                 break;
               }
             }
@@ -1426,6 +1466,55 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   };
 
+  // Testimonials / Reviews CRUD
+  const addReview = async (review: CollectorReview) => {
+    setReviews((prev) => [review, ...prev]);
+    for (const base of getBackendUrls()) {
+      try {
+        await fetch(`${base}/api/testimonials`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(review)
+        });
+        break;
+      } catch (e) {
+        console.warn('Backend sync failed for testimonial create:', e);
+      }
+    }
+  };
+
+  const updateReview = async (id: string, updates: Partial<CollectorReview>) => {
+    setReviews((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, ...updates } : r))
+    );
+    for (const base of getBackendUrls()) {
+      try {
+        await fetch(`${base}/api/testimonials/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updates)
+        });
+        break;
+      } catch (e) {
+        console.warn('Backend sync failed for testimonial update:', e);
+      }
+    }
+  };
+
+  const deleteReview = async (id: string) => {
+    setReviews((prev) => prev.filter((r) => r.id !== id));
+    for (const base of getBackendUrls()) {
+      try {
+        await fetch(`${base}/api/testimonials/${id}`, {
+          method: 'DELETE'
+        });
+        break;
+      } catch (e) {
+        console.warn('Backend delete failed for testimonial:', e);
+      }
+    }
+  };
+
   // Factory Reset
   const resetToDefaults = () => {
     localStorage.removeItem('kuldeep_studio_artworks');
@@ -1440,6 +1529,7 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     localStorage.removeItem('kuldeep_studio_timeline');
     localStorage.removeItem('kuldeep_studio_awards');
     localStorage.removeItem('kuldeep_studio_upcoming_courses');
+    localStorage.removeItem('kuldeep_studio_testimonials');
     setArtworks(ARTWORKS);
     setCourses(COURSES);
     setStudents(INITIAL_STUDENTS);
@@ -1448,6 +1538,7 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setArtistProfile(DEFAULT_PROFILE);
     setTimeline(TIMELINE);
     setUpcomingCourses(INITIAL_UPCOMING_COURSES);
+    setReviews(REVIEWS);
   };
 
   return (
@@ -1465,6 +1556,10 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         addUpcomingCourse,
         updateUpcomingCourse,
         deleteUpcomingCourse,
+        reviews,
+        addReview,
+        updateReview,
+        deleteReview,
         addArtwork,
         updateArtwork,
         deleteArtwork,
