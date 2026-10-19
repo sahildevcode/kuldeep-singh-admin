@@ -1992,7 +1992,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
 
                           <div className="pt-3 border-t border-gray-800 flex items-center justify-between">
                             <span className="font-serif font-bold text-lg text-emerald-400">
-                              ₹{(art.price * 83).toLocaleString('en-IN')}
+                              ₹{(art.price >= 10000 ? art.price : Math.round(art.price * 85)).toLocaleString('en-IN')}
                             </span>
                             <div className="flex items-center gap-2">
                               <button
@@ -4651,12 +4651,12 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-gray-300 mb-1 font-semibold">Price (USD $)</label>
+                  <label className="block text-gray-300 mb-1 font-semibold">Price (INR ₹)</label>
                   <input
                     type="number"
                     value={newArtworkForm.price || ''}
                     onChange={(e) => setNewArtworkForm({ ...newArtworkForm, price: Number(e.target.value) })}
-                    placeholder="3800"
+                    placeholder="95000"
                     className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-[#FF5722]"
                   />
                 </div>
