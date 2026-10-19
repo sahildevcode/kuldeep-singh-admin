@@ -31,7 +31,13 @@ import {
   Copy,
   KeyRound,
   ShieldCheck,
-  Check
+  Check,
+  MessageSquare,
+  Phone,
+  Mail,
+  MapPin,
+  Clock,
+  Send
 } from 'lucide-react';
 import * as tus from 'tus-js-client';
 import { useStudioData } from '../context/StudioDataContext';
@@ -112,6 +118,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
     courses,
     students,
     users,
+    inquiries,
     artistProfile,
     updateArtistProfile,
     addArtwork,
@@ -125,6 +132,8 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
     deleteStudent,
     updateUser,
     deleteUser,
+    updateInquiryStatus,
+    deleteInquiry,
     addLectureToModule,
     updateLectureInModule,
     deleteLectureFromModule
@@ -151,10 +160,10 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
   });
 
   // Sub-Navigation for Mode 1: Art Gallery & Sales
-  const [galleryNav, setGalleryNav] = useState<'orders' | 'artworks' | 'analytics' | 'settings' | 'video'>(() => {
+  const [galleryNav, setGalleryNav] = useState<'orders' | 'artworks' | 'inquiries' | 'analytics' | 'settings' | 'video'>(() => {
     try {
       const saved = localStorage.getItem('ks_admin_gallery_nav');
-      if (saved === 'orders' || saved === 'artworks' || saved === 'analytics' || saved === 'settings' || saved === 'video') return saved as any;
+      if (saved === 'orders' || saved === 'artworks' || saved === 'inquiries' || saved === 'analytics' || saved === 'settings' || saved === 'video') return saved as any;
     } catch (e) {
       console.warn(e);
     }
@@ -228,6 +237,10 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
   const [artworkSearchQuery, setArtworkSearchQuery] = useState('');
   const [isAddArtworkModalOpen, setIsAddArtworkModalOpen] = useState(false);
   const [artworkToEdit, setArtworkToEdit] = useState<Artwork | null>(null);
+
+  // Customer Inquiries Management
+  const [inquiryFilter, setInquiryFilter] = useState<'all' | 'new' | 'contacted' | 'resolved'>('all');
+  const [inquirySearchQuery, setInquirySearchQuery] = useState('');
   const [newArtworkForm, setNewArtworkForm] = useState<Partial<Artwork>>({
     title: '',
     subtitle: '',
@@ -516,6 +529,27 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
       return matchesCategory && matchesSearch;
     });
   }, [artworks, artworkCategoryFilter, artworkSearchQuery]);
+
+  // Filtered Customer Inquiries
+  const filteredInquiries = useMemo(() => {
+    return (inquiries || []).filter((inq) => {
+      const matchesFilter = inquiryFilter === 'all' || inq.status === inquiryFilter;
+      const q = inquirySearchQuery.toLowerCase().trim();
+      if (!q) return matchesFilter;
+      const matchesSearch =
+        (inq.name && inq.name.toLowerCase().includes(q)) ||
+        (inq.phone && inq.phone.toLowerCase().includes(q)) ||
+        (inq.email && inq.email.toLowerCase().includes(q)) ||
+        (inq.subject && inq.subject.toLowerCase().includes(q)) ||
+        (inq.message && inq.message.toLowerCase().includes(q)) ||
+        (inq.city && inq.city.toLowerCase().includes(q));
+      return matchesFilter && matchesSearch;
+    });
+  }, [inquiries, inquiryFilter, inquirySearchQuery]);
+
+  const newInquiriesCount = useMemo(() => {
+    return (inquiries || []).filter((i) => i.status === 'new').length;
+  }, [inquiries]);
 
   const handleSaveArtwork = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1509,6 +1543,30 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                   </button>
 
                   <button
+                    onClick={() => setGalleryNav('inquiries')}
+                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
+                      galleryNav === 'inquiries'
+                        ? 'bg-[#1D212A] text-white font-semibold shadow-sm border border-gray-700/40'
+                        : 'text-gray-400 hover:text-white hover:bg-[#161920]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <MessageSquare className={`w-4 h-4 ${galleryNav === 'inquiries' ? 'text-[#FF5722]' : 'text-gray-400'}`} />
+                      <span>Customer Inquiries & Leads</span>
+                    </div>
+                    {newInquiriesCount > 0 ? (
+                      <span className="bg-red-500/20 text-red-400 border border-red-500/30 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 animate-pulse">
+                        <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
+                        {newInquiriesCount} New
+                      </span>
+                    ) : (
+                      <span className="bg-[#242934] text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                        {inquiries.length}
+                      </span>
+                    )}
+                  </button>
+
+                  <button
                     onClick={() => setGalleryNav('analytics')}
                     className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
                       galleryNav === 'analytics'
@@ -2353,6 +2411,265 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                       </div>
                     </div>
                   </div>
+                </div>
+              )}
+
+              {/* CUSTOMER INQUIRIES & LEADS TAB */}
+              {galleryNav === 'inquiries' && (
+                <div className="space-y-6">
+                  {/* Top Stats */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="bg-[#14171E] border border-[#202530] rounded-2xl p-5 shadow">
+                      <span className="text-gray-400 text-xs font-semibold uppercase">Total Inquiries</span>
+                      <div className="text-2xl font-bold font-serif text-white mt-1">{inquiries.length}</div>
+                      <span className="text-[11px] text-gray-400 mt-1 block">All website leads</span>
+                    </div>
+
+                    <div className="bg-[#14171E] border border-[#202530] rounded-2xl p-5 shadow">
+                      <span className="text-gray-400 text-xs font-semibold uppercase">New / Unread Leads</span>
+                      <div className="text-2xl font-bold font-serif text-red-400 mt-1 flex items-center gap-2">
+                        <span>{newInquiriesCount}</span>
+                        {newInquiriesCount > 0 && (
+                          <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping" />
+                        )}
+                      </div>
+                      <span className="text-[11px] text-red-400 mt-1 block">Awaiting response</span>
+                    </div>
+
+                    <div className="bg-[#14171E] border border-[#202530] rounded-2xl p-5 shadow">
+                      <span className="text-gray-400 text-xs font-semibold uppercase">In Contact</span>
+                      <div className="text-2xl font-bold font-serif text-amber-400 mt-1">
+                        {inquiries.filter((i) => i.status === 'contacted').length}
+                      </div>
+                      <span className="text-[11px] text-gray-400 mt-1 block">Follow-up active</span>
+                    </div>
+
+                    <div className="bg-[#14171E] border border-[#202530] rounded-2xl p-5 shadow">
+                      <span className="text-gray-400 text-xs font-semibold uppercase">Resolved</span>
+                      <div className="text-2xl font-bold font-serif text-emerald-400 mt-1">
+                        {inquiries.filter((i) => i.status === 'resolved').length}
+                      </div>
+                      <span className="text-[11px] text-emerald-400 mt-1 block">Successfully closed ✓</span>
+                    </div>
+                  </div>
+
+                  {/* Actions & Filters */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-2 overflow-x-auto pb-1 flex-1">
+                      {[
+                        { id: 'all', label: `All (${inquiries.length})` },
+                        { id: 'new', label: `New Leads (${newInquiriesCount})` },
+                        { id: 'contacted', label: `Contacted (${inquiries.filter((i) => i.status === 'contacted').length})` },
+                        { id: 'resolved', label: `Resolved (${inquiries.filter((i) => i.status === 'resolved').length})` }
+                      ].map((tab) => (
+                        <button
+                          key={tab.id}
+                          onClick={() => setInquiryFilter(tab.id as any)}
+                          className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                            inquiryFilter === tab.id
+                              ? 'bg-[#FF5722] text-white shadow-md'
+                              : 'bg-[#14171E] text-gray-400 hover:text-white'
+                          }`}
+                        >
+                          {tab.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="relative w-full sm:w-72">
+                      <Search className="w-3.5 h-3.5 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        placeholder="Search name, phone, email, subject..."
+                        value={inquirySearchQuery}
+                        onChange={(e) => setInquirySearchQuery(e.target.value)}
+                        className="w-full bg-[#181C24] border border-[#232732] rounded-xl pl-8 pr-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-[#FF5722]"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Inquiries Cards List */}
+                  {filteredInquiries.length === 0 ? (
+                    <div className="bg-[#14171E] border border-[#202530] rounded-3xl p-12 text-center space-y-3">
+                      <div className="w-12 h-12 rounded-2xl bg-gray-800/60 text-gray-500 flex items-center justify-center mx-auto">
+                        <MessageSquare className="w-6 h-6" />
+                      </div>
+                      <h4 className="font-serif font-bold text-white text-lg">No inquiries found</h4>
+                      <p className="text-xs text-gray-400 max-w-md mx-auto">
+                        When visitors click &quot;Enquire / पूछताछ&quot; on the website navbar or submit a contact request, their details and messages will appear here in real-time.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {filteredInquiries.map((inq) => {
+                        const cleanPhone = (inq.phone || '').replace(/[^0-9]/g, '').slice(-10);
+                        const waText = encodeURIComponent(
+                          `Hello ${inq.name}, Artist Kuldeep Singh Atelier connecting regarding your inquiry on "${inq.subject}". How may we assist you?`
+                        );
+                        const waUrl = `https://wa.me/91${cleanPhone}?text=${waText}`;
+
+                        return (
+                          <div
+                            key={inq.id}
+                            className="bg-[#14171E] border border-[#202530] hover:border-gray-700/80 rounded-3xl p-6 shadow-xl space-y-4 transition-all"
+                          >
+                            {/* Card Header */}
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-800/80 pb-3">
+                              <div className="flex items-center gap-3 flex-wrap">
+                                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#FF5722] to-amber-600 text-white font-bold flex items-center justify-center text-sm shadow">
+                                  {inq.name ? inq.name.charAt(0).toUpperCase() : 'U'}
+                                </div>
+                                <div>
+                                  <h4 className="font-bold text-white text-base leading-tight">{inq.name}</h4>
+                                  <span className="text-[11px] text-gray-400">
+                                    Subject: <strong className="text-gray-200">{inq.subject}</strong>
+                                  </span>
+                                </div>
+                                <span
+                                  className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ml-1 ${
+                                    inq.status === 'new'
+                                      ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                                      : inq.status === 'contacted'
+                                      ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                                      : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                                  }`}
+                                >
+                                  {inq.status === 'new' && '● New Lead'}
+                                  {inq.status === 'contacted' && '⏳ Contacted'}
+                                  {inq.status === 'resolved' && '✓ Resolved'}
+                                </span>
+                              </div>
+
+                              <div className="flex items-center gap-2 self-start sm:self-auto">
+                                <span className="text-[11px] text-gray-500 flex items-center gap-1 font-mono">
+                                  <Clock className="w-3 h-3" />
+                                  {new Date(inq.createdAt).toLocaleDateString('en-IN', {
+                                    day: 'numeric',
+                                    month: 'short',
+                                    year: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                  })}
+                                </span>
+                                <button
+                                  onClick={() => {
+                                    if (window.confirm(`Delete inquiry from ${inq.name}?`)) {
+                                      deleteInquiry(inq.id);
+                                      showToast(`Inquiry deleted.`);
+                                    }
+                                  }}
+                                  className="p-1.5 rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-500/10 cursor-pointer transition-colors"
+                                  title="Delete inquiry"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Contact Info Pills */}
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
+                              <div className="bg-[#0C0E12] border border-gray-800/80 rounded-xl px-3 py-2 flex items-center gap-2 text-gray-300">
+                                <Phone className="w-3.5 h-3.5 text-[#FF5722] shrink-0" />
+                                <span className="font-mono font-bold truncate">{inq.phone || 'N/A'}</span>
+                              </div>
+                              <div className="bg-[#0C0E12] border border-gray-800/80 rounded-xl px-3 py-2 flex items-center gap-2 text-gray-300">
+                                <Mail className="w-3.5 h-3.5 text-[#FF5722] shrink-0" />
+                                <span className="truncate">{inq.email || 'N/A'}</span>
+                              </div>
+                              <div className="bg-[#0C0E12] border border-gray-800/80 rounded-xl px-3 py-2 flex items-center gap-2 text-gray-300">
+                                <MapPin className="w-3.5 h-3.5 text-[#FF5722] shrink-0" />
+                                <span className="truncate">{inq.city || 'Delhi, India'}</span>
+                              </div>
+                            </div>
+
+                            {/* Customer Message */}
+                            <div className="bg-[#0C0E12] border border-gray-800/80 rounded-2xl p-4 text-xs text-gray-300 space-y-1">
+                              <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">
+                                Client Inquiry Message:
+                              </span>
+                              <p className="whitespace-pre-wrap leading-relaxed text-gray-200">{inq.message}</p>
+                            </div>
+
+                            {/* Action Bar */}
+                            <div className="pt-2 flex flex-wrap items-center justify-between gap-3">
+                              {/* Direct Contact Buttons */}
+                              <div className="flex flex-wrap items-center gap-2">
+                                {cleanPhone && (
+                                  <a
+                                    href={waUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow transition-colors"
+                                  >
+                                    <Send className="w-3 h-3" />
+                                    <span>WhatsApp Customer</span>
+                                  </a>
+                                )}
+
+                                {inq.phone && (
+                                  <a
+                                    href={`tel:${inq.phone}`}
+                                    className="px-3.5 py-1.5 rounded-xl bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 border border-blue-500/30 font-bold text-xs flex items-center gap-1.5 cursor-pointer transition-colors"
+                                  >
+                                    <Phone className="w-3 h-3" />
+                                    <span>Call</span>
+                                  </a>
+                                )}
+
+                                {inq.email && (
+                                  <a
+                                    href={`mailto:${inq.email}?subject=${encodeURIComponent(`Regarding your Inquiry with Artist Kuldeep Singh - ${inq.subject}`)}`}
+                                    className="px-3.5 py-1.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-200 font-bold text-xs flex items-center gap-1.5 cursor-pointer transition-colors"
+                                  >
+                                    <Mail className="w-3 h-3" />
+                                    <span>Email</span>
+                                  </a>
+                                )}
+                              </div>
+
+                              {/* Status Toggles */}
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] text-gray-500 uppercase font-bold mr-1">Status:</span>
+                                {inq.status !== 'new' && (
+                                  <button
+                                    onClick={() => {
+                                      updateInquiryStatus(inq.id, 'new');
+                                      showToast(`Inquiry marked as NEW`);
+                                    }}
+                                    className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-gray-800 hover:bg-gray-700 text-gray-300 cursor-pointer"
+                                  >
+                                    Mark New
+                                  </button>
+                                )}
+                                {inq.status !== 'contacted' && (
+                                  <button
+                                    onClick={() => {
+                                      updateInquiryStatus(inq.id, 'contacted');
+                                      showToast(`Inquiry marked as CONTACTED`);
+                                    }}
+                                    className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 border border-amber-500/30 cursor-pointer"
+                                  >
+                                    Mark Contacted
+                                  </button>
+                                )}
+                                {inq.status !== 'resolved' && (
+                                  <button
+                                    onClick={() => {
+                                      updateInquiryStatus(inq.id, 'resolved');
+                                      showToast(`Inquiry marked as RESOLVED`);
+                                    }}
+                                    className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/30 cursor-pointer"
+                                  >
+                                    Mark Resolved ✓
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

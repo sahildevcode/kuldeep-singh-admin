@@ -231,3 +231,15 @@ export interface EnrolledStudent {
   attendanceStatus?: 'Attended' | 'Absent' | 'Pending';
 }
 
+export interface Inquiry {
+  id: string;
+  name: string;
+  phone: string;
+  email: string;
+  subject: string;
+  message: string;
+  city?: string;
+  status: 'new' | 'contacted' | 'resolved';
+  createdAt: string;
+}
+

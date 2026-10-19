@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import type { Artwork, Course, CourseModule, CourseLecture, ArtistProfile, AchievementTimelineItem, Award, EnrolledStudent, RegisteredUser } from '../types';
+import type { Artwork, Course, CourseModule, CourseLecture, ArtistProfile, AchievementTimelineItem, Award, EnrolledStudent, RegisteredUser, Inquiry } from '../types';
 import { ARTWORKS } from '../data/artworks';
 import { COURSES } from '../data/courses';
 import { TIMELINE, AWARDS } from '../data/achievements';
@@ -144,6 +144,7 @@ interface StudioDataContextType {
   courses: Course[];
   students: EnrolledStudent[];
   users: RegisteredUser[];
+  inquiries: Inquiry[];
   artistProfile: ArtistProfile;
   timeline: AchievementTimelineItem[];
   awards: Award[];
@@ -162,6 +163,9 @@ interface StudioDataContextType {
   // Users (Registered Accounts) CRUD
   updateUser: (id: string, updates: Partial<RegisteredUser> & { password?: string }) => void;
   deleteUser: (id: string) => void;
+  // Customer Inquiries CRUD
+  updateInquiryStatus: (id: string, status: 'new' | 'contacted' | 'resolved') => void;
+  deleteInquiry: (id: string) => void;
   // Lecture & Module Management
   addLectureToModule: (courseId: string, moduleIndex: number, lecture: CourseLecture) => void;
   updateLectureInModule: (courseId: string, moduleIndex: number, lectureIndex: number, updates: Partial<CourseLecture>) => void;
@@ -286,7 +290,25 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   }, [users]);
 
-  // Sync with Remote 24/7 Cloud Backend (Artworks, Courses & Lectures, Students)
+  // 8. Customer Inquiries State
+  const [inquiries, setInquiries] = useState<Inquiry[]>(() => {
+    try {
+      const saved = localStorage.getItem('kuldeep_studio_inquiries');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('kuldeep_studio_inquiries', JSON.stringify(inquiries));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [inquiries]);
+
+  // Sync with Remote 24/7 Cloud Backend (Artworks, Courses & Lectures, Students, Inquiries)
   useEffect(() => {
     let isMounted = true;
 
@@ -531,6 +553,31 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             // try next
           }
         }
+
+        // 6. Customer Inquiries
+        for (const base of getBackendUrls()) {
+          try {
+            const inqRes = await fetch(`${base}/api/inquiries`);
+            if (inqRes.ok) {
+              const cloudInquiries: Inquiry[] = await inqRes.json();
+              if (Array.isArray(cloudInquiries) && isMounted) {
+                let deletedInqList: string[] = [];
+                try {
+                  deletedInqList = JSON.parse(localStorage.getItem('ks_deleted_inquiries') || '[]');
+                } catch {
+                  deletedInqList = [];
+                }
+                const cleanInquiries = cloudInquiries.filter(
+                  (inq) => !deletedInqList.includes(inq.id)
+                );
+                setInquiries(cleanInquiries);
+                break;
+              }
+            }
+          } catch {
+            // try next
+          }
+        }
       } catch (err) {
         console.warn('Cloud sync skipped, using local cache:', err);
       }
@@ -559,6 +606,15 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             setUsers((prev) => prev.filter((u) => u.id !== payload.data.id && u._id !== payload.data.id));
           } else if (payload.type === 'USER_UPDATED' && payload.data?.id) {
             setUsers((prev) => prev.map((u) => (u.id === payload.data.id || u._id === payload.data.id) ? { ...u, ...payload.data } : u));
+          } else if (payload.type === 'INQUIRY_CREATED' && payload.data) {
+            setInquiries((prev) => {
+              if (prev.some((inq) => inq.id === payload.data.id)) return prev;
+              return [payload.data, ...prev];
+            });
+          } else if (payload.type === 'INQUIRY_UPDATED' && payload.data?.id) {
+            setInquiries((prev) => prev.map((inq) => inq.id === payload.data.id ? { ...inq, ...payload.data } : inq));
+          } else if (payload.type === 'INQUIRY_DELETED' && payload.data?.id) {
+            setInquiries((prev) => prev.filter((inq) => inq.id !== payload.data.id));
           }
         } catch {
           // ignore
@@ -1237,14 +1293,58 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   };
 
+  // Customer Inquiries CRUD
+  const updateInquiryStatus = async (id: string, status: 'new' | 'contacted' | 'resolved') => {
+    setInquiries((prev) => prev.map((inq) => (inq.id === id ? { ...inq, status } : inq)));
+
+    for (const base of getBackendUrls()) {
+      try {
+        await fetch(`${base}/api/inquiries/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status })
+        });
+      } catch (e) {
+        console.error('Failed to update inquiry status on backend:', e);
+      }
+    }
+  };
+
+  const deleteInquiry = async (id: string) => {
+    let deletedInqList: string[] = [];
+    try {
+      deletedInqList = JSON.parse(localStorage.getItem('ks_deleted_inquiries') || '[]');
+    } catch {
+      deletedInqList = [];
+    }
+    if (!deletedInqList.includes(id)) {
+      deletedInqList.push(id);
+      localStorage.setItem('ks_deleted_inquiries', JSON.stringify(deletedInqList));
+    }
+
+    setInquiries((prev) => prev.filter((inq) => inq.id !== id));
+
+    for (const base of getBackendUrls()) {
+      try {
+        await fetch(`${base}/api/inquiries/${id}`, {
+          method: 'DELETE'
+        });
+      } catch (e) {
+        console.error('Failed to delete inquiry from backend:', e);
+      }
+    }
+  };
+
   // Factory Reset
   const resetToDefaults = () => {
     localStorage.removeItem('kuldeep_studio_artworks');
     localStorage.removeItem('kuldeep_studio_courses');
     localStorage.removeItem('kuldeep_studio_students');
     localStorage.removeItem('kuldeep_studio_users');
+    localStorage.removeItem('kuldeep_studio_inquiries');
     localStorage.removeItem('ks_deleted_students');
     localStorage.removeItem('ks_deleted_users');
+    localStorage.removeItem('ks_deleted_inquiries');
     localStorage.removeItem('kuldeep_studio_profile');
     localStorage.removeItem('kuldeep_studio_timeline');
     localStorage.removeItem('kuldeep_studio_awards');
@@ -1252,6 +1352,7 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setCourses(COURSES);
     setStudents(INITIAL_STUDENTS);
     setUsers(INITIAL_USERS);
+    setInquiries([]);
     setArtistProfile(DEFAULT_PROFILE);
     setTimeline(TIMELINE);
   };
@@ -1263,6 +1364,7 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         courses,
         students,
         users,
+        inquiries,
         artistProfile,
         timeline,
         awards,
@@ -1277,6 +1379,8 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         deleteStudent,
         updateUser,
         deleteUser,
+        updateInquiryStatus,
+        deleteInquiry,
         addLectureToModule,
         updateLectureInModule,
         deleteLectureFromModule,
