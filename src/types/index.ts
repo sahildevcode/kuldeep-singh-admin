@@ -97,6 +97,7 @@ export interface CollectorReview {
   role: string;
   location: string;
   avatar: string;
+  artworkImage?: string;
   artworkAcquired?: string;
   courseTaken?: string;
   comment: string;

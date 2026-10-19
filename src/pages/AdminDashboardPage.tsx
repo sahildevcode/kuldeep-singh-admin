@@ -278,17 +278,18 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
   const [testimonialCategoryFilter, setTestimonialCategoryFilter] = useState<'all' | 'student' | 'upcoming' | 'collector'>('all');
   const [isTestimonialModalOpen, setIsTestimonialModalOpen] = useState(false);
   const [editingTestimonial, setEditingTestimonial] = useState<CollectorReview | null>(null);
-  const [testimonialSectionTitleInput, setTestimonialSectionTitleInput] = useState(() => artistProfile?.testimonialSectionTitle || 'Collector & Student Testimonials');
-  const [testimonialSectionSubtitleInput, setTestimonialSectionSubtitleInput] = useState(() => artistProfile?.testimonialSectionSubtitle || 'Acclaimed by Patrons & Academy Scholars');
+  const [testimonialSectionTitleInput, setTestimonialSectionTitleInput] = useState(() => artistProfile?.testimonialSectionTitle || 'Upcoming Courses');
+  const [testimonialSectionSubtitleInput, setTestimonialSectionSubtitleInput] = useState(() => artistProfile?.testimonialSectionSubtitle || 'Student Reviews & Atelier Experiences');
   const [testimonialForm, setTestimonialForm] = useState<Partial<CollectorReview>>({
     name: '',
     role: 'Student & Fine Arts Scholar',
     location: 'Delhi, India',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=200&auto=format&fit=crop',
+    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=300&auto=format&fit=crop',
+    artworkImage: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=900&auto=format&fit=crop',
     comment: '',
     rating: 5,
     verifiedPurchase: true,
-    category: 'student',
+    category: 'upcoming',
     courseTaken: 'Venetian Oil Glazing Masterclass',
     isActive: true
   });
@@ -667,7 +668,8 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
       name: testimonialForm.name.trim(),
       role: testimonialForm.role?.trim() || 'Fine Arts Scholar',
       location: testimonialForm.location?.trim() || 'Delhi, India',
-      avatar: testimonialForm.avatar?.trim() || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=200&auto=format&fit=crop',
+      avatar: testimonialForm.avatar?.trim() || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=300&auto=format&fit=crop',
+      artworkImage: testimonialForm.artworkImage?.trim() || 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=900&auto=format&fit=crop',
       comment: testimonialForm.comment.trim(),
       rating: Number(testimonialForm.rating) || 5,
       verifiedPurchase: testimonialForm.verifiedPurchase !== false,
@@ -692,8 +694,8 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
   const handleSaveTestimonialSectionSettings = (e: React.FormEvent) => {
     e.preventDefault();
     updateArtistProfile({
-      testimonialSectionTitle: testimonialSectionTitleInput.trim() || 'Collector & Student Testimonials',
-      testimonialSectionSubtitle: testimonialSectionSubtitleInput.trim() || 'Acclaimed by Patrons & Academy Scholars'
+      testimonialSectionTitle: testimonialSectionTitleInput.trim() || 'Upcoming Courses',
+      testimonialSectionSubtitle: testimonialSectionSubtitleInput.trim() || 'Student Reviews & Atelier Experiences'
     });
     showToast('✅ Homepage Testimonial section titles updated live!');
   };
@@ -1605,11 +1607,12 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                 name: '',
                 role: 'Student & Fine Arts Scholar',
                 location: 'Delhi, India',
-                avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=200&auto=format&fit=crop',
+                avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=300&auto=format&fit=crop',
+                artworkImage: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=900&auto=format&fit=crop',
                 comment: '',
                 rating: 5,
                 verifiedPurchase: true,
-                category: 'student',
+                category: 'upcoming',
                 courseTaken: 'Venetian Oil Glazing Masterclass',
                 isActive: true
               });
@@ -6094,15 +6097,29 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-gray-300 mb-1 font-semibold">Author Photo / Avatar URL</label>
-                <input
-                  type="url"
-                  value={testimonialForm.avatar || ''}
-                  onChange={(e) => setTestimonialForm({ ...testimonialForm, avatar: e.target.value })}
-                  placeholder="https://images.unsplash.com/photo-..."
-                  className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-gray-300 mb-1 font-semibold">Author Photo / Avatar URL</label>
+                  <input
+                    type="url"
+                    value={testimonialForm.avatar || ''}
+                    onChange={(e) => setTestimonialForm({ ...testimonialForm, avatar: e.target.value })}
+                    placeholder="https://images.unsplash.com/photo-..."
+                    className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-300 mb-1 font-semibold">
+                    Slide Artwork Image URL <span className="text-amber-400 text-[10px]">(Auto-Changes in Carousel)</span>
+                  </label>
+                  <input
+                    type="url"
+                    value={testimonialForm.artworkImage || ''}
+                    onChange={(e) => setTestimonialForm({ ...testimonialForm, artworkImage: e.target.value })}
+                    placeholder="https://images.unsplash.com/photo-..."
+                    className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400"
+                  />
+                </div>
               </div>
 
               <div>
