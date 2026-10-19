@@ -243,3 +243,30 @@ export interface Inquiry {
   createdAt: string;
 }
 
+export interface UpcomingCourse {
+  id: string;
+  title: string;
+  category: string;
+  badge: string;
+  startDate: string;
+  duration: string;
+  level: string;
+  price: number;
+  originalPrice?: number;
+  description: string;
+  instructorQuote?: string;
+  studentTestimonial?: {
+    name: string;
+    role: string;
+    avatar: string;
+    quote: string;
+    rating: number;
+  };
+  thumbnail: string;
+  seatsTotal?: number;
+  seatsLeft?: number;
+  status: 'upcoming' | 'open_for_booking' | 'waitlist';
+  isActive: boolean;
+}
+
+

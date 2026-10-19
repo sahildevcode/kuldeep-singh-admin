@@ -37,13 +37,16 @@ import {
   Mail,
   MapPin,
   Clock,
-  Send
+  Send,
+  Star,
+  Flame,
+  Quote
 } from 'lucide-react';
 import * as tus from 'tus-js-client';
 import { useStudioData } from '../context/StudioDataContext';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
-import type { Artwork, MediumType, OrderRecord, Course, CourseLecture, EnrolledStudent, StudioReel, RegisteredUser } from '../types';
+import type { Artwork, MediumType, OrderRecord, Course, CourseLecture, EnrolledStudent, StudioReel, RegisteredUser, UpcomingCourse } from '../types';
 
 const DEFAULT_STUDIO_REELS: StudioReel[] = [
   {
@@ -136,7 +139,11 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
     deleteInquiry,
     addLectureToModule,
     updateLectureInModule,
-    deleteLectureFromModule
+    deleteLectureFromModule,
+    upcomingCourses,
+    addUpcomingCourse,
+    updateUpcomingCourse,
+    deleteUpcomingCourse
   } = useStudioData();
 
   const { adminLogout } = useAuth();
@@ -171,10 +178,10 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
   });
 
   // Sub-Navigation for Mode 2: Live Académie & Masterclasses
-  const [academyNav, setAcademyNav] = useState<'batches' | 'curriculum' | 'students' | 'users'>(() => {
+  const [academyNav, setAcademyNav] = useState<'batches' | 'curriculum' | 'upcoming' | 'students' | 'users'>(() => {
     try {
       const saved = localStorage.getItem('ks_admin_academy_nav');
-      if (saved === 'batches' || saved === 'curriculum' || saved === 'students' || saved === 'users') return saved;
+      if (saved === 'batches' || saved === 'curriculum' || saved === 'upcoming' || saved === 'students' || saved === 'users') return saved;
     } catch (e) {
       console.warn(e);
     }
@@ -230,6 +237,36 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
     totalAmount: 95000,
     currentStep: 1 as 1 | 2 | 3 | 4,
     orderDate: '24 Sep, 2026'
+  });
+
+  // Upcoming Courses Management
+  const [upcomingSearchQuery, setUpcomingSearchQuery] = useState('');
+  const [upcomingCategoryFilter, setUpcomingCategoryFilter] = useState('All');
+  const [isUpcomingModalOpen, setIsUpcomingModalOpen] = useState(false);
+  const [editingUpcomingCourse, setEditingUpcomingCourse] = useState<UpcomingCourse | null>(null);
+  const [upcomingForm, setUpcomingForm] = useState<Partial<UpcomingCourse>>({
+    title: '',
+    category: 'Oil Painting Masterclass',
+    badge: 'Launching Soon • Limited 15 Seats',
+    startDate: 'November 2026',
+    duration: '6 Weeks • 12 Live Sessions',
+    level: 'All Levels',
+    price: 4999,
+    originalPrice: 8500,
+    description: '',
+    instructorQuote: '',
+    thumbnail: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=1200&auto=format&fit=crop',
+    seatsTotal: 15,
+    seatsLeft: 5,
+    status: 'open_for_booking',
+    isActive: true,
+    studentTestimonial: {
+      name: '',
+      role: 'Fine Arts Scholar',
+      avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200&auto=format&fit=crop',
+      quote: '',
+      rating: 5
+    }
   });
 
   // Artwork Management
@@ -547,9 +584,71 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
     });
   }, [inquiries, inquiryFilter, inquirySearchQuery]);
 
+  // Filtered Upcoming Courses
+  const filteredUpcomingCourses = useMemo(() => {
+    return (upcomingCourses || []).filter((c) => {
+      const q = upcomingSearchQuery.toLowerCase().trim();
+      const matchesSearch =
+        !q ||
+        c.title.toLowerCase().includes(q) ||
+        (c.badge && c.badge.toLowerCase().includes(q)) ||
+        (c.category && c.category.toLowerCase().includes(q)) ||
+        (c.description && c.description.toLowerCase().includes(q));
+      const matchesCategory =
+        upcomingCategoryFilter === 'All' ||
+        (c.category && c.category.toLowerCase().includes(upcomingCategoryFilter.toLowerCase()));
+      return matchesSearch && matchesCategory;
+    });
+  }, [upcomingCourses, upcomingSearchQuery, upcomingCategoryFilter]);
+
   const newInquiriesCount = useMemo(() => {
     return (inquiries || []).filter((i) => i.status === 'new').length;
   }, [inquiries]);
+
+  const handleSaveUpcomingCourse = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!upcomingForm.title?.trim()) {
+      showToast('Please enter course title');
+      return;
+    }
+
+    const payload: UpcomingCourse = {
+      id: editingUpcomingCourse ? editingUpcomingCourse.id : `up-course-${Date.now()}`,
+      title: upcomingForm.title.trim(),
+      category: upcomingForm.category || 'Oil Painting Masterclass',
+      badge: upcomingForm.badge?.trim() || 'Launching Soon • Limited 15 Seats',
+      startDate: upcomingForm.startDate?.trim() || 'November 2026',
+      duration: upcomingForm.duration?.trim() || '6 Weeks • 12 Live Sessions',
+      level: upcomingForm.level || 'All Levels',
+      price: Number(upcomingForm.price) || 0,
+      originalPrice: upcomingForm.originalPrice ? Number(upcomingForm.originalPrice) : undefined,
+      description: upcomingForm.description?.trim() || '',
+      instructorQuote: upcomingForm.instructorQuote?.trim() || undefined,
+      thumbnail: upcomingForm.thumbnail?.trim() || 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=1200&auto=format&fit=crop',
+      seatsTotal: Number(upcomingForm.seatsTotal) || 15,
+      seatsLeft: Number(upcomingForm.seatsLeft) || 5,
+      status: (upcomingForm.status as any) || 'open_for_booking',
+      isActive: upcomingForm.isActive !== false,
+      studentTestimonial: upcomingForm.studentTestimonial?.quote?.trim() ? {
+        name: upcomingForm.studentTestimonial.name?.trim() || 'Fine Arts Scholar',
+        role: upcomingForm.studentTestimonial.role?.trim() || 'Alumnus',
+        avatar: upcomingForm.studentTestimonial.avatar?.trim() || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200&auto=format&fit=crop',
+        quote: upcomingForm.studentTestimonial.quote.trim(),
+        rating: Number(upcomingForm.studentTestimonial.rating) || 5
+      } : undefined
+    };
+
+    if (editingUpcomingCourse) {
+      updateUpcomingCourse(editingUpcomingCourse.id, payload);
+      showToast(`Upcoming course "${payload.title}" updated successfully!`);
+    } else {
+      addUpcomingCourse(payload);
+      showToast(`New upcoming course "${payload.title}" published!`);
+    }
+
+    setIsUpcomingModalOpen(false);
+    setEditingUpcomingCourse(null);
+  };
 
   const handleSaveArtwork = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1628,6 +1727,23 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                       <Video className={`w-4 h-4 ${academyNav === 'curriculum' ? 'text-[#FF5722]' : 'text-gray-400'}`} />
                       <span>Video Lectures (LMS)</span>
                     </div>
+                  </button>
+
+                  <button
+                    onClick={() => setAcademyNav('upcoming')}
+                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
+                      academyNav === 'upcoming'
+                        ? 'bg-[#1D212A] text-white font-semibold shadow-sm border border-gray-700/40'
+                        : 'text-gray-400 hover:text-white hover:bg-[#161920]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Sparkles className={`w-4 h-4 ${academyNav === 'upcoming' ? 'text-amber-400' : 'text-gray-400'}`} />
+                      <span>Upcoming Courses</span>
+                    </div>
+                    <span className="bg-amber-500/20 text-amber-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-500/30">
+                      {upcomingCourses.length}
+                    </span>
                   </button>
 
                   <button
@@ -3129,6 +3245,265 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                         </div>
                       </div>
                     ))
+                  )}
+                </div>
+              )}
+
+              {/* UPCOMING COURSES & TESTIMONIALS TAB */}
+              {academyNav === 'upcoming' && (
+                <div className="space-y-6">
+                  {/* Header & Quick Action */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#161920] p-6 rounded-2xl border border-gray-800">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <Sparkles className="w-5 h-5 text-amber-400" />
+                        <h3 className="font-serif font-bold text-2xl text-white">Upcoming Courses & Testimonials</h3>
+                      </div>
+                      <p className="text-xs text-gray-400 max-w-2xl">
+                        Customize next-generation atelier batches, announcement badges, launch dates, pre-booking fees, and student anticipation testimonials shown on the website homepage.
+                      </p>
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        setEditingUpcomingCourse(null);
+                        setUpcomingForm({
+                          title: '',
+                          category: 'Oil Painting Masterclass',
+                          badge: 'Launching Soon • Limited 15 Seats',
+                          startDate: 'November 2026',
+                          duration: '6 Weeks • 12 Live Sessions',
+                          level: 'All Levels',
+                          price: 4999,
+                          originalPrice: 8500,
+                          description: '',
+                          instructorQuote: '',
+                          thumbnail: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=1200&auto=format&fit=crop',
+                          seatsTotal: 15,
+                          seatsLeft: 5,
+                          status: 'open_for_booking',
+                          isActive: true,
+                          studentTestimonial: {
+                            name: '',
+                            role: 'Fine Arts Scholar',
+                            avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200&auto=format&fit=crop',
+                            quote: '',
+                            rating: 5
+                          }
+                        });
+                        setIsUpcomingModalOpen(true);
+                      }}
+                      className="px-4 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-black font-bold text-xs rounded-xl transition-all shadow-md flex items-center gap-2 shrink-0 cursor-pointer self-start sm:self-auto"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>+ Add Upcoming Course</span>
+                    </button>
+                  </div>
+
+                  {/* Summary Metric Counters */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <div className="bg-[#161920] p-4 rounded-xl border border-gray-800">
+                      <span className="text-xs text-gray-400 block font-medium">Total Upcoming Batches</span>
+                      <span className="text-2xl font-bold text-white mt-1 block">{upcomingCourses.length}</span>
+                    </div>
+                    <div className="bg-[#161920] p-4 rounded-xl border border-gray-800">
+                      <span className="text-xs text-gray-400 block font-medium">Active on Homepage</span>
+                      <span className="text-2xl font-bold text-emerald-400 mt-1 block">
+                        {upcomingCourses.filter(c => c.isActive !== false).length}
+                      </span>
+                    </div>
+                    <div className="bg-[#161920] p-4 rounded-xl border border-gray-800">
+                      <span className="text-xs text-gray-400 block font-medium">Pre-Booking Open</span>
+                      <span className="text-2xl font-bold text-amber-400 mt-1 block">
+                        {upcomingCourses.filter(c => c.status === 'open_for_booking').length}
+                      </span>
+                    </div>
+                    <div className="bg-[#161920] p-4 rounded-xl border border-gray-800">
+                      <span className="text-xs text-gray-400 block font-medium">Total Anticipated Seats</span>
+                      <span className="text-2xl font-bold text-purple-400 mt-1 block">
+                        {upcomingCourses.reduce((sum, c) => sum + (c.seatsTotal || 0), 0)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Filter & Search Toolbar */}
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-[#161920] p-3 rounded-xl border border-gray-800">
+                    <div className="relative w-full sm:w-80">
+                      <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        placeholder="Search upcoming courses or badges..."
+                        value={upcomingSearchQuery}
+                        onChange={(e) => setUpcomingSearchQuery(e.target.value)}
+                        className="w-full bg-[#101216] border border-gray-800 rounded-lg pl-9 pr-3 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-amber-500/50"
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto">
+                      {['All', 'Oil Painting Masterclass', 'Charcoal & Graphite', 'Landscape & Nature'].map((cat) => (
+                        <button
+                          key={cat}
+                          onClick={() => setUpcomingCategoryFilter(cat)}
+                          className={`px-3 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-colors cursor-pointer ${
+                            upcomingCategoryFilter === cat
+                              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                              : 'bg-[#101216] text-gray-400 hover:text-white border border-gray-800'
+                          }`}
+                        >
+                          {cat}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Courses Grid */}
+                  {filteredUpcomingCourses.length === 0 ? (
+                    <div className="bg-[#161920] p-12 text-center rounded-2xl border border-gray-800">
+                      <Sparkles className="w-8 h-8 text-gray-500 mx-auto mb-2" />
+                      <p className="text-sm font-semibold text-gray-300">No upcoming courses match your filter.</p>
+                      <p className="text-xs text-gray-500 mt-1">Click "+ Add Upcoming Course" to create a new batch.</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {filteredUpcomingCourses.map((c) => (
+                        <div
+                          key={c.id}
+                          className={`bg-[#161920] rounded-2xl overflow-hidden border transition-all flex flex-col justify-between ${
+                            c.isActive !== false ? 'border-gray-800 hover:border-gray-700' : 'border-red-900/40 opacity-70'
+                          }`}
+                        >
+                          {/* Image & Header Tags */}
+                          <div className="relative h-44 overflow-hidden bg-black">
+                            <img src={c.thumbnail} alt={c.title} className="w-full h-full object-cover opacity-80" />
+                            <div className="absolute top-2.5 left-2.5 flex flex-wrap gap-1.5">
+                              <span className="bg-amber-500 text-black text-[10px] font-extrabold px-2.5 py-0.5 rounded-full shadow-md flex items-center gap-1">
+                                <Flame className="w-2.5 h-2.5" />
+                                {c.badge}
+                              </span>
+                              <span className="bg-black/60 backdrop-blur-md text-white text-[10px] px-2 py-0.5 rounded-full">
+                                {c.category}
+                              </span>
+                            </div>
+
+                            <div className="absolute bottom-2.5 left-2.5 right-2.5 flex items-center justify-between text-[10px] text-white">
+                              <span className="bg-black/70 backdrop-blur-md px-2 py-0.5 rounded-md flex items-center gap-1">
+                                <Calendar className="w-3 h-3 text-amber-400" />
+                                {c.startDate}
+                              </span>
+                              <span className="bg-black/70 backdrop-blur-md px-2 py-0.5 rounded-md flex items-center gap-1">
+                                <Clock className="w-3 h-3 text-gray-400" />
+                                {c.duration}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Info */}
+                          <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
+                            <div>
+                              <div className="flex items-start justify-between gap-2">
+                                <h4 className="font-serif font-bold text-base text-white leading-tight">{c.title}</h4>
+                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                                  c.isActive !== false ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'
+                                }`}>
+                                  {c.isActive !== false ? 'Active' : 'Hidden'}
+                                </span>
+                              </div>
+                              <p className="text-xs text-gray-400 mt-2 line-clamp-2">{c.description}</p>
+                            </div>
+
+                            {/* Testimonial preview */}
+                            {c.studentTestimonial && (
+                              <div className="p-2.5 bg-[#101216] rounded-xl border border-gray-800 text-[11px]">
+                                <div className="flex items-center justify-between mb-1">
+                                  <div className="flex items-center gap-0.5 text-amber-400">
+                                    {[...Array(c.studentTestimonial.rating || 5)].map((_, i) => (
+                                      <Star key={i} className="w-2.5 h-2.5 fill-amber-400" />
+                                    ))}
+                                  </div>
+                                  <span className="text-[9px] text-gray-500 uppercase tracking-wider font-semibold">Scholar Testimonial</span>
+                                </div>
+                                <p className="text-gray-300 italic line-clamp-2">"{c.studentTestimonial.quote}"</p>
+                                <div className="flex items-center gap-1.5 mt-1.5 text-[10px] text-gray-400">
+                                  <img src={c.studentTestimonial.avatar} alt="" className="w-3.5 h-3.5 rounded-full object-cover" />
+                                  <span className="font-medium text-white">{c.studentTestimonial.name}</span>
+                                  <span>• {c.studentTestimonial.role}</span>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Pricing & Seats */}
+                            <div className="pt-2 border-t border-gray-800/80 flex items-center justify-between text-xs">
+                              <div>
+                                <span className="text-[10px] text-gray-500 block">Pre-Booking Fee</span>
+                                <div className="flex items-baseline gap-1.5">
+                                  {c.originalPrice && (
+                                    <span className="text-[11px] text-gray-500 line-through">₹{c.originalPrice}</span>
+                                  )}
+                                  <span className="font-bold text-white text-sm">₹{c.price}</span>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <span className="text-[10px] text-gray-500 block">Atelier Seats</span>
+                                <span className="text-xs font-semibold text-amber-300">
+                                  {c.seatsLeft || 0} / {c.seatsTotal || 15} left
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Actions */}
+                            <div className="pt-2 flex items-center gap-2">
+                              <button
+                                onClick={() => {
+                                  updateUpcomingCourse(c.id, { isActive: !c.isActive });
+                                  showToast(c.isActive ? 'Upcoming course hidden from homepage' : 'Upcoming course is now live on homepage!');
+                                }}
+                                className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-medium transition-colors cursor-pointer text-center ${
+                                  c.isActive !== false
+                                    ? 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                                    : 'bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
+                                }`}
+                              >
+                                {c.isActive !== false ? 'Hide' : 'Publish'}
+                              </button>
+
+                              <button
+                                onClick={() => {
+                                  setEditingUpcomingCourse(c);
+                                  setUpcomingForm({
+                                    ...c,
+                                    studentTestimonial: c.studentTestimonial || {
+                                      name: '',
+                                      role: 'Fine Arts Scholar',
+                                      avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200&auto=format&fit=crop',
+                                      quote: '',
+                                      rating: 5
+                                    }
+                                  });
+                                  setIsUpcomingModalOpen(true);
+                                }}
+                                className="p-1.5 rounded-lg bg-[#242934] hover:bg-gray-700 text-gray-300 hover:text-white transition-colors cursor-pointer"
+                                title="Edit Upcoming Course"
+                              >
+                                <Edit3 className="w-3.5 h-3.5" />
+                              </button>
+
+                              <button
+                                onClick={() => {
+                                  if (window.confirm(`Delete upcoming course "${c.title}"?`)) {
+                                    deleteUpcomingCourse(c.id);
+                                    showToast(`Upcoming course "${c.title}" deleted.`);
+                                  }
+                                }}
+                                className="p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 transition-colors cursor-pointer"
+                                title="Delete Upcoming Course"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </div>
               )}
@@ -4874,6 +5249,344 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* UPCOMING COURSE MODAL */}
+      {isUpcomingModalOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-[#14171E] border border-gray-800 rounded-3xl p-6 sm:p-8 max-w-2xl w-full my-8 max-h-[90vh] overflow-y-auto shadow-2xl">
+            <div className="flex items-center justify-between pb-4 border-b border-gray-800">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-amber-400" />
+                <h3 className="font-serif font-bold text-xl text-white">
+                  {editingUpcomingCourse ? 'Edit Upcoming Course' : 'Create New Upcoming Course'}
+                </h3>
+              </div>
+              <button
+                onClick={() => {
+                  setIsUpcomingModalOpen(false);
+                  setEditingUpcomingCourse(null);
+                }}
+                className="text-gray-400 hover:text-white p-1 rounded-lg hover:bg-gray-800 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveUpcomingCourse} className="mt-6 space-y-5 text-xs">
+              {/* Course Title & Category */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-gray-300 mb-1 font-semibold">Course Title *</label>
+                  <input
+                    type="text"
+                    required
+                    value={upcomingForm.title || ''}
+                    onChange={(e) => setUpcomingForm({ ...upcomingForm, title: e.target.value })}
+                    placeholder="e.g. Venetian Oil Glazing Masterclass"
+                    className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-300 mb-1 font-semibold">Category / Medium</label>
+                  <input
+                    type="text"
+                    value={upcomingForm.category || ''}
+                    onChange={(e) => setUpcomingForm({ ...upcomingForm, category: e.target.value })}
+                    placeholder="e.g. Oil Painting Masterclass"
+                    className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+              </div>
+
+              {/* Announcement Badge & Status */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-gray-300 mb-1 font-semibold">Announcement Badge</label>
+                  <input
+                    type="text"
+                    value={upcomingForm.badge || ''}
+                    onChange={(e) => setUpcomingForm({ ...upcomingForm, badge: e.target.value })}
+                    placeholder="e.g. Launching Soon • Limited 15 Seats"
+                    className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-300 mb-1 font-semibold">Booking Status</label>
+                  <select
+                    value={upcomingForm.status || 'open_for_booking'}
+                    onChange={(e) => setUpcomingForm({ ...upcomingForm, status: e.target.value as any })}
+                    className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400"
+                  >
+                    <option value="open_for_booking">Open for Booking</option>
+                    <option value="upcoming">Upcoming (Announced)</option>
+                    <option value="waitlist">Waitlist Only</option>
+                    <option value="sold_out">Sold Out</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Start Date, Duration & Skill Level */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-gray-300 mb-1 font-semibold">Start Date</label>
+                  <input
+                    type="text"
+                    value={upcomingForm.startDate || ''}
+                    onChange={(e) => setUpcomingForm({ ...upcomingForm, startDate: e.target.value })}
+                    placeholder="e.g. November 2026"
+                    className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-300 mb-1 font-semibold">Duration / Schedule</label>
+                  <input
+                    type="text"
+                    value={upcomingForm.duration || ''}
+                    onChange={(e) => setUpcomingForm({ ...upcomingForm, duration: e.target.value })}
+                    placeholder="e.g. 6 Weeks • 12 Sessions"
+                    className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-300 mb-1 font-semibold">Skill Level</label>
+                  <input
+                    type="text"
+                    value={upcomingForm.level || ''}
+                    onChange={(e) => setUpcomingForm({ ...upcomingForm, level: e.target.value })}
+                    placeholder="e.g. All Levels / Advanced"
+                    className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+              </div>
+
+              {/* Pricing (₹) & Seats */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div>
+                  <label className="block text-gray-300 mb-1 font-semibold">Price (₹) *</label>
+                  <input
+                    type="number"
+                    required
+                    min={0}
+                    value={upcomingForm.price ?? 4999}
+                    onChange={(e) => setUpcomingForm({ ...upcomingForm, price: Number(e.target.value) })}
+                    className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-300 mb-1 font-semibold">Original Price (₹)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={upcomingForm.originalPrice || ''}
+                    onChange={(e) => setUpcomingForm({ ...upcomingForm, originalPrice: e.target.value ? Number(e.target.value) : undefined })}
+                    placeholder="Optional strikethrough"
+                    className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-300 mb-1 font-semibold">Total Seats</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={upcomingForm.seatsTotal ?? 15}
+                    onChange={(e) => setUpcomingForm({ ...upcomingForm, seatsTotal: Number(e.target.value) })}
+                    className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-300 mb-1 font-semibold">Seats Left</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={upcomingForm.seatsLeft ?? 5}
+                    onChange={(e) => setUpcomingForm({ ...upcomingForm, seatsLeft: Number(e.target.value) })}
+                    className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+              </div>
+
+              {/* Thumbnail URL */}
+              <div>
+                <label className="block text-gray-300 mb-1 font-semibold">Thumbnail Image URL *</label>
+                <input
+                  type="url"
+                  required
+                  value={upcomingForm.thumbnail || ''}
+                  onChange={(e) => setUpcomingForm({ ...upcomingForm, thumbnail: e.target.value })}
+                  placeholder="https://..."
+                  className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400"
+                />
+              </div>
+
+              {/* Description & Instructor Quote */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-gray-300 mb-1 font-semibold">Course Description</label>
+                  <textarea
+                    rows={3}
+                    value={upcomingForm.description || ''}
+                    onChange={(e) => setUpcomingForm({ ...upcomingForm, description: e.target.value })}
+                    placeholder="Curriculum overview and studio technique focus..."
+                    className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2 text-white focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-300 mb-1 font-semibold">Instructor Note / Motto</label>
+                  <textarea
+                    rows={3}
+                    value={upcomingForm.instructorQuote || ''}
+                    onChange={(e) => setUpcomingForm({ ...upcomingForm, instructorQuote: e.target.value })}
+                    placeholder="e.g. Master the translucent depth of Flemish masters..."
+                    className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2 text-white focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+              </div>
+
+              {/* Testimonial / Scholar Review Sub-Section */}
+              <div className="p-4 bg-[#0C0E12] rounded-2xl border border-gray-800 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-amber-400 font-semibold text-xs">
+                    <Quote className="w-3.5 h-3.5" />
+                    <span>Featured Scholar Testimonial / Review</span>
+                  </div>
+                  <span className="text-[10px] text-gray-500">Displays on course card on homepage</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-gray-400 mb-1 text-[11px]">Scholar Name</label>
+                    <input
+                      type="text"
+                      value={upcomingForm.studentTestimonial?.name || ''}
+                      onChange={(e) =>
+                        setUpcomingForm({
+                          ...upcomingForm,
+                          studentTestimonial: {
+                            ...(upcomingForm.studentTestimonial || { role: 'Scholar', avatar: '', quote: '', rating: 5 }),
+                            name: e.target.value
+                          }
+                        })
+                      }
+                      placeholder="e.g. Meera Sharma"
+                      className="w-full bg-[#14171E] border border-gray-800 rounded-lg px-3 py-1.5 text-white text-xs focus:outline-none focus:border-amber-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-gray-400 mb-1 text-[11px]">Role / Batch</label>
+                    <input
+                      type="text"
+                      value={upcomingForm.studentTestimonial?.role || ''}
+                      onChange={(e) =>
+                        setUpcomingForm({
+                          ...upcomingForm,
+                          studentTestimonial: {
+                            ...(upcomingForm.studentTestimonial || { name: '', avatar: '', quote: '', rating: 5 }),
+                            role: e.target.value
+                          }
+                        })
+                      }
+                      placeholder="e.g. 2025 Masterclass Alumnus"
+                      className="w-full bg-[#14171E] border border-gray-800 rounded-lg px-3 py-1.5 text-white text-xs focus:outline-none focus:border-amber-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-gray-400 mb-1 text-[11px]">Rating (1-5 Stars)</label>
+                    <select
+                      value={upcomingForm.studentTestimonial?.rating ?? 5}
+                      onChange={(e) =>
+                        setUpcomingForm({
+                          ...upcomingForm,
+                          studentTestimonial: {
+                            ...(upcomingForm.studentTestimonial || { name: '', role: 'Scholar', avatar: '', quote: '' }),
+                            rating: Number(e.target.value)
+                          }
+                        })
+                      }
+                      className="w-full bg-[#14171E] border border-gray-800 rounded-lg px-3 py-1.5 text-white text-xs focus:outline-none focus:border-amber-400"
+                    >
+                      <option value={5}>★★★★★ (5 Stars)</option>
+                      <option value={4}>★★★★☆ (4 Stars)</option>
+                      <option value={3}>★★★☆☆ (3 Stars)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-gray-400 mb-1 text-[11px]">Avatar URL</label>
+                  <input
+                    type="url"
+                    value={upcomingForm.studentTestimonial?.avatar || ''}
+                    onChange={(e) =>
+                      setUpcomingForm({
+                        ...upcomingForm,
+                        studentTestimonial: {
+                          ...(upcomingForm.studentTestimonial || { name: '', role: 'Scholar', quote: '', rating: 5 }),
+                          avatar: e.target.value
+                        }
+                      })
+                    }
+                    placeholder="https://images.unsplash.com/photo-..."
+                    className="w-full bg-[#14171E] border border-gray-800 rounded-lg px-3 py-1.5 text-white text-xs focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-gray-400 mb-1 text-[11px]">Scholar Testimonial / Review Quote</label>
+                  <textarea
+                    rows={2}
+                    value={upcomingForm.studentTestimonial?.quote || ''}
+                    onChange={(e) =>
+                      setUpcomingForm({
+                        ...upcomingForm,
+                        studentTestimonial: {
+                          ...(upcomingForm.studentTestimonial || { name: '', role: 'Scholar', avatar: '', rating: 5 }),
+                          quote: e.target.value
+                        }
+                      })
+                    }
+                    placeholder="What did previous scholars say about Kuldeep Sir's guidance and this upcoming masterclass..."
+                    className="w-full bg-[#14171E] border border-gray-800 rounded-lg px-3 py-1.5 text-white text-xs focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+              </div>
+
+              {/* Active Toggle */}
+              <div className="flex items-center gap-2 pt-2">
+                <input
+                  type="checkbox"
+                  id="upcomingIsActive"
+                  checked={upcomingForm.isActive !== false}
+                  onChange={(e) => setUpcomingForm({ ...upcomingForm, isActive: e.target.checked })}
+                  className="rounded border-gray-700 text-amber-500 focus:ring-amber-500 w-4 h-4 bg-gray-900 cursor-pointer"
+                />
+                <label htmlFor="upcomingIsActive" className="text-gray-300 font-semibold cursor-pointer">
+                  Show on Website Homepage (Upcoming Courses section)
+                </label>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-800">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsUpcomingModalOpen(false);
+                    setEditingUpcomingCourse(null);
+                  }}
+                  className="px-4 py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl text-xs font-semibold cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-black rounded-xl text-xs font-bold shadow-lg cursor-pointer"
+                >
+                  {editingUpcomingCourse ? 'Update Upcoming Course' : 'Publish Upcoming Course'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

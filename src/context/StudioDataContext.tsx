@@ -1,8 +1,9 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import type { Artwork, Course, CourseModule, CourseLecture, ArtistProfile, AchievementTimelineItem, Award, EnrolledStudent, RegisteredUser, Inquiry } from '../types';
+import type { Artwork, Course, CourseModule, CourseLecture, ArtistProfile, AchievementTimelineItem, Award, EnrolledStudent, RegisteredUser, Inquiry, UpcomingCourse } from '../types';
 import { ARTWORKS } from '../data/artworks';
 import { COURSES } from '../data/courses';
 import { TIMELINE, AWARDS } from '../data/achievements';
+import { INITIAL_UPCOMING_COURSES } from '../data/upcomingCourses';
 
 export const getBackendUrls = (): string[] => {
   const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
@@ -148,6 +149,11 @@ interface StudioDataContextType {
   artistProfile: ArtistProfile;
   timeline: AchievementTimelineItem[];
   awards: Award[];
+  upcomingCourses: UpcomingCourse[];
+  // Upcoming Courses CRUD
+  addUpcomingCourse: (course: UpcomingCourse) => void;
+  updateUpcomingCourse: (id: string, updates: Partial<UpcomingCourse>) => void;
+  deleteUpcomingCourse: (id: string) => void;
   // Paintings CRUD
   addArtwork: (artwork: Artwork) => void;
   updateArtwork: (id: string, updates: Partial<Artwork>) => void;
@@ -307,6 +313,25 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       console.error(e);
     }
   }, [inquiries]);
+
+  // 9. Upcoming Courses State
+  const [upcomingCourses, setUpcomingCourses] = useState<UpcomingCourse[]>(() => {
+    try {
+      const saved = localStorage.getItem('kuldeep_studio_upcoming_courses');
+      return saved ? JSON.parse(saved) : INITIAL_UPCOMING_COURSES;
+    } catch {
+      return INITIAL_UPCOMING_COURSES;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('kuldeep_studio_upcoming_courses', JSON.stringify(upcomingCourses));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [upcomingCourses]);
+
 
   // Sync with Remote 24/7 Cloud Backend (Artworks, Courses & Lectures, Students, Inquiries)
   useEffect(() => {
@@ -571,6 +596,23 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                   (inq) => !deletedInqList.includes(inq.id)
                 );
                 setInquiries(cleanInquiries);
+                break;
+              }
+            }
+          } catch {
+            // try next
+          }
+        }
+
+        // 6. Upcoming Courses
+        for (const base of getBackendUrls()) {
+          try {
+            const upRes = await fetch(`${base}/api/upcoming-courses`);
+            if (upRes.ok) {
+              const upData = await upRes.json();
+              const list = upData?.upcomingCourses || (Array.isArray(upData) ? upData : null);
+              if (Array.isArray(list) && isMounted && list.length > 0) {
+                setUpcomingCourses(list);
                 break;
               }
             }
@@ -1335,6 +1377,55 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   };
 
+  // Upcoming Courses CRUD
+  const addUpcomingCourse = async (course: UpcomingCourse) => {
+    setUpcomingCourses((prev) => [course, ...prev]);
+    for (const base of getBackendUrls()) {
+      try {
+        await fetch(`${base}/api/upcoming-courses`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(course)
+        });
+        break;
+      } catch (e) {
+        console.warn('Backend sync failed for new upcoming course:', e);
+      }
+    }
+  };
+
+  const updateUpcomingCourse = async (id: string, updates: Partial<UpcomingCourse>) => {
+    setUpcomingCourses((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, ...updates } : c))
+    );
+    for (const base of getBackendUrls()) {
+      try {
+        await fetch(`${base}/api/upcoming-courses/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updates)
+        });
+        break;
+      } catch (e) {
+        console.warn('Backend sync failed for upcoming course update:', e);
+      }
+    }
+  };
+
+  const deleteUpcomingCourse = async (id: string) => {
+    setUpcomingCourses((prev) => prev.filter((c) => c.id !== id));
+    for (const base of getBackendUrls()) {
+      try {
+        await fetch(`${base}/api/upcoming-courses/${id}`, {
+          method: 'DELETE'
+        });
+        break;
+      } catch (e) {
+        console.warn('Backend delete failed for upcoming course:', e);
+      }
+    }
+  };
+
   // Factory Reset
   const resetToDefaults = () => {
     localStorage.removeItem('kuldeep_studio_artworks');
@@ -1348,6 +1439,7 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     localStorage.removeItem('kuldeep_studio_profile');
     localStorage.removeItem('kuldeep_studio_timeline');
     localStorage.removeItem('kuldeep_studio_awards');
+    localStorage.removeItem('kuldeep_studio_upcoming_courses');
     setArtworks(ARTWORKS);
     setCourses(COURSES);
     setStudents(INITIAL_STUDENTS);
@@ -1355,6 +1447,7 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setInquiries([]);
     setArtistProfile(DEFAULT_PROFILE);
     setTimeline(TIMELINE);
+    setUpcomingCourses(INITIAL_UPCOMING_COURSES);
   };
 
   return (
@@ -1368,6 +1461,10 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         artistProfile,
         timeline,
         awards,
+        upcomingCourses,
+        addUpcomingCourse,
+        updateUpcomingCourse,
+        deleteUpcomingCourse,
         addArtwork,
         updateArtwork,
         deleteArtwork,
