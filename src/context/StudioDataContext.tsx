@@ -33,7 +33,15 @@ const DEFAULT_PROFILE: ArtistProfile = {
   studioAddress: 'West 24th Street, Gallery District, Manhattan, NY 10011',
   studioVideoUrl: 'https://vjs.zencdn.net/v/oceans.mp4',
   studioVideoTitle: 'Artist Kuldeep Singh • Master Oil Painting in Atelier',
-  studioVideoPoster: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=1200&auto=format&fit=crop'
+  studioVideoPoster: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=1200&auto=format&fit=crop',
+  heroShowcaseType: 'painting',
+  heroShowcaseBadge: 'Featured Canvas',
+  heroShowcaseTitle: 'Symphony of the Solitary Tide',
+  heroShowcaseSubtitle: 'Original Oil on Belgian Linen (40 x 54 in)',
+  heroShowcasePrice: '₹4,12,250',
+  heroShowcaseImage: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=800&auto=format&fit=crop',
+  heroShowcaseVideoUrl: 'https://vjs.zencdn.net/v/oceans.mp4',
+  heroShowcaseCertificateText: 'Archival Certificate'
 };
 
 const INITIAL_USERS: RegisteredUser[] = [

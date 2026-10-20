@@ -40,10 +40,12 @@ import {
   Send,
   Star,
   Flame,
-  Quote
+  Quote,
+  Save,
+  ArrowUpRight
 } from 'lucide-react';
 import * as tus from 'tus-js-client';
-import { useStudioData } from '../context/StudioDataContext';
+import { useStudioData, getBackendUrls } from '../context/StudioDataContext';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import type { Artwork, MediumType, OrderRecord, Course, CourseLecture, EnrolledStudent, StudioReel, RegisteredUser, UpcomingCourse, CollectorReview } from '../types';
@@ -171,10 +173,10 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
   });
 
   // Sub-Navigation for Mode 1: Art Gallery & Sales
-  const [galleryNav, setGalleryNav] = useState<'orders' | 'artworks' | 'inquiries' | 'analytics' | 'settings' | 'video' | 'testimonials'>(() => {
+  const [galleryNav, setGalleryNav] = useState<'orders' | 'artworks' | 'hero' | 'inquiries' | 'analytics' | 'settings' | 'video' | 'testimonials'>(() => {
     try {
       const saved = localStorage.getItem('ks_admin_gallery_nav');
-      if (saved === 'orders' || saved === 'artworks' || saved === 'inquiries' || saved === 'analytics' || saved === 'settings' || saved === 'video' || saved === 'testimonials') return saved as any;
+      if (saved === 'orders' || saved === 'artworks' || saved === 'hero' || saved === 'inquiries' || saved === 'analytics' || saved === 'settings' || saved === 'video' || saved === 'testimonials') return saved as any;
     } catch (e) {
       console.warn(e);
     }
@@ -566,6 +568,127 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
     showToast(`🎉 Reel ${activeReelIndex + 1} ("${videoTitle}") saved & live on website!`);
   };
 
+  // =========================================================
+  // HERO SHOWCASE (CANVAS / VIDEO) STATE & HANDLERS
+  // =========================================================
+  const [heroType, setHeroType] = useState<'painting' | 'video'>(() => artistProfile?.heroShowcaseType || 'painting');
+  const [heroBadge, setHeroBadge] = useState<string>(() => artistProfile?.heroShowcaseBadge || 'Featured Canvas');
+  const [heroTitle, setHeroTitle] = useState<string>(() => artistProfile?.heroShowcaseTitle || 'Symphony of the Solitary Tide');
+  const [heroSubtitle, setHeroSubtitle] = useState<string>(() => artistProfile?.heroShowcaseSubtitle || 'Original Oil on Belgian Linen (40 x 54 in)');
+  const [heroPrice, setHeroPrice] = useState<string>(() => artistProfile?.heroShowcasePrice || '₹4,12,250');
+  const [heroImage, setHeroImage] = useState<string>(() => artistProfile?.heroShowcaseImage || 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=800&auto=format&fit=crop');
+  const [heroVideoUrl, setHeroVideoUrl] = useState<string>(() => artistProfile?.heroShowcaseVideoUrl || artistProfile?.studioVideoUrl || 'https://vjs.zencdn.net/v/oceans.mp4');
+  const [heroCert, setHeroCert] = useState<string>(() => artistProfile?.heroShowcaseCertificateText || 'Archival Certificate');
+  const [heroArtworkId, setHeroArtworkId] = useState<string>(() => artistProfile?.heroShowcaseArtworkId || '');
+  const [isSavingHero, setIsSavingHero] = useState(false);
+  const [isUploadingHeroImage, setIsUploadingHeroImage] = useState(false);
+  const [isUploadingHeroVideo, setIsUploadingHeroVideo] = useState(false);
+
+  useEffect(() => {
+    if (artistProfile) {
+      if (artistProfile.heroShowcaseType) setHeroType(artistProfile.heroShowcaseType);
+      if (artistProfile.heroShowcaseBadge) setHeroBadge(artistProfile.heroShowcaseBadge);
+      if (artistProfile.heroShowcaseTitle) setHeroTitle(artistProfile.heroShowcaseTitle);
+      if (artistProfile.heroShowcaseSubtitle) setHeroSubtitle(artistProfile.heroShowcaseSubtitle);
+      if (artistProfile.heroShowcasePrice !== undefined) setHeroPrice(artistProfile.heroShowcasePrice);
+      if (artistProfile.heroShowcaseImage) setHeroImage(artistProfile.heroShowcaseImage);
+      if (artistProfile.heroShowcaseVideoUrl) setHeroVideoUrl(artistProfile.heroShowcaseVideoUrl);
+      if (artistProfile.heroShowcaseCertificateText) setHeroCert(artistProfile.heroShowcaseCertificateText);
+      if (artistProfile.heroShowcaseArtworkId) setHeroArtworkId(artistProfile.heroShowcaseArtworkId);
+    }
+  }, [artistProfile]);
+
+  const handleSaveHeroShowcase = async () => {
+    setIsSavingHero(true);
+    const updates = {
+      heroShowcaseType: heroType,
+      heroShowcaseBadge: heroBadge,
+      heroShowcaseTitle: heroTitle,
+      heroShowcaseSubtitle: heroSubtitle,
+      heroShowcasePrice: heroPrice,
+      heroShowcaseImage: heroImage,
+      heroShowcaseVideoUrl: heroVideoUrl,
+      heroShowcaseCertificateText: heroCert,
+      heroShowcaseArtworkId: heroArtworkId,
+    };
+
+    updateArtistProfile(updates);
+
+    for (const base of getBackendUrls()) {
+      try {
+        await fetch(`${base}/api/profile`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updates),
+        });
+      } catch (e) {
+        console.warn('Hero showcase sync error:', e);
+      }
+    }
+
+    setIsSavingHero(false);
+    showToast(`🎉 Hero Showcase updated! ${heroType === 'video' ? 'Video' : 'Painting'} is now live on artist website.`);
+  };
+
+  const handleSelectCatalogPaintingForHero = (artworkId: string) => {
+    setHeroArtworkId(artworkId);
+    if (!artworkId) return;
+    const art = artworks.find((a) => a.id === artworkId);
+    if (art) {
+      setHeroType('painting');
+      setHeroTitle(art.title);
+      setHeroSubtitle(`${art.medium} (${art.dimensions})`);
+      setHeroPrice(`₹${art.price.toLocaleString('en-IN')}`);
+      setHeroImage(art.image);
+      setHeroBadge('Featured Canvas');
+      setHeroCert('Archival Certificate');
+    }
+  };
+
+  const handleHeroImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploadingHeroImage(true);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 1200;
+        const scale = Math.min(1, MAX_WIDTH / img.width);
+        canvas.width = img.width * scale;
+        canvas.height = img.height * scale;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          const compressed = canvas.toDataURL('image/jpeg', 0.85);
+          setHeroImage(compressed);
+          setIsUploadingHeroImage(false);
+          showToast('✓ Hero image uploaded and compressed successfully');
+        }
+      };
+      img.src = event.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleHeroVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 80 * 1024 * 1024) {
+      alert('Video file size exceeds 80MB. Please use an embed/stream URL or compress video.');
+      return;
+    }
+    setIsUploadingHeroVideo(true);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setHeroVideoUrl(event.target?.result as string);
+      setIsUploadingHeroVideo(false);
+      showToast('✓ Video loaded from device');
+    };
+    reader.readAsDataURL(file);
+  };
+
   // Filtered Orders
   const filteredOrders = useMemo(() => {
     return orders.filter((o) => {
@@ -587,8 +710,24 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
   // Filtered Artworks
   const filteredArtworks = useMemo(() => {
     return artworks.filter((art) => {
-      const matchesCategory =
-        artworkCategoryFilter === 'All' || art.medium === artworkCategoryFilter;
+      let matchesCategory = true;
+      if (artworkCategoryFilter !== 'All') {
+        const cat = artworkCategoryFilter.toLowerCase();
+        const med = (art.medium || '').toLowerCase();
+        if (cat.includes('acrylic')) {
+          matchesCategory = med.includes('acrylic');
+        } else if (cat.includes('oil')) {
+          matchesCategory = med.includes('oil');
+        } else if (cat.includes('charcoal')) {
+          matchesCategory = med.includes('charcoal');
+        } else if (cat.includes('water')) {
+          matchesCategory = med.includes('water');
+        } else if (cat.includes('print')) {
+          matchesCategory = med.includes('print');
+        } else {
+          matchesCategory = med === cat;
+        }
+      }
       const matchesSearch =
         art.title.toLowerCase().includes(artworkSearchQuery.toLowerCase()) ||
         art.subtitle.toLowerCase().includes(artworkSearchQuery.toLowerCase());
@@ -2219,6 +2358,23 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                   </button>
 
                   <button
+                    onClick={() => setGalleryNav('hero')}
+                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
+                      galleryNav === 'hero'
+                        ? 'bg-[#1D212A] text-white font-semibold shadow-sm border border-gray-700/40'
+                        : 'text-gray-400 hover:text-white hover:bg-[#161920]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Sparkles className={`w-4 h-4 ${galleryNav === 'hero' ? 'text-amber-400' : 'text-gray-400'}`} />
+                      <span>Featured Hero Showcase</span>
+                    </div>
+                    <span className="bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase">
+                      {heroType}
+                    </span>
+                  </button>
+
+                  <button
                     onClick={() => setGalleryNav('inquiries')}
                     className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
                       galleryNav === 'inquiries'
@@ -2588,10 +2744,20 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                         className="bg-[#181C24] border border-[#232732] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#FF5722] cursor-pointer"
                       >
                         <option value="All">All Mediums</option>
+                        <option value="Acrylic & Mixed Media">Acrylic & Mixed Media</option>
                         <option value="Oil on Canvas">Oil on Canvas</option>
-                        <option value="Charcoal on Archival Paper">Charcoal on Paper</option>
-                        <option value="Watercolor">Watercolor</option>
+                        <option value="Charcoal & Graphite">Charcoal on Paper</option>
+                        <option value="Watercolor & Ink">Watercolor</option>
+                        <option value="Limited Edition Print">Limited Edition Print</option>
                       </select>
+
+                      <button
+                        onClick={() => setGalleryNav('hero')}
+                        className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500/20 to-orange-500/20 hover:from-amber-500/30 hover:to-orange-500/30 text-amber-300 font-bold text-xs flex items-center gap-1.5 border border-amber-500/40 shadow shrink-0 transition-all cursor-pointer"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                        <span>Featured Hero Card</span>
+                      </button>
 
                       <label className="px-4 py-2 rounded-xl bg-[#1A1E26] hover:bg-[#222834] text-white font-bold text-xs flex items-center gap-2 cursor-pointer border border-gray-700/80 shadow shrink-0 transition-all">
                         <Upload className="w-4 h-4 text-[#FF5722]" />
@@ -2769,6 +2935,432 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                         </div>
                       </div>
                     ))}
+                  </div>
+                </div>
+              )}
+
+              {/* FEATURED HERO SHOWCASE TAB (CANVAS / VIDEO) */}
+              {galleryNav === 'hero' && (
+                <div className="space-y-6 animate-fade-in">
+                  {/* Top Header */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="w-5 h-5 text-amber-400" />
+                        <h3 className="font-serif font-bold text-2xl text-white">Hero Showcase Card Editor</h3>
+                      </div>
+                      <p className="text-xs text-gray-400 mt-1">
+                        Website Homepage ke main Hero banner ke beech me dikhne wala card customize karein (Painting ya Video).
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <a
+                        href="https://artist-kuldeep-singh.vercel.app"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-3.5 py-2 rounded-xl bg-[#181C24] hover:bg-[#202530] text-gray-300 hover:text-white text-xs font-medium border border-gray-700/60 transition-colors flex items-center gap-1.5"
+                      >
+                        <span>Preview Website</span>
+                        <ExternalLink className="w-3.5 h-3.5 text-[#FF5722]" />
+                      </a>
+
+                      <button
+                        onClick={handleSaveHeroShowcase}
+                        disabled={isSavingHero}
+                        className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#FF5722] to-red-600 hover:from-[#ff6b3d] hover:to-red-500 text-white font-bold text-xs shadow-lg shadow-orange-500/20 flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+                      >
+                        <Save className="w-4 h-4" />
+                        <span>{isSavingHero ? 'Saving to Website...' : '💾 Save & Publish'}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Mode Switcher Banner */}
+                  <div className="bg-[#14171E] border border-[#202530] p-4 sm:p-5 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div>
+                      <span className="font-bold text-white block text-sm">Choose Showcase Mode:</span>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        Choose whether to showcase an <strong>Original Painting</strong> or a <strong>Studio Video</strong> in the hero section.
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 bg-[#181C24] p-1.5 rounded-xl border border-gray-700/60 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setHeroType('painting');
+                          if (heroBadge.toLowerCase().includes('video')) setHeroBadge('Featured Canvas');
+                        }}
+                        className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+                          heroType === 'painting'
+                            ? 'bg-[#FF5722] text-white shadow-md'
+                            : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                        }`}
+                      >
+                        <Palette className="w-3.5 h-3.5" />
+                        <span>🖼️ Painting / Canvas Mode</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setHeroType('video');
+                          if (heroBadge.toLowerCase().includes('canvas')) setHeroBadge('Featured Atelier Video');
+                        }}
+                        className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+                          heroType === 'video'
+                            ? 'bg-red-600 text-white shadow-md'
+                            : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                        }`}
+                      >
+                        <Film className="w-3.5 h-3.5" />
+                        <span>🎬 Video Showcase Mode</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 2-Column Editor + Live Preview */}
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    {/* LEFT: Controls & Form */}
+                    <div className="lg:col-span-7 bg-[#14171E] border border-[#202530] rounded-3xl p-6 space-y-5">
+                      <div className="flex items-center justify-between border-b border-gray-800 pb-3">
+                        <span className="text-sm font-bold text-white flex items-center gap-2">
+                          <Edit3 className="w-4 h-4 text-[#FF5722]" />
+                          <span>{heroType === 'painting' ? 'Painting Showcase Settings' : 'Video Showcase Settings'}</span>
+                        </span>
+                        <span className="text-[11px] text-gray-400">
+                          Mode: <strong className="text-white capitalize">{heroType}</strong>
+                        </span>
+                      </div>
+
+                      {/* PAINTING FORM */}
+                      {heroType === 'painting' && (
+                        <div className="space-y-4">
+                          {/* Quick Select From Catalog */}
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-300 mb-1.5 flex items-center justify-between">
+                              <span>Select From Existing Artworks (Quick Autofill)</span>
+                              <span className="text-[10px] text-amber-400 font-normal">Optional</span>
+                            </label>
+                            <select
+                              value={heroArtworkId}
+                              onChange={(e) => handleSelectCatalogPaintingForHero(e.target.value)}
+                              className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-[#FF5722] cursor-pointer"
+                            >
+                              <option value="">-- Choose from your catalog paintings --</option>
+                              {artworks.map((art) => (
+                                <option key={art.id} value={art.id}>
+                                  {art.title} ({art.medium}) — ₹{art.price.toLocaleString('en-IN')}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          {/* Image Upload from Device */}
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+                              Painting Image (Upload from Device or URL)
+                            </label>
+                            <div className="flex flex-col sm:flex-row gap-3">
+                              <label className="flex-1 border-2 border-dashed border-gray-700 hover:border-[#FF5722] bg-[#181C24] p-3 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all text-xs text-gray-300 hover:text-white">
+                                <Upload className="w-4 h-4 text-[#FF5722]" />
+                                <span>{isUploadingHeroImage ? 'Processing Image...' : 'Upload Image from Device'}</span>
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={handleHeroImageUpload}
+                                  className="hidden"
+                                  disabled={isUploadingHeroImage}
+                                />
+                              </label>
+                              <div className="flex-1">
+                                <input
+                                  type="text"
+                                  placeholder="Or paste image URL here..."
+                                  value={heroImage}
+                                  onChange={(e) => setHeroImage(e.target.value)}
+                                  className="w-full h-full bg-[#181C24] border border-[#242A36] rounded-xl px-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-[#FF5722]"
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Title & Badge */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-xs font-semibold text-gray-300 mb-1.5">Painting Title</label>
+                              <input
+                                type="text"
+                                value={heroTitle}
+                                onChange={(e) => setHeroTitle(e.target.value)}
+                                placeholder="e.g. Symphony of the Solitary Tide"
+                                className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-[#FF5722]"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-semibold text-gray-300 mb-1.5">Badge Label (Top-Left Tag)</label>
+                              <input
+                                type="text"
+                                value={heroBadge}
+                                onChange={(e) => setHeroBadge(e.target.value)}
+                                placeholder="e.g. Featured Canvas"
+                                className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-[#FF5722]"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Subtitle & Price */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-xs font-semibold text-gray-300 mb-1.5">Subtitle (Medium & Dimensions)</label>
+                              <input
+                                type="text"
+                                value={heroSubtitle}
+                                onChange={(e) => setHeroSubtitle(e.target.value)}
+                                placeholder="e.g. Original Oil on Belgian Linen (40 x 54 in)"
+                                className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-[#FF5722]"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-semibold text-gray-300 mb-1.5">Price Display Tag</label>
+                              <input
+                                type="text"
+                                value={heroPrice}
+                                onChange={(e) => setHeroPrice(e.target.value)}
+                                placeholder="e.g. ₹4,12,250"
+                                className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-[#FF5722]"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Certificate Text */}
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-300 mb-1.5">Bottom Certificate / Guarantee Tag</label>
+                            <input
+                              type="text"
+                              value={heroCert}
+                              onChange={(e) => setHeroCert(e.target.value)}
+                              placeholder="e.g. Archival Certificate"
+                              className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-[#FF5722]"
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* VIDEO FORM */}
+                      {heroType === 'video' && (
+                        <div className="space-y-4">
+                          {/* Video Upload or URL */}
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+                              Video Source (Upload Video File or Paste Video URL / Embed)
+                            </label>
+                            <div className="space-y-2.5">
+                              <label className="w-full border-2 border-dashed border-gray-700 hover:border-red-500 bg-[#181C24] p-3 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all text-xs text-gray-300 hover:text-white">
+                                <FileVideo className="w-4 h-4 text-red-500" />
+                                <span>{isUploadingHeroVideo ? 'Loading Video...' : 'Upload Video File from Device (MP4 / WebM)'}</span>
+                                <input
+                                  type="file"
+                                  accept="video/*"
+                                  onChange={handleHeroVideoUpload}
+                                  className="hidden"
+                                  disabled={isUploadingHeroVideo}
+                                />
+                              </label>
+
+                              <div className="relative">
+                                <LinkIcon className="w-3.5 h-3.5 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                                <input
+                                  type="text"
+                                  placeholder="Or paste Direct MP4 URL, Bunny Stream, YouTube, or Vimeo embed link..."
+                                  value={heroVideoUrl}
+                                  onChange={(e) => setHeroVideoUrl(e.target.value)}
+                                  className="w-full bg-[#181C24] border border-[#242A36] rounded-xl pl-9 pr-3.5 py-2.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-red-500"
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Poster Image */}
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+                              Video Poster / Thumbnail Image
+                            </label>
+                            <div className="flex flex-col sm:flex-row gap-3">
+                              <label className="flex-1 border border-gray-700 hover:border-red-500 bg-[#181C24] p-2.5 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all text-xs text-gray-300 hover:text-white">
+                                <ImageIcon className="w-4 h-4 text-red-400" />
+                                <span>Upload Poster Image</span>
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={handleHeroImageUpload}
+                                  className="hidden"
+                                />
+                              </label>
+                              <input
+                                type="text"
+                                placeholder="Poster image URL..."
+                                value={heroImage}
+                                onChange={(e) => setHeroImage(e.target.value)}
+                                className="flex-1 bg-[#181C24] border border-[#242A36] rounded-xl px-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-red-500"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Title & Badge */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-xs font-semibold text-gray-300 mb-1.5">Video Title</label>
+                              <input
+                                type="text"
+                                value={heroTitle}
+                                onChange={(e) => setHeroTitle(e.target.value)}
+                                placeholder="e.g. Behind the Canvas • Master Oil Demonstration"
+                                className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-red-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-semibold text-gray-300 mb-1.5">Badge Label (Top-Left Tag)</label>
+                              <input
+                                type="text"
+                                value={heroBadge}
+                                onChange={(e) => setHeroBadge(e.target.value)}
+                                placeholder="e.g. Featured Atelier Video"
+                                className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-red-500"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Subtitle & Certificate */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-xs font-semibold text-gray-300 mb-1.5">Subtitle / Description</label>
+                              <input
+                                type="text"
+                                value={heroSubtitle}
+                                onChange={(e) => setHeroSubtitle(e.target.value)}
+                                placeholder="e.g. Watch Artist Kuldeep Singh create in the atelier"
+                                className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-red-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-semibold text-gray-300 mb-1.5">Archive Tag</label>
+                              <input
+                                type="text"
+                                value={heroCert}
+                                onChange={(e) => setHeroCert(e.target.value)}
+                                placeholder="e.g. Atelier Studio Archive"
+                                className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-red-500"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Save Button */}
+                      <div className="pt-3 border-t border-gray-800 flex items-center justify-between">
+                        <span className="text-xs text-emerald-400 flex items-center gap-1.5">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>Direct real-time synchronization with website</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={handleSaveHeroShowcase}
+                          disabled={isSavingHero}
+                          className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#FF5722] to-red-600 hover:from-[#ff6b3d] hover:to-red-500 text-white font-bold text-xs shadow-lg shadow-orange-500/20 flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+                        >
+                          <Save className="w-4 h-4" />
+                          <span>{isSavingHero ? 'Publishing...' : '💾 Save & Publish'}</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* RIGHT: Live Interactive Preview */}
+                    <div className="lg:col-span-5 space-y-4">
+                      <div className="flex items-center justify-between text-xs text-gray-400">
+                        <span className="font-semibold text-white flex items-center gap-1.5">
+                          <Eye className="w-3.5 h-3.5 text-[#FF5722]" />
+                          <span>Live Website Replica Preview</span>
+                        </span>
+                        <span className="text-[11px] bg-[#181C24] px-2.5 py-0.5 rounded-full border border-gray-700">
+                          {heroType === 'video' ? '🎬 Video Card' : '🖼️ Canvas Card'}
+                        </span>
+                      </div>
+
+                      {/* Glass Card Replica */}
+                      <div className="relative max-w-sm mx-auto w-full">
+                        {/* Glow */}
+                        <div className="absolute -inset-1 bg-gradient-to-r from-red-600 via-amber-500 to-blue-600 rounded-3xl blur-xl opacity-30 animate-pulse" />
+
+                        <div className="relative bg-white rounded-3xl p-5 border border-white shadow-2xl space-y-4 text-stone-900">
+                          {/* Media Box */}
+                          <div className="relative h-64 rounded-2xl overflow-hidden shadow-inner group bg-black">
+                            {heroType === 'video' ? (
+                              heroVideoUrl.includes('iframe') || heroVideoUrl.includes('embed') || heroVideoUrl.includes('youtube') || heroVideoUrl.includes('vimeo') || heroVideoUrl.includes('mediadelivery.net') ? (
+                                <iframe
+                                  src={heroVideoUrl}
+                                  title="Hero Video Preview"
+                                  className="w-full h-full border-0"
+                                  allowFullScreen
+                                />
+                              ) : (
+                                <video
+                                  src={heroVideoUrl}
+                                  poster={heroImage}
+                                  controls
+                                  playsInline
+                                  className="w-full h-full object-cover"
+                                />
+                              )
+                            ) : (
+                              <img
+                                src={heroImage}
+                                alt={heroTitle}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                              />
+                            )}
+
+                            {/* Top Badge */}
+                            <div className="absolute top-3 left-3 bg-black/70 backdrop-blur-md px-3 py-1 rounded-full text-[11px] font-bold text-white uppercase tracking-wider flex items-center gap-1.5 shadow pointer-events-none">
+                              {heroType === 'video' && <Play className="w-3 h-3 text-red-500 fill-red-500" />}
+                              <span>{heroBadge || 'Featured Showcase'}</span>
+                            </div>
+
+                            {/* Price / HD Tag */}
+                            {heroType === 'painting' && heroPrice ? (
+                              <div className="absolute bottom-3 right-3 bg-white/95 backdrop-blur-md px-3 py-1 rounded-full text-xs font-serif font-bold text-red-600 shadow-md pointer-events-none">
+                                {heroPrice}
+                              </div>
+                            ) : heroType === 'video' ? (
+                              <div className="absolute bottom-3 right-3 bg-black/75 backdrop-blur-md px-2.5 py-0.5 rounded-full text-[10px] font-mono text-emerald-400 font-semibold shadow pointer-events-none border border-emerald-500/30">
+                                HD Atelier 4K
+                              </div>
+                            ) : null}
+                          </div>
+
+                          {/* Info */}
+                          <div>
+                            <h3 className="font-serif font-bold text-lg text-stone-900 line-clamp-1">
+                              {heroTitle || 'Showcase Title'}
+                            </h3>
+                            <p className="text-xs text-stone-500 mt-0.5 line-clamp-2">
+                              {heroSubtitle || 'Artwork medium or video description'}
+                            </p>
+                          </div>
+
+                          {/* Bottom Row */}
+                          <div className="pt-2 border-t border-stone-200/60 flex items-center justify-between text-xs">
+                            <div className="flex items-center gap-1 text-stone-600">
+                              <ShieldCheck className="w-4 h-4 text-amber-600" />
+                              <span>{heroCert || 'Archival Certificate'}</span>
+                            </div>
+                            <span className="font-bold text-red-600 flex items-center gap-1">
+                              {heroType === 'video' ? 'Watch Studio Reel' : 'Quick View'} <ArrowUpRight className="w-3.5 h-3.5" />
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
