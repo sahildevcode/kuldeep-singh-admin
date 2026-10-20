@@ -91,59 +91,7 @@ const INITIAL_USERS: RegisteredUser[] = [
   }
 ];
 
-const INITIAL_STUDENTS: EnrolledStudent[] = [
-  {
-    id: 'stu-101',
-    name: 'Aarav Sharma',
-    email: 'aarav.sharma@gmail.com',
-    username: 'aarav_sharma',
-    plainPassword: 'student123',
-    phone: '+91 98201 45892',
-    courseId: 'course-oil-mastery',
-    courseTitle: 'The Master Oil Painting Diploma',
-    batchSchedule: 'Saturday & Sunday • 6:00 PM – 8:00 PM IST',
-    enrolledDate: 'Sep 1, 2026',
-    feesPaid: 349,
-    paymentStatus: 'Paid',
-    progressPercent: 68,
-    avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=150&auto=format&fit=crop',
-    attendanceStatus: 'Attended'
-  },
-  {
-    id: 'stu-102',
-    name: 'Elena Rostova',
-    email: 'elena.rostova@artacademy.eu',
-    username: 'elena_rostova',
-    plainPassword: 'art123456',
-    phone: '+44 7700 900077',
-    courseId: 'course-realistic-sketching',
-    courseTitle: 'Foundations of Realistic Sketching & Human Anatomy',
-    batchSchedule: 'Tuesday & Thursday • 7:00 PM – 9:00 PM IST',
-    enrolledDate: 'Sep 3, 2026',
-    feesPaid: 249,
-    paymentStatus: 'Paid',
-    progressPercent: 42,
-    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=150&auto=format&fit=crop',
-    attendanceStatus: 'Pending'
-  },
-  {
-    id: 'stu-103',
-    name: 'Dev Patel',
-    email: 'dev.patel.design@outlook.com',
-    username: 'dev_patel',
-    plainPassword: 'art123456',
-    phone: '+91 98112 33455',
-    courseId: 'course-watercolor-fluid',
-    courseTitle: 'Expressive Watercolor & Fluid Pigment Painting',
-    batchSchedule: 'Wednesday & Friday • 6:30 PM – 8:30 PM IST',
-    enrolledDate: 'Aug 28, 2026',
-    feesPaid: 219,
-    paymentStatus: 'Paid',
-    progressPercent: 85,
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=150&auto=format&fit=crop',
-    attendanceStatus: 'Attended'
-  }
-];
+const INITIAL_STUDENTS: EnrolledStudent[] = [];
 
 interface StudioDataContextType {
   artworks: Artwork[];

@@ -38,48 +38,7 @@ interface CartContextType {
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
-export const SAMPLE_INITIAL_ORDERS: OrderRecord[] = [
-  {
-    id: 'ORD_00932',
-    customerName: 'Rajesh & Sunita Oberoi',
-    customerEmail: 'oberoi.art@gmail.com',
-    customerPhone: '+91 98110 55102',
-    customerCity: 'Golf Links',
-    customerState: 'New Delhi',
-    date: '18 Aug, 2026',
-    orderTime: '01:05 PM',
-    orderMonth: '2026-08',
-    items: [
-      {
-        id: 'art-05',
-        type: 'artwork',
-        title: 'Serenade at Dawn',
-        subtitle: 'Fine Charcoal & Pastel on Archival Cotton Paper',
-        price: 95000,
-        image: 'https://images.unsplash.com/photo-1549887534-1541e9326642?q=80&w=600&auto=format&fit=crop',
-        quantity: 1,
-        mediumOrCategory: 'Charcoal & Graphite',
-      }
-    ],
-    subtotal: 95000,
-    discount: 0,
-    shipping: 0,
-    totalAmount: 95000,
-    paymentMethod: 'UPI / Google Pay',
-    paymentStatus: 'Paid',
-    orderStatus: 'Delivered',
-    currentStep: 4,
-    stepStatus: 'delivered',
-    deliveryAddress: 'House 12, Golf Links, New Delhi 110003',
-    trackingNumber: 'BLUEDART-EXP-77192',
-    stepTimestamps: {
-      placed: '01:05 PM, 18 Aug',
-      accepted: '02:30 PM, 18 Aug',
-      dispatched: '11:00 AM, 19 Aug',
-      delivered: '04:15 PM, 21 Aug (Delivered)'
-    }
-  }
-];
+export const SAMPLE_INITIAL_ORDERS: OrderRecord[] = [];
 
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [cart, setCart] = useState<CartItem[]>(() => {
@@ -98,9 +57,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) return parsed;
       }
-      return SAMPLE_INITIAL_ORDERS;
+      return [];
     } catch {
-      return SAMPLE_INITIAL_ORDERS;
+      return [];
     }
   });
 

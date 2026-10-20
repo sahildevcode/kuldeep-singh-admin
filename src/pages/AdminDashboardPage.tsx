@@ -578,6 +578,60 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
     showToast(`🎉 Reel ${activeReelIndex + 1} ("${videoTitle}") saved & live on website!`);
   };
 
+  const handleDeleteCurrentReelVideo = async (targetIndex = activeReelIndex) => {
+    const updated = [...adminReels];
+    const defaultReel = DEFAULT_STUDIO_REELS[targetIndex] || {
+      id: `reel-${targetIndex + 1}`,
+      title: `Atelier Reel #${targetIndex + 1}`,
+      videoUrl: '',
+      thumbnail: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=600&auto=format&fit=crop',
+      category: 'Master Technique',
+      duration: '0:45',
+    };
+
+    updated[targetIndex] = {
+      ...defaultReel,
+      videoUrl: '',
+      title: `Atelier Reel #${targetIndex + 1}`,
+    };
+
+    if (targetIndex === activeReelIndex) {
+      setVideoUrl('');
+      setVideoTitle(`Atelier Reel #${targetIndex + 1}`);
+      setVideoPoster(defaultReel.thumbnail);
+      setVideoCategory(defaultReel.category);
+      setVideoDuration('0:45');
+      setVideoFileFeedback('');
+    }
+
+    setAdminReels(updated);
+
+    const payload = {
+      studioReels: updated,
+      studioVideoUrl: updated[0]?.videoUrl || '',
+      studioVideoTitle: updated[0]?.title || '',
+      studioVideoPoster: updated[0]?.thumbnail || '',
+    };
+
+    updateArtistProfile(payload);
+
+    try {
+      await fetch('https://kuldeep-singh-backend.onrender.com/api/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+    } catch {
+      await fetch('http://localhost:5000/api/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      }).catch(() => {});
+    }
+
+    showToast(`🗑️ Reel #${targetIndex + 1} video permanently deleted!`);
+  };
+
   // =========================================================
   // HERO SHOWCASE (CANVAS / VIDEO) STATE & HANDLERS
   // =========================================================
@@ -3461,14 +3515,30 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                               >
                                 Reel #{idx + 1}
                               </span>
-                              {isSelected ? (
-                                <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/15 px-2 py-0.5 rounded-full border border-emerald-500/25">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                                  Editing
-                                </span>
-                              ) : (
-                                <span className="text-[10px] text-gray-500 group-hover:text-gray-400">Click to Edit</span>
-                              )}
+                              <div className="flex items-center gap-1.5">
+                                {reel.videoUrl && (
+                                  <span
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (window.confirm(`Are you sure you want to delete the video from Reel #${idx + 1}?`)) {
+                                        handleDeleteCurrentReelVideo(idx);
+                                      }
+                                    }}
+                                    className="p-1 rounded-md bg-red-600/20 hover:bg-red-600/50 text-red-400 hover:text-white border border-red-500/30 transition-colors cursor-pointer"
+                                    title={`Delete video from Reel #${idx + 1}`}
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </span>
+                                )}
+                                {isSelected ? (
+                                  <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/15 px-2 py-0.5 rounded-full border border-emerald-500/25">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                                    Editing
+                                  </span>
+                                ) : (
+                                  <span className="text-[10px] text-gray-500 group-hover:text-gray-400">Edit</span>
+                                )}
+                              </div>
                             </div>
 
                             {/* Mini 9:16 Aspect Preview Thumbnail */}
@@ -3527,9 +3597,25 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                             Editing Slot: Reel #{activeReelIndex + 1}
                           </span>
                         </div>
-                        <span className="text-[11px] text-[#FF5722] font-mono">
-                          Slot {activeReelIndex + 1} of 4
-                        </span>
+                        <div className="flex items-center gap-2.5">
+                          <span className="text-[11px] text-[#FF5722] font-mono">
+                            Slot {activeReelIndex + 1} of 4
+                          </span>
+                          {videoUrl && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (window.confirm(`Delete and remove the video from Reel #${activeReelIndex + 1}?`)) {
+                                  handleDeleteCurrentReelVideo(activeReelIndex);
+                                }
+                              }}
+                              className="px-2.5 py-1 rounded-lg bg-red-600/20 hover:bg-red-600/40 text-red-400 hover:text-white border border-red-500/30 text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Delete Video</span>
+                            </button>
+                          )}
+                        </div>
                       </div>
 
                       {/* Step 1: Reel Title */}
@@ -3620,9 +3706,25 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
 
                       {/* Step 4: Or Paste Direct Video / YouTube URL */}
                       <div className="space-y-2">
-                        <label className="block text-xs font-semibold uppercase tracking-wider text-gray-300">
-                          4. Or Paste YouTube Shorts / Reel Video URL
-                        </label>
+                        <div className="flex items-center justify-between">
+                          <label className="block text-xs font-semibold uppercase tracking-wider text-gray-300">
+                            4. Or Paste YouTube Shorts / Reel Video URL
+                          </label>
+                          {videoUrl && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (window.confirm(`Clear and remove video from Reel #${activeReelIndex + 1}?`)) {
+                                  handleDeleteCurrentReelVideo(activeReelIndex);
+                                }
+                              }}
+                              className="text-red-400 hover:text-red-300 text-[11px] font-bold flex items-center gap-1 cursor-pointer"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                              <span>Delete Video</span>
+                            </button>
+                          )}
+                        </div>
                         <div className="flex items-center gap-2">
                           <input
                             type="text"
@@ -3631,9 +3733,24 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                             placeholder="https://youtube.com/shorts/... or https://domain.com/reel.mp4"
                             className="w-full bg-[#0C0E12] border border-gray-700 rounded-xl py-2.5 px-3.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[#FF5722] font-mono"
                           />
+                          {videoUrl && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (window.confirm(`Delete and remove video from Reel #${activeReelIndex + 1}?`)) {
+                                  handleDeleteCurrentReelVideo(activeReelIndex);
+                                }
+                              }}
+                              className="px-3 py-2.5 rounded-xl bg-red-500/20 hover:bg-red-500/40 text-red-400 border border-red-500/30 font-bold text-xs flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer"
+                              title="Delete Video"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Delete</span>
+                            </button>
+                          )}
                         </div>
                         <p className="text-[10px] text-gray-500">
-                          Supports YouTube Shorts, Bunny Stream links, Cloud videos, or direct vertical MP4 files.
+                          Supports YouTube Shorts, Instagram Reels, Bunny Stream links, Cloud videos, or direct vertical MP4 files.
                         </p>
                       </div>
 
@@ -3743,6 +3860,21 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                             </span>
                           </div>
                         </div>
+
+                        {videoUrl && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (window.confirm(`Are you sure you want to delete the video from Reel #${activeReelIndex + 1}?`)) {
+                                handleDeleteCurrentReelVideo(activeReelIndex);
+                              }
+                            }}
+                            className="w-full py-2.5 px-4 rounded-xl bg-red-600/20 hover:bg-red-600/40 border border-red-500/40 text-red-400 hover:text-white font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg shadow-red-900/20"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            <span>Delete Video from Reel #{activeReelIndex + 1}</span>
+                          </button>
+                        )}
                       </div>
 
                       <div className="pt-4 border-t border-gray-800 text-[11px] text-gray-400 flex items-center justify-between">
