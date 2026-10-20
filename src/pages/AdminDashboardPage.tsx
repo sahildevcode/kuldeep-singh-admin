@@ -90,11 +90,18 @@ const isEmbedUrl = (url: string) => {
     url.includes('mediadelivery.net') ||
     url.includes('youtube.com') ||
     url.includes('youtu.be') ||
-    url.includes('vimeo.com')
+    url.includes('vimeo.com') ||
+    url.includes('instagram.com')
   );
 };
 
 const getAdminEmbedUrl = (url: string) => {
+  if (url.includes('instagram.com/reel/') || url.includes('instagram.com/p/')) {
+    const match = url.match(/instagram\.com\/(?:reel|p)\/([^/?#&]+)/i);
+    if (match && match[1]) {
+      return `https://www.instagram.com/reel/${match[1]}/embed`;
+    }
+  }
   if (url.includes('mediadelivery.net') || url.includes('vimeo.com')) {
     return url;
   }
