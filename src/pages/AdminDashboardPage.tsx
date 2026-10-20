@@ -309,8 +309,9 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
     year: 2026,
     medium: 'Oil on Canvas',
     dimensions: '36 x 48 in (91 x 122 cm)',
-    price: 3800,
-    image: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=1200&auto=format&fit=crop',
+    price: 95000,
+    image: '',
+    detailImages: [],
     description: '',
     story: '',
     framed: true,
@@ -318,6 +319,9 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
     featured: true,
     varnishType: 'Archival Satin Varnish'
   });
+  const [artworkUrlInput, setArtworkUrlInput] = useState('');
+  const [isProcessingArtworkImages, setIsProcessingArtworkImages] = useState(false);
+  const [isBulkUploadingPaintings, setIsBulkUploadingPaintings] = useState(false);
 
   // Atelier 4-Reels Video Showcase State (Video Upload / Update)
   const [activeReelIndex, setActiveReelIndex] = useState<number>(0);
@@ -745,31 +749,245 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
     setEditingUpcomingCourse(null);
   };
 
+  const handleArtworkImagesUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setIsProcessingArtworkImages(true);
+    const fileList = Array.from(files);
+
+    const processImage = (file: File): Promise<string> => {
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          if (typeof reader.result === 'string') {
+            const img = new Image();
+            img.onload = () => {
+              const maxDim = 1600;
+              let width = img.width;
+              let height = img.height;
+              if (width > maxDim || height > maxDim) {
+                if (width > height) {
+                  height = Math.round((height * maxDim) / width);
+                  width = maxDim;
+                } else {
+                  width = Math.round((width * maxDim) / height);
+                  height = maxDim;
+                }
+              }
+              const canvas = document.createElement('canvas');
+              canvas.width = width;
+              canvas.height = height;
+              const ctx = canvas.getContext('2d');
+              if (ctx) {
+                ctx.drawImage(img, 0, 0, width, height);
+                resolve(canvas.toDataURL('image/jpeg', 0.85));
+                return;
+              }
+              resolve(reader.result as string);
+            };
+            img.onerror = () => resolve(reader.result as string);
+            img.src = reader.result as string;
+          } else {
+            resolve('');
+          }
+        };
+        reader.readAsDataURL(file);
+      });
+    };
+
+    try {
+      const results = await Promise.all(fileList.map(processImage));
+      const validImages = results.filter((img) => Boolean(img));
+      if (validImages.length > 0) {
+        setNewArtworkForm((prev) => {
+          const currentList = [prev.image, ...(prev.detailImages || [])].filter(
+            (url): url is string => Boolean(url && typeof url === 'string' && !url.includes('images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=12'))
+          );
+          const combined = [...currentList, ...validImages];
+          return {
+            ...prev,
+            image: combined[0] || '',
+            detailImages: combined.slice(1)
+          };
+        });
+        showToast(`✅ ${validImages.length} image(s) uploaded!`);
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Error uploading images');
+    } finally {
+      setIsProcessingArtworkImages(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleSetArtworkCoverImage = (index: number) => {
+    setNewArtworkForm((prev) => {
+      const all = [prev.image, ...(prev.detailImages || [])].filter(Boolean) as string[];
+      if (index < 0 || index >= all.length) return prev;
+      const target = all[index];
+      const remaining = all.filter((_, i) => i !== index);
+      return {
+        ...prev,
+        image: target,
+        detailImages: remaining
+      };
+    });
+    showToast('★ Primary cover photo updated!');
+  };
+
+  const handleRemoveArtworkImage = (index: number) => {
+    setNewArtworkForm((prev) => {
+      const all = [prev.image, ...(prev.detailImages || [])].filter(Boolean) as string[];
+      const remaining = all.filter((_, i) => i !== index);
+      return {
+        ...prev,
+        image: remaining[0] || '',
+        detailImages: remaining.slice(1)
+      };
+    });
+    showToast('Photo removed');
+  };
+
+  const handleAddArtworkImageUrl = () => {
+    if (!artworkUrlInput.trim()) return;
+    const url = artworkUrlInput.trim();
+    setNewArtworkForm((prev) => {
+      const all = [prev.image, ...(prev.detailImages || [])].filter(Boolean) as string[];
+      const combined = [...all, url];
+      return {
+        ...prev,
+        image: combined[0] || url,
+        detailImages: combined.slice(1)
+      };
+    });
+    setArtworkUrlInput('');
+    showToast('Image URL added!');
+  };
+
+  const handleBulkPaintingsUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setIsBulkUploadingPaintings(true);
+    const fileList = Array.from(files);
+    showToast(`⏳ Uploading & processing ${fileList.length} painting(s)...`);
+
+    let addedCount = 0;
+    for (let i = 0; i < fileList.length; i++) {
+      const file = fileList[i];
+      const dataUrl = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          if (typeof reader.result === 'string') {
+            const img = new Image();
+            img.onload = () => {
+              const maxDim = 1600;
+              let width = img.width;
+              let height = img.height;
+              if (width > maxDim || height > maxDim) {
+                if (width > height) {
+                  height = Math.round((height * maxDim) / width);
+                  width = maxDim;
+                } else {
+                  width = Math.round((width * maxDim) / height);
+                  height = maxDim;
+                }
+              }
+              const canvas = document.createElement('canvas');
+              canvas.width = width;
+              canvas.height = height;
+              const ctx = canvas.getContext('2d');
+              if (ctx) {
+                ctx.drawImage(img, 0, 0, width, height);
+                resolve(canvas.toDataURL('image/jpeg', 0.85));
+                return;
+              }
+              resolve(reader.result as string);
+            };
+            img.onerror = () => resolve(reader.result as string);
+            img.src = reader.result as string;
+          } else {
+            resolve('');
+          }
+        };
+        reader.readAsDataURL(file);
+      });
+
+      if (dataUrl) {
+        const rawTitle = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+        const formattedTitle = rawTitle.replace(/\b\w/g, (c) => c.toUpperCase());
+        const newArt: Artwork = {
+          id: `art-${Date.now()}-${i}`,
+          title: formattedTitle || `Masterpiece ${artworks.length + i + 1}`,
+          subtitle: 'Original Fine Art Oil / Canvas',
+          year: new Date().getFullYear(),
+          medium: 'Oil on Canvas',
+          dimensions: '36 x 48 in (91 x 122 cm)',
+          price: 95000,
+          image: dataUrl,
+          detailImages: [],
+          description: 'Original fine art composition created in atelier.',
+          story: 'Handcrafted with classical technique on archival linen.',
+          framed: true,
+          status: 'available',
+          featured: false,
+          paletteColors: ['#1A1816', '#C5A059', '#E63946'],
+          varnishType: 'Archival Dammar Varnish'
+        };
+        addArtwork(newArt);
+        addedCount++;
+      }
+    }
+
+    setIsBulkUploadingPaintings(false);
+    showToast(`🎉 ${addedCount} paintings uploaded directly to gallery catalog!`);
+    e.target.value = '';
+  };
+
   const handleSaveArtwork = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newArtworkForm.title?.trim()) {
-      showToast('Please enter painting title');
+      showToast('⚠️ Please enter painting title');
       return;
     }
 
+    const allImages = [newArtworkForm.image, ...(newArtworkForm.detailImages || [])].filter(
+      (url): url is string => Boolean(url && typeof url === 'string' && !url.includes('images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=12'))
+    );
+
+    if (allImages.length === 0) {
+      showToast('⚠️ Please upload at least one painting photo');
+      return;
+    }
+
+    const primaryImage = allImages[0];
+    const detailImages = allImages.slice(1);
+
     if (artworkToEdit) {
-      updateArtwork(artworkToEdit.id, newArtworkForm);
+      updateArtwork(artworkToEdit.id, {
+        ...newArtworkForm,
+        image: primaryImage,
+        detailImages: detailImages
+      });
       showToast(`Artwork "${newArtworkForm.title}" updated successfully!`);
       setArtworkToEdit(null);
     } else {
       const newId = 'art-' + Date.now();
       const newArt: Artwork = {
         id: newId,
-        title: newArtworkForm.title || 'Untitled Painting',
-        subtitle: newArtworkForm.subtitle || 'Classical Fine Art',
+        title: newArtworkForm.title.trim(),
+        subtitle: newArtworkForm.subtitle?.trim() || 'Classical Atelier Original',
         year: Number(newArtworkForm.year) || 2026,
         medium: (newArtworkForm.medium as MediumType) || 'Oil on Canvas',
-        dimensions: newArtworkForm.dimensions || '36 x 48 in',
-        price: Number(newArtworkForm.price) || 2500,
-        image: newArtworkForm.image || 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=1200&auto=format&fit=crop',
-        description: newArtworkForm.description || '',
-        story: newArtworkForm.story || '',
-        framed: Boolean(newArtworkForm.framed),
+        dimensions: newArtworkForm.dimensions?.trim() || '36 x 48 in (91 x 122 cm)',
+        price: Number(newArtworkForm.price) || 95000,
+        image: primaryImage,
+        detailImages: detailImages,
+        description: newArtworkForm.description?.trim() || '',
+        story: newArtworkForm.story?.trim() || '',
+        framed: Boolean(newArtworkForm.framed !== false),
         status: newArtworkForm.status || 'available',
         featured: Boolean(newArtworkForm.featured),
         paletteColors: ['#1A1816', '#C5A059', '#E63946'],
@@ -2375,17 +2593,32 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                         <option value="Watercolor">Watercolor</option>
                       </select>
 
+                      <label className="px-4 py-2 rounded-xl bg-[#1A1E26] hover:bg-[#222834] text-white font-bold text-xs flex items-center gap-2 cursor-pointer border border-gray-700/80 shadow shrink-0 transition-all">
+                        <Upload className="w-4 h-4 text-[#FF5722]" />
+                        <span>{isBulkUploadingPaintings ? 'Processing...' : '⚡ Bulk Upload Paintings'}</span>
+                        <input
+                          type="file"
+                          multiple
+                          accept="image/*"
+                          onChange={handleBulkPaintingsUpload}
+                          className="hidden"
+                          disabled={isBulkUploadingPaintings}
+                        />
+                      </label>
+
                       <button
                         onClick={() => {
                           setArtworkToEdit(null);
+                          setArtworkUrlInput('');
                           setNewArtworkForm({
                             title: '',
                             subtitle: '',
                             year: 2026,
                             medium: 'Oil on Canvas',
                             dimensions: '36 x 48 in (91 x 122 cm)',
-                            price: 3800,
-                            image: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=1200&auto=format&fit=crop',
+                            price: 95000,
+                            image: '',
+                            detailImages: [],
                             description: '',
                             story: '',
                             framed: true,
@@ -2507,7 +2740,11 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                               <button
                                 onClick={() => {
                                   setArtworkToEdit(art);
-                                  setNewArtworkForm({ ...art });
+                                  setArtworkUrlInput('');
+                                  setNewArtworkForm({
+                                    ...art,
+                                    detailImages: art.detailImages || []
+                                  });
                                   setIsAddArtworkModalOpen(true);
                                 }}
                                 className="p-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white cursor-pointer"
@@ -5461,17 +5698,147 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-gray-300 mb-1 font-semibold">Painting Image URL *</label>
-                <input
-                  type="url"
-                  required
-                  value={newArtworkForm.image || ''}
-                  onChange={(e) => setNewArtworkForm({ ...newArtworkForm, image: e.target.value })}
-                  placeholder="https://..."
-                  className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-[#FF5722]"
-                />
-              </div>
+              {/* IMAGE UPLOAD & GALLERY SECTION (Direct Device Upload + Multi-Image Selection) */}
+              {(() => {
+                const artworkImagesList = [newArtworkForm.image, ...(newArtworkForm.detailImages || [])].filter(
+                  (url): url is string => Boolean(url && typeof url === 'string' && !url.includes('images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=12'))
+                );
+
+                return (
+                  <div className="space-y-3 pt-1">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <label className="block text-gray-200 font-bold text-xs">
+                          Painting Photos * <span className="text-[#FF5722] font-semibold">(Direct Gallery Upload)</span>
+                        </label>
+                        <p className="text-[11px] text-gray-400 mt-0.5">
+                          Upload 1 or multiple photos directly from your phone/computer.
+                        </p>
+                      </div>
+                      {artworkImagesList.length > 0 && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                          {artworkImagesList.length} Photo{artworkImagesList.length > 1 ? 's' : ''} Selected
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Main Tap / Drag to Upload Button */}
+                    <label className="cursor-pointer group flex flex-col items-center justify-center p-5 border-2 border-dashed border-[#FF5722]/50 hover:border-[#FF5722] rounded-2xl bg-[#161922] hover:bg-[#1C202B] transition-all text-center relative">
+                      <input
+                        type="file"
+                        multiple
+                        accept="image/*"
+                        onChange={handleArtworkImagesUpload}
+                        className="hidden"
+                        disabled={isProcessingArtworkImages}
+                      />
+                      <div className="w-12 h-12 rounded-2xl bg-[#FF5722]/15 text-[#FF5722] group-hover:scale-110 flex items-center justify-center transition-transform mb-2">
+                        <Upload className="w-6 h-6" />
+                      </div>
+                      <span className="text-xs font-bold text-white group-hover:text-[#FF5722] transition-colors">
+                        {isProcessingArtworkImages ? '⏳ Processing & Compressing Images...' : '📷 Select / Upload Images from Device (Multiple Supported)'}
+                      </span>
+                      <span className="text-[10px] text-gray-400 mt-1">
+                        Tap to open Gallery / Files • Select one or multiple images at once
+                      </span>
+                    </label>
+
+                    {/* Uploaded Photos Preview Grid */}
+                    {artworkImagesList.length > 0 && (
+                      <div className="space-y-2 pt-1">
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 block">
+                          Selected Photos (Tap "Make Cover" to change main photo):
+                        </span>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                          {artworkImagesList.map((imgUrl, idx) => {
+                            const isCover = idx === 0;
+                            return (
+                              <div
+                                key={idx}
+                                className={`group relative aspect-[4/3] rounded-xl overflow-hidden border-2 bg-black/50 transition-all ${
+                                  isCover
+                                    ? 'border-[#FF5722] shadow-lg shadow-[#FF5722]/20 ring-2 ring-[#FF5722]/30'
+                                    : 'border-gray-800 hover:border-gray-600'
+                                }`}
+                              >
+                                <img src={imgUrl} alt={`Artwork ${idx + 1}`} className="w-full h-full object-cover" />
+
+                                {/* Badge */}
+                                <div className="absolute top-1.5 left-1.5 z-10">
+                                  {isCover ? (
+                                    <span className="bg-[#FF5722] text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded shadow">
+                                      ★ Cover
+                                    </span>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleSetArtworkCoverImage(idx)}
+                                      className="bg-black/80 hover:bg-[#FF5722] text-white text-[9px] font-semibold px-1.5 py-0.5 rounded transition cursor-pointer"
+                                      title="Set as primary cover"
+                                    >
+                                      Make Cover
+                                    </button>
+                                  )}
+                                </div>
+
+                                {/* Remove button */}
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveArtworkImage(idx)}
+                                  className="absolute top-1.5 right-1.5 z-10 w-5 h-5 rounded-full bg-red-600 hover:bg-red-700 text-white flex items-center justify-center text-xs opacity-90 hover:opacity-100 transition cursor-pointer shadow"
+                                  title="Remove photo"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              </div>
+                            );
+                          })}
+
+                          {/* Add more tile */}
+                          <label className="cursor-pointer border-2 border-dashed border-gray-700 hover:border-[#FF5722] rounded-xl aspect-[4/3] flex flex-col items-center justify-center text-gray-400 hover:text-white bg-[#14171E] hover:bg-black/30 transition-all text-center p-2">
+                            <input
+                              type="file"
+                              multiple
+                              accept="image/*"
+                              onChange={handleArtworkImagesUpload}
+                              className="hidden"
+                              disabled={isProcessingArtworkImages}
+                            />
+                            <Plus className="w-5 h-5 mb-0.5 text-[#FF5722]" />
+                            <span className="text-[10px] font-bold">+ Add More</span>
+                          </label>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Optional URL Fallback */}
+                    <div className="pt-1">
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          type="url"
+                          value={artworkUrlInput}
+                          onChange={(e) => setArtworkUrlInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleAddArtworkImageUrl();
+                            }
+                          }}
+                          placeholder="Or paste image URL (optional)..."
+                          className="w-full bg-[#12141A] border border-[#242A36] rounded-xl px-3 py-2 text-white text-xs placeholder-gray-500 focus:outline-none focus:border-[#FF5722]"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleAddArtworkImageUrl}
+                          className="px-3 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-xl text-xs font-semibold whitespace-nowrap cursor-pointer border border-gray-700"
+                        >
+                          + Add URL
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
 
               <div>
                 <label className="block text-gray-300 mb-1 font-semibold">Artist Description & Curatorial Story</label>
