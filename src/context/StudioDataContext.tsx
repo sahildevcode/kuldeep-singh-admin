@@ -7,10 +7,6 @@ import { INITIAL_UPCOMING_COURSES } from '../data/upcomingCourses';
 import { REVIEWS } from '../data/reviews';
 
 export const getBackendUrls = (): string[] => {
-  const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-  if (isLocal) {
-    return ['http://localhost:5000', 'https://kuldeep-singh-backend.onrender.com'];
-  }
   return ['https://kuldeep-singh-backend.onrender.com', 'http://localhost:5000'];
 };
 
@@ -407,123 +403,24 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         if (courseRes && courseRes.ok) {
           const cloudCourses: Course[] = await courseRes.json();
           if (Array.isArray(cloudCourses) && isMounted) {
-            let savedLocal: Course[] = [];
-            try {
-              const localStr = localStorage.getItem('kuldeep_studio_courses');
-              if (localStr) savedLocal = JSON.parse(localStr);
-            } catch (e) {
-              // ignore
-            }
-
-            let deletedCourseIds: string[] = [...DUMMY_COURSE_IDS];
-            try {
-              const storedDeleted = JSON.parse(localStorage.getItem('kuldeep_studio_deleted_courses') || '[]');
-              deletedCourseIds = [...new Set([...deletedCourseIds, ...storedDeleted])];
-            } catch {
-              // ignore
-            }
-
-            // Exclude all deleted and dummy courses from savedLocal and cloudCourses
-            savedLocal = (Array.isArray(savedLocal) ? savedLocal : []).filter((c) => !deletedCourseIds.includes(c.id));
-            const validCloudCourses = cloudCourses.filter((c) => !deletedCourseIds.includes(c.id));
-
-            // SMART MERGE: Never suppress cloud lectures; always trust real database lectures
-            let hasLocalLecturesToSync = false;
-            try {
-              localStorage.removeItem('kuldeep_studio_deleted_lectures');
-            } catch {
-              // ignore
-            }
-
-            const mergedCourses = validCloudCourses.map((cloudC) => {
-              const localC = savedLocal.find((l) => l.id === cloudC.id);
-              if (!localC) {
-                const cleanedModules = (cloudC.modules || []).map((cloudM) => {
-                  const cloudLecs = Array.isArray(cloudM.lectures) ? cloudM.lectures : [];
-                  return {
-                    ...cloudM,
-                    lectures: cloudLecs,
-                    lessonsCount: cloudLecs.length,
-                    topics: cloudLecs.map((l) => l.title)
-                  };
-                });
-                return {
-                  ...cloudC,
-                  modules: cleanedModules,
-                  totalLessons: cleanedModules.reduce((acc, m) => acc + (m.lectures?.length || m.lessonsCount || 0), 0)
-                };
-              }
-
-              const mergedModules = (cloudC.modules || []).map((cloudM, mIdx) => {
-                const localM = localC.modules?.[mIdx];
-                const cloudLecs = Array.isArray(cloudM.lectures) ? cloudM.lectures : [];
-                if (!localM) {
-                  return {
-                    ...cloudM,
-                    lectures: cloudLecs,
-                    lessonsCount: cloudLecs.length,
-                    topics: cloudLecs.map((l) => l.title)
-                  };
-                }
-
-                const localLecs = Array.isArray(localM.lectures) ? localM.lectures : [];
-
-                // Keep local lectures that might not have reached the cloud yet
-                const missingInCloud = localLecs.filter(
-                  (lLec) => !cloudLecs.some((cLec) => cLec.id === lLec.id || (cLec.videoUrl && cLec.videoUrl === lLec.videoUrl))
-                );
-
-                if (missingInCloud.length > 0) {
-                  hasLocalLecturesToSync = true;
-                  const allLecs = [...cloudLecs, ...missingInCloud];
-                  return {
-                    ...cloudM,
-                    lectures: allLecs,
-                    lessonsCount: allLecs.length,
-                    topics: allLecs.map((l) => l.title)
-                  };
-                }
-                return {
-                  ...cloudM,
-                  lectures: cloudLecs,
-                  lessonsCount: cloudLecs.length,
-                  topics: cloudLecs.map((l) => l.title)
-                };
-              });
-
-              return {
-                ...cloudC,
-                modules: mergedModules,
-                totalLessons: mergedModules.reduce((acc, m) => acc + (m.lectures?.length || m.lessonsCount || 0), 0)
-              };
-            });
-
-            // Also keep courses that exist locally but not yet on cloud (excluding deleted and dummy courses)
-            const pendingNewCourses = savedLocal.filter(
-              (localCourse) => !deletedCourseIds.includes(localCourse.id) && !validCloudCourses.some((c) => c.id === localCourse.id)
-            );
-
-            const finalCourses = [...mergedCourses, ...pendingNewCourses];
-
-            if (isMounted) {
-              setCourses(normalizeCourses(finalCourses));
+            const validCloudCourses = cloudCourses.filter((c) => !DUMMY_COURSE_IDS.includes(c.id));
+            if (validCloudCourses.length > 0) {
+              const normalized = normalizeCourses(validCloudCourses);
+              setCourses(normalized);
               try {
-                localStorage.setItem('kuldeep_studio_courses', JSON.stringify(finalCourses));
+                localStorage.setItem('kuldeep_studio_courses', JSON.stringify(normalized));
+                localStorage.removeItem('kuldeep_studio_deleted_courses');
+                localStorage.removeItem('kuldeep_studio_deleted_lectures');
               } catch {}
-            }
-
-            // Push pending local courses and lectures back to cloud to keep cloud 100% in sync
-            if (hasLocalLecturesToSync || pendingNewCourses.length > 0) {
-              for (const courseToSync of finalCourses) {
-                try {
-                  await fetch(`https://kuldeep-singh-backend.onrender.com/api/courses/${courseToSync.id}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(courseToSync)
-                  });
-                } catch {
-                  // ignore
-                }
+            } else {
+              let savedLocal: Course[] = [];
+              try {
+                const localStr = localStorage.getItem('kuldeep_studio_courses');
+                if (localStr) savedLocal = JSON.parse(localStr);
+              } catch {}
+              const cleanLocal = (Array.isArray(savedLocal) ? savedLocal : []).filter((c) => !DUMMY_COURSE_IDS.includes(c.id));
+              if (cleanLocal.length > 0) {
+                setCourses(normalizeCourses(cleanLocal));
               }
             }
           }
@@ -544,16 +441,11 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }
 
         if (Array.isArray(cloudStudents) && isMounted) {
-          let deletedList: string[] = [];
+          setStudents(cloudStudents);
           try {
-            deletedList = JSON.parse(localStorage.getItem('ks_deleted_students') || '[]');
-          } catch {
-            deletedList = [];
-          }
-          const cleanStudents = cloudStudents.filter(
-            (s) => !deletedList.includes(s.id) && (!s._id || !deletedList.includes(s._id))
-          );
-          setStudents(cleanStudents);
+            localStorage.setItem('kuldeep_studio_students', JSON.stringify(cloudStudents));
+            localStorage.removeItem('ks_deleted_students');
+          } catch {}
         }
 
         // 4. Registered Users (All Website Logins)
