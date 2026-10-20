@@ -351,17 +351,20 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
   const [videoFileFeedback, setVideoFileFeedback] = useState<string>('');
   const [isUploadingVideo, setIsUploadingVideo] = useState<boolean>(false);
 
+  const [hasInitializedReels, setHasInitializedReels] = useState(false);
+
   useEffect(() => {
-    if (artistProfile?.studioReels && artistProfile.studioReels.length >= 4) {
+    if (!hasInitializedReels && artistProfile?.studioReels && artistProfile.studioReels.length >= 4) {
       setAdminReels(artistProfile.studioReels);
       const curr = artistProfile.studioReels[activeReelIndex] || artistProfile.studioReels[0];
-      setVideoTitle(curr.title);
-      setVideoUrl(curr.videoUrl);
-      setVideoPoster(curr.thumbnail);
-      setVideoCategory(curr.category);
-      setVideoDuration(curr.duration);
+      setVideoTitle(curr.title || '');
+      setVideoUrl(curr.videoUrl || '');
+      setVideoPoster(curr.thumbnail || '');
+      setVideoCategory(curr.category || 'Featured Reel');
+      setVideoDuration(curr.duration || '0:50');
+      setHasInitializedReels(true);
     }
-  }, [artistProfile?.studioReels]);
+  }, [artistProfile?.studioReels, hasInitializedReels, activeReelIndex]);
 
   const handleSelectReelSlot = (index: number) => {
     // Preserve current edits in adminReels
@@ -584,8 +587,10 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
   const [isUploadingHeroImage, setIsUploadingHeroImage] = useState(false);
   const [isUploadingHeroVideo, setIsUploadingHeroVideo] = useState(false);
 
+  const [hasInitializedHero, setHasInitializedHero] = useState(false);
+
   useEffect(() => {
-    if (artistProfile) {
+    if (!hasInitializedHero && artistProfile) {
       if (artistProfile.heroShowcaseType) setHeroType(artistProfile.heroShowcaseType);
       if (artistProfile.heroShowcaseBadge) setHeroBadge(artistProfile.heroShowcaseBadge);
       if (artistProfile.heroShowcaseTitle) setHeroTitle(artistProfile.heroShowcaseTitle);
@@ -595,8 +600,9 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
       if (artistProfile.heroShowcaseVideoUrl) setHeroVideoUrl(artistProfile.heroShowcaseVideoUrl);
       if (artistProfile.heroShowcaseCertificateText) setHeroCert(artistProfile.heroShowcaseCertificateText);
       if (artistProfile.heroShowcaseArtworkId) setHeroArtworkId(artistProfile.heroShowcaseArtworkId);
+      setHasInitializedHero(true);
     }
-  }, [artistProfile]);
+  }, [artistProfile, hasInitializedHero]);
 
   const handleSaveHeroShowcase = async () => {
     setIsSavingHero(true);
