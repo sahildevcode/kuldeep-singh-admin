@@ -96,12 +96,12 @@ export interface CollectorReview {
   name: string;
   role: string;
   location: string;
-  avatar: string;
+  avatar?: string;
   artworkImage?: string;
   artworkAcquired?: string;
   courseTaken?: string;
   comment: string;
-  rating: number;
+  rating?: number;
   verifiedPurchase: boolean;
   category?: 'student' | 'collector' | 'upcoming';
   isActive?: boolean;

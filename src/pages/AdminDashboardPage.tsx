@@ -862,6 +862,19 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
     });
   }, [reviews, testimonialSearchQuery, testimonialCategoryFilter]);
 
+  const handleTestimonialImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      if (typeof reader.result === 'string') {
+        setTestimonialForm((prev) => ({ ...prev, artworkImage: reader.result as string }));
+        showToast('🖼️ Testimonial artwork image uploaded!');
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleSaveTestimonial = (e: React.FormEvent) => {
     e.preventDefault();
     if (!testimonialForm.name?.trim()) {
@@ -878,10 +891,8 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
       name: testimonialForm.name.trim(),
       role: testimonialForm.role?.trim() || 'Fine Arts Scholar',
       location: testimonialForm.location?.trim() || 'Delhi, India',
-      avatar: testimonialForm.avatar?.trim() || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=300&auto=format&fit=crop',
-      artworkImage: testimonialForm.artworkImage?.trim() || 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=900&auto=format&fit=crop',
+      artworkImage: testimonialForm.artworkImage?.trim() || '',
       comment: testimonialForm.comment.trim(),
-      rating: Number(testimonialForm.rating) || 5,
       verifiedPurchase: testimonialForm.verifiedPurchase !== false,
       category: testimonialForm.category || 'student',
       courseTaken: testimonialForm.courseTaken?.trim() || undefined,
@@ -2031,13 +2042,12 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                 name: '',
                 role: 'Student & Fine Arts Scholar',
                 location: 'Delhi, India',
-                avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=300&auto=format&fit=crop',
-                artworkImage: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=900&auto=format&fit=crop',
+                artworkImage: '',
                 comment: '',
-                rating: 5,
                 verifiedPurchase: true,
                 category: 'upcoming',
-                courseTaken: 'Venetian Oil Glazing Masterclass',
+                courseTaken: '',
+                artworkAcquired: '',
                 isActive: true
               });
               setIsTestimonialModalOpen(true);
@@ -2168,13 +2178,10 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
             >
               <div className="space-y-3">
                 <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-1 text-amber-400">
-                    {[...Array(r.rating || 5)].map((_, i) => (
-                      <Star key={i} className="w-3.5 h-3.5 fill-amber-400" />
-                    ))}
-                  </div>
-
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className="p-1.5 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                      <Quote className="w-3.5 h-3.5" />
+                    </span>
                     <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-gray-800 text-gray-300 border border-gray-700">
                       {r.category === 'upcoming'
                         ? 'Upcoming Course'
@@ -2182,6 +2189,9 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                         ? 'Student Alumnus'
                         : 'Art Collector'}
                     </span>
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
                     <span
                       className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                         r.isActive !== false ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'
@@ -2191,6 +2201,16 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                     </span>
                   </div>
                 </div>
+
+                {/* Optional Attached Artwork / Slide Image Preview */}
+                {r.artworkImage && (
+                  <div className="relative aspect-[16/9] w-full rounded-xl overflow-hidden bg-black/60 border border-gray-800 my-1 group">
+                    <img src={r.artworkImage} alt={r.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                    <span className="absolute bottom-1 right-1.5 text-[9px] bg-black/75 backdrop-blur-sm px-1.5 py-0.5 rounded text-amber-300 font-mono border border-white/10">
+                      Slide Visual
+                    </span>
+                  </div>
+                )}
 
                 <p className="text-xs text-gray-300 italic leading-relaxed">
                   &quot;{r.comment}&quot;
@@ -2207,11 +2227,9 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
 
               <div className="pt-3 border-t border-gray-800/80 flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
-                  <img
-                    src={r.avatar}
-                    alt={r.name}
-                    className="w-9 h-9 rounded-full object-cover border border-gray-700"
-                  />
+                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-amber-500/25 to-amber-700/35 border border-amber-500/40 flex items-center justify-center text-amber-300 font-serif font-bold text-xs shrink-0 shadow-sm">
+                    {r.name ? r.name.split(' ').map((n) => n[0]).join('').substring(0, 2).toUpperCase() : '★'}
+                  </div>
                   <div>
                     <h5 className="font-bold text-xs text-white leading-tight">{r.name}</h5>
                     <p className="text-[10px] text-gray-400 leading-tight mt-0.5">
@@ -2246,10 +2264,11 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                       });
                       setIsTestimonialModalOpen(true);
                     }}
-                    className="p-1 rounded bg-[#242934] hover:bg-gray-700 text-gray-300 hover:text-white transition-colors cursor-pointer"
-                    title="Edit Testimonial"
+                    className="px-2.5 py-1 rounded bg-[#242934] hover:bg-gray-700 text-amber-300 hover:text-white border border-amber-500/30 text-[10px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                    title="Edit Testimonial & Image"
                   >
-                    <Edit3 className="w-3.5 h-3.5" />
+                    <Edit3 className="w-3 h-3 text-amber-400" />
+                    <span>Edit</span>
                   </button>
 
                   <button
@@ -7141,7 +7160,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-gray-300 mb-1 font-semibold">City / Country Location</label>
                   <input
@@ -7162,18 +7181,6 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                     <option value="student">Student / Academy Scholar</option>
                     <option value="upcoming">Upcoming Course Scholar</option>
                     <option value="collector">Art Collector / Patron</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-gray-300 mb-1 font-semibold">Star Rating</label>
-                  <select
-                    value={testimonialForm.rating ?? 5}
-                    onChange={(e) => setTestimonialForm({ ...testimonialForm, rating: Number(e.target.value) })}
-                    className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400"
-                  >
-                    <option value={5}>★★★★★ (5 Stars - Masterpiece)</option>
-                    <option value={4}>★★★★☆ (4 Stars - Exceptional)</option>
-                    <option value={3}>★★★☆☆ (3 Stars - Good)</option>
                   </select>
                 </div>
               </div>
@@ -7201,29 +7208,60 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-gray-300 mb-1 font-semibold">Author Photo / Avatar URL</label>
-                  <input
-                    type="url"
-                    value={testimonialForm.avatar || ''}
-                    onChange={(e) => setTestimonialForm({ ...testimonialForm, avatar: e.target.value })}
-                    placeholder="https://images.unsplash.com/photo-..."
-                    className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400"
-                  />
-                </div>
-                <div>
-                  <label className="block text-gray-300 mb-1 font-semibold">
-                    Slide Artwork Image URL <span className="text-amber-400 text-[10px]">(Auto-Changes in Carousel)</span>
+              {/* Testimonial Artwork / Slide Image with Direct Upload */}
+              <div className="space-y-2 p-4 rounded-2xl bg-[#0F1217] border border-[#242A36]">
+                <div className="flex items-center justify-between">
+                  <label className="block text-gray-200 font-semibold text-xs">
+                    Testimonial Slide / Artwork Image <span className="text-amber-400 text-[10px]">(Large Visual on Live Website)</span>
                   </label>
+                  {testimonialForm.artworkImage && (
+                    <button
+                      type="button"
+                      onClick={() => setTestimonialForm({ ...testimonialForm, artworkImage: '' })}
+                      className="text-red-400 hover:text-red-300 text-[11px] font-bold flex items-center gap-1 cursor-pointer"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      <span>Remove Image</span>
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-center gap-2.5">
                   <input
-                    type="url"
+                    type="text"
                     value={testimonialForm.artworkImage || ''}
                     onChange={(e) => setTestimonialForm({ ...testimonialForm, artworkImage: e.target.value })}
-                    placeholder="https://images.unsplash.com/photo-..."
-                    className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400"
+                    placeholder="Paste Image URL or click Browse button to upload..."
+                    className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400 font-mono text-[11px]"
                   />
+                  <label className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500/20 to-amber-600/20 hover:from-amber-500/30 hover:to-amber-600/30 text-amber-300 font-bold text-xs border border-amber-500/40 cursor-pointer shrink-0 flex items-center gap-1.5 transition-all">
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>Upload Image File</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleTestimonialImageUpload}
+                      className="hidden"
+                    />
+                  </label>
                 </div>
+
+                {testimonialForm.artworkImage ? (
+                  <div className="relative aspect-[16/9] max-h-48 rounded-xl overflow-hidden bg-black/80 border border-gray-700 mt-2">
+                    <img
+                      src={testimonialForm.artworkImage}
+                      alt="Testimonial visual preview"
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute bottom-2 left-2 px-2.5 py-0.5 rounded-md bg-black/75 backdrop-blur-sm text-[10px] text-amber-300 font-semibold border border-white/10">
+                      ✓ Slide Image Ready
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-[10px] text-gray-500 mt-1">
+                    Select a painting photo or course artwork from your computer or phone. This appears prominently in the live website review carousel.
+                  </p>
+                )}
               </div>
 
               <div>
