@@ -366,43 +366,15 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     const syncAllWithCloud = async () => {
       try {
-        // 1. Artworks
+        // 1. Artworks (Cloud is absolute source of truth)
         const artRes = await fetch('https://kuldeep-singh-backend.onrender.com/api/artworks');
         if (artRes.ok) {
           const cloudArtworks: Artwork[] = await artRes.json();
-          if (Array.isArray(cloudArtworks) && cloudArtworks.length > 0) {
-            let savedLocal: Artwork[] = [];
+          if (Array.isArray(cloudArtworks) && isMounted) {
+            setArtworks(cloudArtworks);
             try {
-              const localStr = localStorage.getItem('kuldeep_studio_artworks');
-              if (localStr) savedLocal = JSON.parse(localStr);
-            } catch (e) {
-              // ignore
-            }
-
-            const pendingUploads = savedLocal.filter(
-              (localArt) => !cloudArtworks.some((c) => c.id === localArt.id || c.title.trim().toLowerCase() === localArt.title.trim().toLowerCase())
-            );
-
-            if (pendingUploads.length > 0) {
-              for (const pending of pendingUploads) {
-                try {
-                  await fetch('https://kuldeep-singh-backend.onrender.com/api/artworks', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(pending)
-                  });
-                } catch (upErr) {
-                  console.warn('Pending artwork upload error:', upErr);
-                }
-              }
-              const refreshedRes = await fetch('https://kuldeep-singh-backend.onrender.com/api/artworks');
-              if (refreshedRes.ok) {
-                const refreshed = await refreshedRes.json();
-                if (isMounted) setArtworks(refreshed);
-              }
-            } else if (isMounted) {
-              setArtworks(cloudArtworks);
-            }
+              localStorage.setItem('kuldeep_studio_artworks', JSON.stringify(cloudArtworks));
+            } catch {}
           }
         }
 
@@ -412,25 +384,13 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           const cloudCourses: Course[] = await courseRes.json();
           if (Array.isArray(cloudCourses) && isMounted) {
             const validCloudCourses = cloudCourses.filter((c) => !DUMMY_COURSE_IDS.includes(c.id));
-            if (validCloudCourses.length > 0) {
-              const normalized = normalizeCourses(validCloudCourses);
-              setCourses(normalized);
-              try {
-                localStorage.setItem('kuldeep_studio_courses', JSON.stringify(normalized));
-                localStorage.removeItem('kuldeep_studio_deleted_courses');
-                localStorage.removeItem('kuldeep_studio_deleted_lectures');
-              } catch {}
-            } else {
-              let savedLocal: Course[] = [];
-              try {
-                const localStr = localStorage.getItem('kuldeep_studio_courses');
-                if (localStr) savedLocal = JSON.parse(localStr);
-              } catch {}
-              const cleanLocal = (Array.isArray(savedLocal) ? savedLocal : []).filter((c) => !DUMMY_COURSE_IDS.includes(c.id));
-              if (cleanLocal.length > 0) {
-                setCourses(normalizeCourses(cleanLocal));
-              }
-            }
+            const normalized = normalizeCourses(validCloudCourses);
+            setCourses(normalized);
+            try {
+              localStorage.setItem('kuldeep_studio_courses', JSON.stringify(normalized));
+              localStorage.removeItem('kuldeep_studio_deleted_courses');
+              localStorage.removeItem('kuldeep_studio_deleted_lectures');
+            } catch {}
           }
         }
 
@@ -574,29 +534,106 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       eventSource = new EventSource(liveEventUrl);
       eventSource.onmessage = (event) => {
         try {
-          const payload = JSON.parse(event.data);
-          if (payload.type === 'STUDENT_ENROLLED' && payload.data) {
+          const raw = JSON.parse(event.data);
+          const type = raw.type;
+          const data = raw.data || raw.payload;
+
+          if (type === 'ARTWORK_CREATED' && data) {
+            setArtworks((prev) => {
+              if (prev.some((a) => a.id === data.id)) return prev;
+              const next = [data, ...prev];
+              try { localStorage.setItem('kuldeep_studio_artworks', JSON.stringify(next)); } catch {}
+              return next;
+            });
+          } else if (type === 'ARTWORK_UPDATED' && data?.id) {
+            setArtworks((prev) => {
+              const next = prev.map((a) => a.id === data.id ? { ...a, ...data } : a);
+              try { localStorage.setItem('kuldeep_studio_artworks', JSON.stringify(next)); } catch {}
+              return next;
+            });
+          } else if (type === 'ARTWORK_DELETED' && data?.id) {
+            setArtworks((prev) => {
+              const next = prev.filter((a) => a.id !== data.id && (a as any)._id !== data.id);
+              try { localStorage.setItem('kuldeep_studio_artworks', JSON.stringify(next)); } catch {}
+              return next;
+            });
+          } else if (type === 'COURSE_ADDED' && data) {
+            setCourses((prev) => {
+              if (prev.some((c) => c.id === data.id)) return prev;
+              const next = normalizeCourses([data, ...prev]);
+              try { localStorage.setItem('kuldeep_studio_courses', JSON.stringify(next)); } catch {}
+              return next;
+            });
+          } else if (type === 'COURSE_UPDATED' && data?.id) {
+            setCourses((prev) => {
+              const next = normalizeCourses(prev.map((c) => (c.id === data.id ? { ...c, ...data } : c)));
+              try { localStorage.setItem('kuldeep_studio_courses', JSON.stringify(next)); } catch {}
+              return next;
+            });
+          } else if (type === 'COURSE_DELETED' && data?.id) {
+            setCourses((prev) => {
+              const next = prev.filter((c) => c.id !== data.id);
+              try { localStorage.setItem('kuldeep_studio_courses', JSON.stringify(next)); } catch {}
+              return next;
+            });
+          } else if (type === 'LECTURE_DELETED' && data?.courseId) {
+            setCourses((prev) => {
+              const next = prev.map((course) => {
+                if (course.id !== data.courseId) return course;
+                const newModules = [...course.modules];
+                if (!newModules[data.moduleIndex]) return course;
+                const currentLectures = newModules[data.moduleIndex].lectures || [];
+                const filtered = data.lectureId
+                  ? currentLectures.filter((l) => l.id !== data.lectureId)
+                  : currentLectures.filter((_, idx) => idx !== data.lectureIndex);
+                newModules[data.moduleIndex] = {
+                  ...newModules[data.moduleIndex],
+                  lectures: filtered,
+                  lessonsCount: filtered.length,
+                  topics: filtered.map((l) => l.title)
+                };
+                const total = newModules.reduce((acc, m) => acc + (m.lectures ? m.lectures.length : m.lessonsCount), 0);
+                return { ...course, modules: newModules, totalLessons: total };
+              });
+              try { localStorage.setItem('kuldeep_studio_courses', JSON.stringify(next)); } catch {}
+              return next;
+            });
+          } else if (type === 'STUDENT_ENROLLED' && data) {
             setStudents((prev) => {
-              if (prev.some((s) => s.id === payload.data.id || (payload.data._id && s._id === payload.data._id))) return prev;
-              return [payload.data, ...prev];
+              if (prev.some((s) => s.id === data.id || (data._id && s._id === data._id))) return prev;
+              return [data, ...prev];
             });
-          } else if (payload.type === 'STUDENT_DELETED' && payload.data?.id) {
-            setStudents((prev) => prev.filter((s) => s.id !== payload.data.id && s._id !== payload.data.id));
-          } else if (payload.type === 'STUDENT_UPDATED' && payload.data?.id) {
-            setStudents((prev) => prev.map((s) => (s.id === payload.data.id || s._id === payload.data.id) ? { ...s, ...payload.data } : s));
-          } else if (payload.type === 'USER_DELETED' && payload.data?.id) {
-            setUsers((prev) => prev.filter((u) => u.id !== payload.data.id && u._id !== payload.data.id));
-          } else if (payload.type === 'USER_UPDATED' && payload.data?.id) {
-            setUsers((prev) => prev.map((u) => (u.id === payload.data.id || u._id === payload.data.id) ? { ...u, ...payload.data } : u));
-          } else if (payload.type === 'INQUIRY_CREATED' && payload.data) {
+          } else if (type === 'STUDENT_DELETED' && data?.id) {
+            setStudents((prev) => prev.filter((s) => s.id !== data.id && s._id !== data.id));
+          } else if (type === 'STUDENT_UPDATED' && data?.id) {
+            setStudents((prev) => prev.map((s) => (s.id === data.id || s._id === data.id) ? { ...s, ...data } : s));
+          } else if (type === 'USER_DELETED' && data?.id) {
+            setUsers((prev) => prev.filter((u) => u.id !== data.id && u._id !== data.id));
+          } else if (type === 'USER_UPDATED' && data?.id) {
+            setUsers((prev) => prev.map((u) => (u.id === data.id || u._id === data.id) ? { ...u, ...data } : u));
+          } else if (type === 'INQUIRY_CREATED' && data) {
             setInquiries((prev) => {
-              if (prev.some((inq) => inq.id === payload.data.id)) return prev;
-              return [payload.data, ...prev];
+              if (prev.some((inq) => inq.id === data.id)) return prev;
+              return [data, ...prev];
             });
-          } else if (payload.type === 'INQUIRY_UPDATED' && payload.data?.id) {
-            setInquiries((prev) => prev.map((inq) => inq.id === payload.data.id ? { ...inq, ...payload.data } : inq));
-          } else if (payload.type === 'INQUIRY_DELETED' && payload.data?.id) {
-            setInquiries((prev) => prev.filter((inq) => inq.id !== payload.data.id));
+          } else if (type === 'INQUIRY_UPDATED' && data?.id) {
+            setInquiries((prev) => prev.map((inq) => inq.id === data.id ? { ...inq, ...data } : inq));
+          } else if (type === 'INQUIRY_DELETED' && data?.id) {
+            setInquiries((prev) => prev.filter((inq) => inq.id !== data.id));
+          } else if (type === 'PROFILE_UPDATED' && data) {
+            setArtistProfile((prev) => ({ ...prev, ...data }));
+          } else if (type === 'UPCOMING_COURSE_CREATED' && data) {
+            setUpcomingCourses((prev) => [data, ...prev.filter((c) => c.id !== data.id)]);
+          } else if (type === 'UPCOMING_COURSE_UPDATED' && data?.id) {
+            setUpcomingCourses((prev) => prev.map((c) => c.id === data.id ? { ...c, ...data } : c));
+          } else if (type === 'UPCOMING_COURSE_DELETED' && data?.id) {
+            setUpcomingCourses((prev) => prev.filter((c) => c.id !== data.id));
+          } else if (type === 'TESTIMONIAL_CREATED' && data) {
+            setReviews((prev) => [data, ...prev.filter((r) => r.id !== data.id)]);
+          } else if (type === 'TESTIMONIAL_UPDATED' && data?.id) {
+            setReviews((prev) => prev.map((r) => r.id === data.id ? { ...r, ...data } : r));
+          } else if (type === 'TESTIMONIAL_DELETED' && data?.id) {
+            setReviews((prev) => prev.filter((r) => r.id !== data.id));
           }
         } catch {
           // ignore
@@ -676,13 +713,21 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   const deleteArtwork = async (id: string) => {
-    setArtworks((prev) => prev.filter((item) => item.id !== id));
-    try {
-      await fetch(`https://kuldeep-singh-backend.onrender.com/api/artworks/${id}`, {
-        method: 'DELETE'
-      });
-    } catch (err) {
-      console.error('Error deleting artwork from cloud database:', err);
+    setArtworks((prev) => {
+      const next = prev.filter((item) => item.id !== id && (item as any)._id !== id);
+      try {
+        localStorage.setItem('kuldeep_studio_artworks', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+    for (const base of getBackendUrls()) {
+      try {
+        await fetch(`${base}/api/artworks/${id}`, {
+          method: 'DELETE'
+        });
+      } catch (err) {
+        console.error('Error deleting artwork from cloud database:', err);
+      }
     }
   };
 
@@ -746,16 +791,17 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   const deleteCourse = async (id: string) => {
-    setCourses((prev) => prev.filter((c) => c.id !== id));
+    setCourses((prev) => {
+      const next = prev.filter((c) => c.id !== id);
+      try {
+        localStorage.setItem('kuldeep_studio_courses', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
     try {
       const stored = JSON.parse(localStorage.getItem('kuldeep_studio_deleted_courses') || '[]');
       if (!stored.includes(id)) {
         localStorage.setItem('kuldeep_studio_deleted_courses', JSON.stringify([...stored, id]));
-      }
-      const savedLocalStr = localStorage.getItem('kuldeep_studio_courses');
-      if (savedLocalStr) {
-        const parsed: Course[] = JSON.parse(savedLocalStr);
-        localStorage.setItem('kuldeep_studio_courses', JSON.stringify(parsed.filter((c) => c.id !== id)));
       }
     } catch (err) {
       console.warn('Error saving deleted course to localStorage:', err);
@@ -773,58 +819,62 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   // Lecture Handlers (Optimistic Local + Instant LocalStorage + 24/7 Cloud Sync)
   const addLectureToModule = async (courseId: string, moduleIndex: number, lecture: CourseLecture) => {
-    let updatedCourse: Course | null = null;
-    setCourses((prev) => {
-      const updated = prev.map((course) => {
-        if (course.id !== courseId) return course;
-        const newModules = [...course.modules];
-        if (!newModules[moduleIndex]) {
-          newModules[moduleIndex] = {
-            id: `mod-${Date.now()}-1`,
-            title: 'Module 1: Foundations & Live Orientation',
-            duration: '2 Weeks',
-            lessonsCount: 1,
-            topics: [lecture.title],
-            lectures: [lecture]
-          };
-        } else {
-          const currentLectures = newModules[moduleIndex].lectures || [];
-          if (currentLectures.some((l) => l.id === lecture.id || (l.videoUrl && l.videoUrl === lecture.videoUrl))) {
-            return course;
-          }
-          const allLecs = [...currentLectures, lecture];
-          newModules[moduleIndex] = {
-            ...newModules[moduleIndex],
-            lectures: allLecs,
-            lessonsCount: allLecs.length,
-            topics: [...(newModules[moduleIndex].topics || []), lecture.title]
-          };
+    let currentCourses = courses;
+    try {
+      const stored = localStorage.getItem('kuldeep_studio_courses');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          currentCourses = parsed;
         }
-        const total = newModules.reduce((acc, m) => acc + (m.lectures ? m.lectures.length : m.lessonsCount), 0);
-        const resCourse = {
-          ...course,
-          modules: newModules,
-          totalLessons: total
-        };
-        updatedCourse = resCourse;
-        return resCourse;
-      });
-
-      // Synchronously write to localStorage immediately so page refresh NEVER loses it!
-      try {
-        localStorage.setItem('kuldeep_studio_courses', JSON.stringify(updated));
-      } catch (err) {
-        console.error('LocalStorage write error:', err);
       }
+    } catch {}
 
-      return updated;
+    let targetCourse: Course | null = null;
+    const nextCourses = currentCourses.map((course) => {
+      if (course.id !== courseId) return course;
+      const newModules = [...course.modules];
+      if (!newModules[moduleIndex]) {
+        newModules[moduleIndex] = {
+          id: `mod-${Date.now()}-1`,
+          title: 'Module 1: Foundations & Live Orientation',
+          duration: '2 Weeks',
+          lessonsCount: 1,
+          topics: [lecture.title],
+          lectures: [lecture]
+        };
+      } else {
+        const currentLectures = newModules[moduleIndex].lectures || [];
+        if (currentLectures.some((l) => l.id === lecture.id || (l.videoUrl && l.videoUrl === lecture.videoUrl))) {
+          targetCourse = course;
+          return course;
+        }
+        const allLecs = [...currentLectures, lecture];
+        newModules[moduleIndex] = {
+          ...newModules[moduleIndex],
+          lectures: allLecs,
+          lessonsCount: allLecs.length,
+          topics: [...(newModules[moduleIndex].topics || []), lecture.title]
+        };
+      }
+      const total = newModules.reduce((acc, m) => acc + (m.lectures ? m.lectures.length : m.lessonsCount), 0);
+      const resCourse = {
+        ...course,
+        modules: newModules,
+        totalLessons: total
+      };
+      targetCourse = resCourse;
+      return resCourse;
     });
 
-    const backendEndpoints = [
-      'https://kuldeep-singh-backend.onrender.com',
-      'http://localhost:5000'
-    ];
+    setCourses(nextCourses);
+    try {
+      localStorage.setItem('kuldeep_studio_courses', JSON.stringify(nextCourses));
+    } catch (err) {
+      console.error('LocalStorage write error:', err);
+    }
 
+    const backendEndpoints = getBackendUrls();
     for (const baseUrl of backendEndpoints) {
       try {
         const postRes = await fetch(`${baseUrl}/api/courses/${courseId}/modules/${moduleIndex}/lectures`, {
@@ -841,13 +891,13 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       }
     }
 
-    if (updatedCourse) {
+    if (targetCourse) {
       for (const baseUrl of backendEndpoints) {
         try {
           await fetch(`${baseUrl}/api/courses/${courseId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(updatedCourse)
+            body: JSON.stringify(targetCourse)
           });
         } catch {
           // ignore
@@ -862,55 +912,50 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     lectureIndex: number,
     updates: Partial<CourseLecture>
   ) => {
-    let updatedCourse: Course | null = null;
-    setCourses((prev) => {
-      const updated = prev.map((course) => {
-        if (course.id !== courseId) return course;
-        const newModules = [...course.modules];
-        if (!newModules[moduleIndex]) return course;
-        const currentLectures = [...(newModules[moduleIndex].lectures || [])];
-        if (!currentLectures[lectureIndex]) return course;
-        currentLectures[lectureIndex] = { ...currentLectures[lectureIndex], ...updates };
-        newModules[moduleIndex] = {
-          ...newModules[moduleIndex],
-          lectures: currentLectures,
-          topics: currentLectures.map((l) => l.title)
-        };
-        const resCourse = { ...course, modules: newModules };
-        updatedCourse = resCourse;
-        return resCourse;
-      });
-
-      try {
-        localStorage.setItem('kuldeep_studio_courses', JSON.stringify(updated));
-      } catch (err) {
-        console.error('LocalStorage write error:', err);
+    let currentCourses = courses;
+    try {
+      const stored = localStorage.getItem('kuldeep_studio_courses');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          currentCourses = parsed;
+        }
       }
+    } catch {}
 
-      return updated;
+    let targetCourse: Course | null = null;
+    const nextCourses = currentCourses.map((course) => {
+      if (course.id !== courseId) return course;
+      const newModules = [...course.modules];
+      if (!newModules[moduleIndex]) return course;
+      const currentLectures = [...(newModules[moduleIndex].lectures || [])];
+      if (!currentLectures[lectureIndex]) return course;
+      currentLectures[lectureIndex] = { ...currentLectures[lectureIndex], ...updates };
+      newModules[moduleIndex] = {
+        ...newModules[moduleIndex],
+        lectures: currentLectures,
+        topics: currentLectures.map((l) => l.title)
+      };
+      const resCourse = { ...course, modules: newModules };
+      targetCourse = resCourse;
+      return resCourse;
     });
 
-    let courseToPut = updatedCourse;
-    if (!courseToPut) {
-      try {
-        const stored = JSON.parse(localStorage.getItem('kuldeep_studio_courses') || '[]');
-        courseToPut = stored.find((c: Course) => c.id === courseId) || null;
-      } catch {
-        // ignore
-      }
+    setCourses(nextCourses);
+    try {
+      localStorage.setItem('kuldeep_studio_courses', JSON.stringify(nextCourses));
+    } catch (err) {
+      console.error('LocalStorage write error:', err);
     }
 
-    if (courseToPut) {
-      const backendEndpoints = [
-        'https://kuldeep-singh-backend.onrender.com',
-        'http://localhost:5000'
-      ];
+    if (targetCourse) {
+      const backendEndpoints = getBackendUrls();
       for (const baseUrl of backendEndpoints) {
         try {
           await fetch(`${baseUrl}/api/courses/${courseId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(courseToPut)
+            body: JSON.stringify(targetCourse)
           });
         } catch {
           // ignore
@@ -920,80 +965,75 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   const deleteLectureFromModule = async (courseId: string, moduleIndex: number, lectureIndex: number) => {
-    let updatedCourse: Course | null = null;
-    let targetLectureId: string | null = null;
-
-    setCourses((prev) => {
-      const updated = prev.map((course) => {
-        if (course.id !== courseId) return course;
-        const newModules = [...course.modules];
-        if (!newModules[moduleIndex]) return course;
-        const currentLectures = newModules[moduleIndex].lectures || [];
-        if (currentLectures[lectureIndex]) {
-          targetLectureId = currentLectures[lectureIndex].id;
+    let currentCourses = courses;
+    try {
+      const stored = localStorage.getItem('kuldeep_studio_courses');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          currentCourses = parsed;
         }
-        const filteredLectures = currentLectures.filter((_, idx) => idx !== lectureIndex);
-        newModules[moduleIndex] = {
-          ...newModules[moduleIndex],
-          lectures: filteredLectures,
-          lessonsCount: filteredLectures.length,
-          topics: filteredLectures.map((l) => l.title)
-        };
-        const total = newModules.reduce((acc, m) => acc + (m.lectures ? m.lectures.length : m.lessonsCount), 0);
-        const resCourse = { ...course, modules: newModules, totalLessons: total };
-        updatedCourse = resCourse;
-        return resCourse;
-      });
-
-      // Synchronously write to localStorage and record deleted lecture ID
-      try {
-        localStorage.setItem('kuldeep_studio_courses', JSON.stringify(updated));
-        if (targetLectureId) {
-          const deletedList: string[] = JSON.parse(localStorage.getItem('kuldeep_studio_deleted_lectures') || '[]');
-          if (!deletedList.includes(targetLectureId)) {
-            deletedList.push(targetLectureId);
-            localStorage.setItem('kuldeep_studio_deleted_lectures', JSON.stringify(deletedList));
-          }
-        }
-      } catch (err) {
-        console.error('LocalStorage write error:', err);
       }
+    } catch {}
 
-      return updated;
+    let targetLectureId: string | null = null;
+    let targetCourse: Course | null = null;
+
+    const nextCourses = currentCourses.map((course) => {
+      if (course.id !== courseId) return course;
+      const newModules = [...course.modules];
+      if (!newModules[moduleIndex]) return course;
+      const currentLectures = newModules[moduleIndex].lectures || [];
+      if (currentLectures[lectureIndex]) {
+        targetLectureId = currentLectures[lectureIndex].id;
+      }
+      const filteredLectures = currentLectures.filter((_, idx) => idx !== lectureIndex);
+      newModules[moduleIndex] = {
+        ...newModules[moduleIndex],
+        lectures: filteredLectures,
+        lessonsCount: filteredLectures.length,
+        topics: filteredLectures.map((l) => l.title)
+      };
+      const total = newModules.reduce((acc, m) => acc + (m.lectures ? m.lectures.length : m.lessonsCount), 0);
+      const resCourse = { ...course, modules: newModules, totalLessons: total };
+      targetCourse = resCourse;
+      return resCourse;
     });
 
-    let courseToPut = updatedCourse;
-    if (!courseToPut) {
-      try {
-        const stored = JSON.parse(localStorage.getItem('kuldeep_studio_courses') || '[]');
-        courseToPut = stored.find((c: Course) => c.id === courseId) || null;
-      } catch {
-        // ignore
+    setCourses(nextCourses);
+    try {
+      localStorage.setItem('kuldeep_studio_courses', JSON.stringify(nextCourses));
+      if (targetLectureId) {
+        const deletedList: string[] = JSON.parse(localStorage.getItem('kuldeep_studio_deleted_lectures') || '[]');
+        if (!deletedList.includes(targetLectureId)) {
+          deletedList.push(targetLectureId);
+          localStorage.setItem('kuldeep_studio_deleted_lectures', JSON.stringify(deletedList));
+        }
       }
+    } catch (err) {
+      console.error('LocalStorage write error:', err);
     }
 
-    const backendEndpoints = [
-      'https://kuldeep-singh-backend.onrender.com',
-      'http://localhost:5000'
-    ];
+    const backendEndpoints = getBackendUrls();
 
     for (const baseUrl of backendEndpoints) {
       try {
-        await fetch(`${baseUrl}/api/courses/${courseId}/modules/${moduleIndex}/lectures/${lectureIndex}`, {
-          method: 'DELETE'
-        });
+        const delUrl = targetLectureId
+          ? `${baseUrl}/api/courses/${courseId}/modules/${moduleIndex}/lectures/${lectureIndex}?lectureId=${targetLectureId}`
+          : `${baseUrl}/api/courses/${courseId}/modules/${moduleIndex}/lectures/${lectureIndex}`;
+        await fetch(delUrl, { method: 'DELETE' });
       } catch {
         // ignore
       }
     }
 
-    if (courseToPut) {
+    if (targetCourse) {
       for (const baseUrl of backendEndpoints) {
         try {
           await fetch(`${baseUrl}/api/courses/${courseId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(courseToPut)
+            body: JSON.stringify(targetCourse)
           });
         } catch {
           // ignore
