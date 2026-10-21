@@ -88,7 +88,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [orders]);
 
-  const BACKEND_API_BASE = 'https://kuldeep-singh-backend.onrender.com/api/orders';
+  const BACKEND_API_BASE = 'https://kuldeep-singh-backend-q1di.onrender.com/api/orders';
 
   // Real-time bidirectional database sync with backend daemon
   useEffect(() => {

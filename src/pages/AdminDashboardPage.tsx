@@ -454,7 +454,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
 
       let res: Response;
       try {
-        res = await fetch('https://kuldeep-singh-backend.onrender.com/api/upload/video', {
+        res = await fetch('https://kuldeep-singh-backend-q1di.onrender.com/api/upload/video', {
           method: 'POST',
           body: formData,
         });
@@ -502,7 +502,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
 
       // Sync to backend PUT /api/profile
       try {
-        await fetch('https://kuldeep-singh-backend.onrender.com/api/profile', {
+        await fetch('https://kuldeep-singh-backend-q1di.onrender.com/api/profile', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -576,7 +576,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
     };
 
     try {
-      await fetch('https://kuldeep-singh-backend.onrender.com/api/profile', {
+      await fetch('https://kuldeep-singh-backend-q1di.onrender.com/api/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -635,7 +635,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
     updateArtistProfile(payload);
 
     try {
-      await fetch('https://kuldeep-singh-backend.onrender.com/api/profile', {
+      await fetch('https://kuldeep-singh-backend-q1di.onrender.com/api/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -1515,7 +1515,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
 
   // Sync initial live broadcast status from cloud backend
   useEffect(() => {
-    fetch('https://kuldeep-singh-backend.onrender.com/api/live')
+    fetch('https://kuldeep-singh-backend-q1di.onrender.com/api/live')
       .then((res) => res.json())
       .then((data) => {
         if (data) {
@@ -1556,7 +1556,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
     });
 
     try {
-      await fetch('https://kuldeep-singh-backend.onrender.com/api/live', {
+      await fetch('https://kuldeep-singh-backend-q1di.onrender.com/api/live', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1601,7 +1601,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
 
   const handleUpdateLiveUrl = async () => {
     try {
-      await fetch('https://kuldeep-singh-backend.onrender.com/api/live', {
+      await fetch('https://kuldeep-singh-backend-q1di.onrender.com/api/live', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -2025,7 +2025,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
       // 1. Get Direct TUS Upload Token from Backend
       let tokenRes: Response;
       try {
-        tokenRes = await fetch('https://kuldeep-singh-backend.onrender.com/api/upload/bunny-token', {
+        tokenRes = await fetch('https://kuldeep-singh-backend-q1di.onrender.com/api/upload/bunny-token', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ title: titleToUse })
@@ -2586,7 +2586,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
       {/* ========================================================= */}
       {/* TOP HEADER: BRAND + 2-SIDE MASTER SWITCH                  */}
       {/* ========================================================= */}
-      <header className="bg-[#111318] border-b border-[#1B1F27] px-4 sm:px-8 py-3.5 flex flex-col md:flex-row items-center justify-between gap-4 sticky top-0 z-40 shadow-xl">
+      <header className="bg-[#111318] border-b border-[#1B1F27] px-4 sm:px-8 py-3.5 flex flex-col xl:flex-row items-center justify-between gap-3 sticky top-0 z-40 shadow-xl">
         {/* Brand */}
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#FF5722] via-[#FF7A45] to-[#FFA07A] flex items-center justify-center text-white shadow-lg shadow-[#FF5722]/20 ring-2 ring-[#FF5722]/30">
