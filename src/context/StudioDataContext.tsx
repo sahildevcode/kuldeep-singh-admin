@@ -52,7 +52,7 @@ const DEFAULT_PROFILE: ArtistProfile = {
   studioVideoPoster: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=1200&auto=format&fit=crop',
   heroShowcaseType: 'video',
   heroShowcaseBadge: 'Featured Canvas',
-  heroShowcaseTitle: 'Art That Transforms Spaces Into Stories',
+  heroShowcaseTitle: 'Artist Kuldeep Singh',
   heroShowcaseSubtitle: 'Original Oil on Belgian Linen (40 x 54 in)',
   heroShowcasePrice: '₹4,12,250',
   heroShowcaseImage: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=800&auto=format&fit=crop',
