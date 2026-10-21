@@ -647,6 +647,8 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
   const [isSavingHero, setIsSavingHero] = useState(false);
   const [isUploadingHeroImage, setIsUploadingHeroImage] = useState(false);
   const [isUploadingHeroVideo, setIsUploadingHeroVideo] = useState(false);
+  const [heroVideoProgress, setHeroVideoProgress] = useState<number>(0);
+  const [heroVideoFeedback, setHeroVideoFeedback] = useState<string>('');
 
   const [hasInitializedHero, setHasInitializedHero] = useState(false);
 
@@ -666,6 +668,11 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
   }, [artistProfile, hasInitializedHero]);
 
   const handleSaveHeroShowcase = async () => {
+    if (heroVideoUrl && heroVideoUrl.startsWith('data:video')) {
+      alert('Video file is still uploading to Bunny Stream CDN. Please wait for upload to complete, or paste a YouTube / Vimeo / direct video link.');
+      return;
+    }
+
     setIsSavingHero(true);
     const updates = {
       heroShowcaseType: heroType,
@@ -681,20 +688,35 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
 
     updateArtistProfile(updates);
 
+    let saved = false;
     for (const base of getBackendUrls()) {
       try {
-        await fetch(`${base}/api/profile`, {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+        const res = await fetch(`${base}/api/profile`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(updates),
+          signal: controller.signal,
         });
+        clearTimeout(timeoutId);
+
+        if (res.ok) {
+          saved = true;
+          break; // Stop immediately after first successful cloud sync
+        }
       } catch (e) {
-        console.warn('Hero showcase sync error:', e);
+        console.warn('Hero showcase sync error with', base, e);
       }
     }
 
     setIsSavingHero(false);
-    showToast(`🎉 Hero Showcase updated! ${heroType === 'video' ? 'Video' : 'Painting'} is now live on artist website.`);
+    if (saved) {
+      showToast(`🎉 Hero Showcase updated & live on website! (${heroType === 'video' ? 'Video' : 'Painting'})`);
+    } else {
+      showToast(`⚠️ Updated locally. Cloud sync will retry automatically.`);
+    }
   };
 
   const handleSelectCatalogPaintingForHero = (artworkId: string) => {
@@ -739,21 +761,129 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
     reader.readAsDataURL(file);
   };
 
-  const handleHeroVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const fallbackHeroVideoUpload = async (file: File) => {
+    setHeroVideoFeedback('⏳ Uploading video file via cloud API...');
+    setHeroVideoProgress(25);
+    const formData = new FormData();
+    formData.append('video', file);
+    formData.append('title', heroTitle || file.name);
+
+    let res: Response | null = null;
+    for (const base of getBackendUrls()) {
+      try {
+        res = await fetch(`${base}/api/upload/video`, {
+          method: 'POST',
+          body: formData,
+        });
+        if (res.ok) break;
+      } catch {
+        // try next
+      }
+    }
+
+    if (!res || !res.ok) {
+      throw new Error('Cloud upload unavailable. Please paste a YouTube/Vimeo embed or direct MP4 URL.');
+    }
+
+    const result = await res.json();
+    const finalUrl = result.embedUrl || result.directPlayUrl;
+    setHeroVideoUrl(finalUrl);
+    if (result.thumbnailUrl) {
+      setHeroImage(result.thumbnailUrl);
+    }
+    setHeroType('video');
+    setIsUploadingHeroVideo(false);
+    setHeroVideoProgress(100);
+    setHeroVideoFeedback('✅ Uploaded to Bunny Stream CDN!');
+    showToast('🚀 Video uploaded and ready!');
+  };
+
+  const handleHeroVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 80 * 1024 * 1024) {
-      alert('Video file size exceeds 80MB. Please use an embed/stream URL or compress video.');
+
+    if (file.size > 250 * 1024 * 1024) {
+      alert('Video file size exceeds 250MB. Please use an embed/stream URL or compress video.');
       return;
     }
+
     setIsUploadingHeroVideo(true);
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      setHeroVideoUrl(event.target?.result as string);
+    setHeroVideoFeedback(`⏳ Connecting to Bunny Stream Cloud CDN...`);
+    setHeroVideoProgress(5);
+    showToast('⏳ Uploading video to Bunny Stream Cloud CDN...');
+
+    try {
+      // 1. Request Bunny Stream Upload Token
+      let tokenRes: Response | null = null;
+      for (const base of getBackendUrls()) {
+        try {
+          tokenRes = await fetch(`${base}/api/upload/bunny-token`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title: heroTitle || file.name }),
+          });
+          if (tokenRes.ok) break;
+        } catch {
+          // try next
+        }
+      }
+
+      if (tokenRes && tokenRes.ok) {
+        const authData = await tokenRes.json();
+        const { libraryId, videoId, expiration, signature, embedUrl, thumbnailUrl } = authData;
+
+        const upload = new tus.Upload(file, {
+          endpoint: 'https://video.bunnycdn.com/tusupload',
+          chunkSize: 10 * 1024 * 1024,
+          retryDelays: [0, 1000, 3000, 5000],
+          headers: {
+            AuthorizationSignature: signature,
+            AuthorizationExpire: expiration.toString(),
+            LibraryId: libraryId.toString(),
+            VideoId: videoId,
+          },
+          metadata: {
+            filename: file.name,
+            filetype: file.type || 'video/mp4',
+            title: heroTitle || file.name,
+          },
+          onError: async (err) => {
+            console.warn('TUS Direct Upload failed, using fallback FormData:', err);
+            await fallbackHeroVideoUpload(file);
+          },
+          onProgress: (bytesUploaded, bytesTotal) => {
+            const pct = Math.min(99, Math.round((bytesUploaded / bytesTotal) * 100));
+            setHeroVideoProgress(pct);
+            const uploadedMb = (bytesUploaded / (1024 * 1024)).toFixed(1);
+            const totalMb = (bytesTotal / (1024 * 1024)).toFixed(1);
+            setHeroVideoFeedback(`Uploading to CDN: ${pct}% (${uploadedMb} MB / ${totalMb} MB)`);
+          },
+          onSuccess: () => {
+            const finalUrl = embedUrl || `https://iframe.mediadelivery.net/embed/${libraryId}/${videoId}`;
+            setHeroVideoUrl(finalUrl);
+            if (thumbnailUrl) {
+              setHeroImage(thumbnailUrl);
+            }
+            setHeroType('video');
+            setIsUploadingHeroVideo(false);
+            setHeroVideoProgress(100);
+            setHeroVideoFeedback('✅ Uploaded to Bunny Stream CDN!');
+            showToast('🚀 Hero Showcase video uploaded successfully!');
+          },
+        });
+
+        upload.start();
+        return;
+      }
+
+      // Fallback
+      await fallbackHeroVideoUpload(file);
+    } catch (err: any) {
+      console.error('Video upload error:', err);
       setIsUploadingHeroVideo(false);
-      showToast('✓ Video loaded from device');
-    };
-    reader.readAsDataURL(file);
+      setHeroVideoFeedback(`❌ Upload error: ${err.message || 'Failed'}`);
+      showToast(`❌ Video upload failed: ${err.message || 'Failed'}`);
+    }
   };
 
   // Filtered Orders
@@ -3299,9 +3429,16 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                               Video Source (Upload Video File or Paste Video URL / Embed)
                             </label>
                             <div className="space-y-2.5">
-                              <label className="w-full border-2 border-dashed border-gray-700 hover:border-red-500 bg-[#181C24] p-3 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all text-xs text-gray-300 hover:text-white">
-                                <FileVideo className="w-4 h-4 text-red-500" />
-                                <span>{isUploadingHeroVideo ? 'Loading Video...' : 'Upload Video File from Device (MP4 / WebM)'}</span>
+                              <label className="w-full border-2 border-dashed border-gray-700 hover:border-red-500 bg-[#181C24] p-3 rounded-xl flex flex-col items-center justify-center gap-2 cursor-pointer transition-all text-xs text-gray-300 hover:text-white">
+                                <div className="flex items-center gap-2">
+                                  <FileVideo className="w-4 h-4 text-red-500" />
+                                  <span>{isUploadingHeroVideo ? (heroVideoFeedback || 'Uploading to Bunny Stream CDN...') : 'Upload Video File from Device (MP4 / WebM)'}</span>
+                                </div>
+                                {isUploadingHeroVideo && (
+                                  <div className="w-full max-w-xs bg-gray-800 h-2 rounded-full overflow-hidden mt-1 border border-gray-700">
+                                    <div className="bg-gradient-to-r from-red-600 to-orange-500 h-full transition-all duration-200" style={{ width: `${heroVideoProgress}%` }} />
+                                  </div>
+                                )}
                                 <input
                                   type="file"
                                   accept="video/*"
