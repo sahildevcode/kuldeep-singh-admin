@@ -654,13 +654,13 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
   // =========================================================
   // HERO SHOWCASE (CANVAS / VIDEO) STATE & HANDLERS
   // =========================================================
-  const [heroType, setHeroType] = useState<'painting' | 'video'>(() => artistProfile?.heroShowcaseType || 'painting');
+  const [heroType, setHeroType] = useState<'painting' | 'video'>(() => artistProfile?.heroShowcaseType || 'video');
   const [heroBadge, setHeroBadge] = useState<string>(() => artistProfile?.heroShowcaseBadge || 'Featured Canvas');
   const [heroTitle, setHeroTitle] = useState<string>(() => artistProfile?.heroShowcaseTitle || 'Symphony of the Solitary Tide');
   const [heroSubtitle, setHeroSubtitle] = useState<string>(() => artistProfile?.heroShowcaseSubtitle || 'Original Oil on Belgian Linen (40 x 54 in)');
   const [heroPrice, setHeroPrice] = useState<string>(() => artistProfile?.heroShowcasePrice || '₹4,12,250');
   const [heroImage, setHeroImage] = useState<string>(() => artistProfile?.heroShowcaseImage || 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=800&auto=format&fit=crop');
-  const [heroVideoUrl, setHeroVideoUrl] = useState<string>(() => artistProfile?.heroShowcaseVideoUrl || artistProfile?.studioVideoUrl || 'https://vjs.zencdn.net/v/oceans.mp4');
+  const [heroVideoUrl, setHeroVideoUrl] = useState<string>(() => artistProfile?.heroShowcaseVideoUrl || artistProfile?.studioVideoUrl || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4');
   const [heroCert, setHeroCert] = useState<string>(() => artistProfile?.heroShowcaseCertificateText || 'Archival Certificate');
   const [heroArtworkId, setHeroArtworkId] = useState<string>(() => artistProfile?.heroShowcaseArtworkId || '');
   const [isSavingHero, setIsSavingHero] = useState(false);
@@ -709,6 +709,8 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
       heroShowcasePrice: heroPrice,
       heroShowcaseImage: heroImage,
       heroShowcaseVideoUrl: heroVideoUrl,
+      studioVideoUrl: heroVideoUrl,
+      studioVideoPoster: heroImage,
       heroShowcaseCertificateText: heroCert,
       heroShowcaseArtworkId: heroArtworkId,
     };
@@ -2731,7 +2733,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                   >
                     <div className="flex items-center gap-3">
                       <Sparkles className={`w-4 h-4 ${galleryNav === 'hero' ? 'text-amber-400' : 'text-gray-400'}`} />
-                      <span>Featured Hero Showcase</span>
+                      <span>Homepage Hero Video</span>
                     </div>
                     <span className="bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase">
                       {heroType}
@@ -3232,7 +3234,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                         className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500/20 to-orange-500/20 hover:from-amber-500/30 hover:to-orange-500/30 text-amber-300 font-bold text-xs flex items-center gap-1.5 border border-amber-500/40 shadow shrink-0 transition-all cursor-pointer"
                       >
                         <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                        <span>Featured Hero Card</span>
+                        <span>Homepage Hero Video</span>
                       </button>
 
                       <label className="px-4 py-2 rounded-xl bg-[#1A1E26] hover:bg-[#222834] text-white font-bold text-xs flex items-center gap-2 cursor-pointer border border-gray-700/80 shadow shrink-0 transition-all">
@@ -3423,10 +3425,10 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                     <div>
                       <div className="flex items-center gap-2">
                         <Sparkles className="w-5 h-5 text-amber-400" />
-                        <h3 className="font-serif font-bold text-2xl text-white">Hero Showcase Card Editor</h3>
+                        <h3 className="font-serif font-bold text-2xl text-white">Main Homepage Hero Video Manager</h3>
                       </div>
                       <p className="text-xs text-gray-400 mt-1">
-                        Website Homepage ke main Hero banner ke beech me dikhne wala card customize karein (Painting ya Video).
+                        Website Homepage par sabse upar dikhne wali main cinematic video yahan se upload ya change karein.
                       </p>
                     </div>
 
@@ -3776,84 +3778,76 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                       <div className="flex items-center justify-between text-xs text-gray-400">
                         <span className="font-semibold text-white flex items-center gap-1.5">
                           <Eye className="w-3.5 h-3.5 text-[#FF5722]" />
-                          <span>Live Website Replica Preview</span>
+                          <span>Homepage Widescreen Video Preview</span>
                         </span>
-                        <span className="text-[11px] bg-[#181C24] px-2.5 py-0.5 rounded-full border border-gray-700">
-                          {heroType === 'video' ? '🎬 Video Card' : '🖼️ Canvas Card'}
+                        <span className="text-[11px] bg-red-500/20 text-red-300 px-2.5 py-0.5 rounded-full border border-red-500/30 flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
+                          <span>Live Player</span>
                         </span>
                       </div>
 
-                      {/* Glass Card Replica */}
-                      <div className="relative max-w-sm mx-auto w-full">
-                        {/* Glow */}
-                        <div className="absolute -inset-1 bg-gradient-to-r from-red-600 via-amber-500 to-blue-600 rounded-3xl blur-xl opacity-30 animate-pulse" />
-
-                        <div className="relative bg-white rounded-3xl p-5 border border-white shadow-2xl space-y-4 text-stone-900">
-                          {/* Media Box */}
-                          <div className="relative h-64 rounded-2xl overflow-hidden shadow-inner group bg-black">
-                            {heroType === 'video' ? (
-                              heroVideoUrl.includes('iframe') || heroVideoUrl.includes('embed') || heroVideoUrl.includes('youtube') || heroVideoUrl.includes('vimeo') || heroVideoUrl.includes('mediadelivery.net') ? (
-                                <iframe
-                                  src={heroVideoUrl}
-                                  title="Hero Video Preview"
-                                  className="w-full h-full border-0"
-                                  allowFullScreen
-                                />
-                              ) : (
-                                <video
-                                  src={heroVideoUrl}
-                                  poster={heroImage}
-                                  controls
-                                  playsInline
-                                  className="w-full h-full object-cover"
-                                />
-                              )
-                            ) : (
-                              <img
-                                src={heroImage}
-                                alt={heroTitle}
-                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                              />
-                            )}
-
-                            {/* Top Badge */}
-                            <div className="absolute top-3 left-3 bg-black/70 backdrop-blur-md px-3 py-1 rounded-full text-[11px] font-bold text-white uppercase tracking-wider flex items-center gap-1.5 shadow pointer-events-none">
-                              {heroType === 'video' && <Play className="w-3 h-3 text-red-500 fill-red-500" />}
-                              <span>{heroBadge || 'Featured Showcase'}</span>
-                            </div>
-
-                            {/* Price / HD Tag */}
-                            {heroType === 'painting' && heroPrice ? (
-                              <div className="absolute bottom-3 right-3 bg-white/95 backdrop-blur-md px-3 py-1 rounded-full text-xs font-serif font-bold text-red-600 shadow-md pointer-events-none">
-                                {heroPrice}
-                              </div>
-                            ) : heroType === 'video' ? (
-                              <div className="absolute bottom-3 right-3 bg-black/75 backdrop-blur-md px-2.5 py-0.5 rounded-full text-[10px] font-mono text-emerald-400 font-semibold shadow pointer-events-none border border-emerald-500/30">
-                                HD Atelier 4K
-                              </div>
-                            ) : null}
+                      {/* Video Player Preview Container */}
+                      <div className="relative w-full rounded-2xl overflow-hidden shadow-2xl border border-gray-700 bg-black aspect-video group">
+                        {heroVideoUrl ? (
+                          heroVideoUrl.includes('iframe') || heroVideoUrl.includes('embed') || heroVideoUrl.includes('youtube') || heroVideoUrl.includes('vimeo') || heroVideoUrl.includes('mediadelivery.net') ? (
+                            <iframe
+                              src={heroVideoUrl}
+                              title="Homepage Hero Video Preview"
+                              className="w-full h-full border-0"
+                              allowFullScreen
+                            />
+                          ) : (
+                            <video
+                              src={heroVideoUrl}
+                              poster={heroImage}
+                              controls
+                              autoPlay
+                              muted
+                              loop
+                              playsInline
+                              className="w-full h-full object-cover"
+                            />
+                          )
+                        ) : (
+                          <div className="w-full h-full flex flex-col items-center justify-center text-gray-500 p-6 text-center">
+                            <Film className="w-10 h-10 mb-2 opacity-50" />
+                            <p className="text-xs">No video configured yet. Upload a video or enter a URL on the left.</p>
                           </div>
+                        )}
+                      </div>
 
-                          {/* Info */}
-                          <div>
-                            <h3 className="font-serif font-bold text-lg text-stone-900 line-clamp-1">
-                              {heroTitle || 'Showcase Title'}
-                            </h3>
-                            <p className="text-xs text-stone-500 mt-0.5 line-clamp-2">
-                              {heroSubtitle || 'Artwork medium or video description'}
+                      {/* Video Status Information */}
+                      <div className="bg-[#14171E] border border-[#202530] rounded-2xl p-4 space-y-2.5 text-xs">
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-400">Status:</span>
+                          <span className="text-emerald-400 font-semibold flex items-center gap-1">
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>Active on Main Homepage</span>
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-400">Display Format:</span>
+                          <span className="text-white font-medium">Cinema Widescreen (16:9 / 21:9)</span>
+                        </div>
+                        {heroVideoUrl && (
+                          <div className="pt-2 border-t border-gray-800">
+                            <span className="text-gray-400 block mb-1">Current Video URL:</span>
+                            <p className="text-[11px] text-gray-300 font-mono break-all line-clamp-2 bg-[#181C24] p-2 rounded-lg border border-gray-800">
+                              {heroVideoUrl}
                             </p>
                           </div>
-
-                          {/* Bottom Row */}
-                          <div className="pt-2 border-t border-stone-200/60 flex items-center justify-between text-xs">
-                            <div className="flex items-center gap-1 text-stone-600">
-                              <ShieldCheck className="w-4 h-4 text-amber-600" />
-                              <span>{heroCert || 'Archival Certificate'}</span>
-                            </div>
-                            <span className="font-bold text-red-600 flex items-center gap-1">
-                              {heroType === 'video' ? 'Watch Studio Reel' : 'Quick View'} <ArrowUpRight className="w-3.5 h-3.5" />
-                            </span>
-                          </div>
+                        )}
+                        <div className="pt-2 flex items-center justify-between border-t border-gray-800/80">
+                          <span className="text-[11px] text-gray-400">Auto-plays muted on homepage load</span>
+                          <a
+                            href="https://artist-kuldeep-singh.vercel.app"
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-[11px] text-[#FF5722] hover:underline flex items-center gap-1 font-semibold"
+                          >
+                            <span>Open Live Site</span>
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
                         </div>
                       </div>
                     </div>
