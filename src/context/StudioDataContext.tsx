@@ -10,6 +10,22 @@ export const getBackendUrls = (): string[] => {
   return ['https://kuldeep-singh-backend.onrender.com', 'http://localhost:5000'];
 };
 
+export const deleteBunnyVideo = async (videoUrlOrId: string) => {
+  if (!videoUrlOrId) return;
+  for (const base of getBackendUrls()) {
+    try {
+      await fetch(`${base}/api/upload/bunny-delete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ videoUrl: videoUrlOrId }),
+      });
+      break;
+    } catch {
+      // try next
+    }
+  }
+};
+
 const DEFAULT_PROFILE: ArtistProfile = {
   name: 'Artist Kuldeep Singh',
   title: 'Master Painter & Atelier Founder',
@@ -992,6 +1008,7 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     } catch {}
 
     let targetLectureId: string | null = null;
+    let targetLectureVideoUrl: string | null = null;
     let targetCourse: Course | null = null;
 
     const nextCourses = currentCourses.map((course) => {
@@ -1001,6 +1018,7 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       const currentLectures = newModules[moduleIndex].lectures || [];
       if (currentLectures[lectureIndex]) {
         targetLectureId = currentLectures[lectureIndex].id;
+        targetLectureVideoUrl = currentLectures[lectureIndex].videoUrl || null;
       }
       const filteredLectures = currentLectures.filter((_, idx) => idx !== lectureIndex);
       newModules[moduleIndex] = {
@@ -1040,6 +1058,10 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       } catch {
         // ignore
       }
+    }
+
+    if (targetLectureVideoUrl) {
+      deleteBunnyVideo(targetLectureVideoUrl).catch(() => {});
     }
 
     if (targetCourse) {

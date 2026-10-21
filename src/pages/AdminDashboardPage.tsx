@@ -45,7 +45,7 @@ import {
   ArrowUpRight
 } from 'lucide-react';
 import * as tus from 'tus-js-client';
-import { useStudioData, getBackendUrls } from '../context/StudioDataContext';
+import { useStudioData, getBackendUrls, deleteBunnyVideo } from '../context/StudioDataContext';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import type { Artwork, MediumType, OrderRecord, Course, CourseLecture, EnrolledStudent, StudioReel, RegisteredUser, UpcomingCourse, CollectorReview } from '../types';
@@ -579,6 +579,11 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
   };
 
   const handleDeleteCurrentReelVideo = async (targetIndex = activeReelIndex) => {
+    const oldVideo = adminReels[targetIndex]?.videoUrl;
+    if (oldVideo) {
+      deleteBunnyVideo(oldVideo).catch(() => {});
+    }
+
     const updated = [...adminReels];
     const defaultReel = DEFAULT_STUDIO_REELS[targetIndex] || {
       id: `reel-${targetIndex + 1}`,
@@ -725,6 +730,24 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
     } else {
       showToast(`⚠️ Updated locally. Cloud sync will retry automatically.`);
     }
+  };
+
+  const handleDeleteHeroVideo = async () => {
+    if (!heroVideoUrl) return;
+    if (!window.confirm('Are you sure you want to permanently delete this video from Bunny.net CDN and website?')) return;
+
+    const videoToDelete = heroVideoUrl;
+    setHeroVideoUrl('');
+    showToast('⏳ Deleting video from Bunny.net CDN...');
+
+    await deleteBunnyVideo(videoToDelete);
+
+    persistHeroShowcaseData({
+      heroShowcaseType: heroType,
+      heroShowcaseVideoUrl: '',
+    });
+
+    showToast('🗑️ Video permanently deleted from Bunny.net and website!');
   };
 
   const handleSelectCatalogPaintingForHero = (artworkId: string) => {
@@ -3498,15 +3521,28 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                                 />
                               </label>
 
-                              <div className="relative">
-                                <LinkIcon className="w-3.5 h-3.5 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" />
-                                <input
-                                  type="text"
-                                  placeholder="Or paste Direct MP4 URL, Bunny Stream, YouTube, or Vimeo embed link..."
-                                  value={heroVideoUrl}
-                                  onChange={(e) => setHeroVideoUrl(e.target.value)}
-                                  className="w-full bg-[#181C24] border border-[#242A36] rounded-xl pl-9 pr-3.5 py-2.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-red-500"
-                                />
+                              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                                <div className="relative flex-1">
+                                  <LinkIcon className="w-3.5 h-3.5 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                                  <input
+                                    type="text"
+                                    placeholder="Or paste Direct MP4 URL, Bunny Stream, YouTube, or Vimeo embed link..."
+                                    value={heroVideoUrl}
+                                    onChange={(e) => setHeroVideoUrl(e.target.value)}
+                                    className="w-full bg-[#181C24] border border-[#242A36] rounded-xl pl-9 pr-3.5 py-2.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-red-500"
+                                  />
+                                </div>
+                                {heroVideoUrl && (
+                                  <button
+                                    type="button"
+                                    onClick={handleDeleteHeroVideo}
+                                    className="px-3.5 py-2.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 border border-red-500/30 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer whitespace-nowrap"
+                                    title="Delete video from Bunny.net CDN and website"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                    <span>Delete Video</span>
+                                  </button>
+                                )}
                               </div>
                             </div>
                           </div>
