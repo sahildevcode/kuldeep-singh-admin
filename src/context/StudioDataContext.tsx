@@ -475,7 +475,67 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     };
 
     syncAllWithCloud();
-    const interval = setInterval(syncAllWithCloud, 2500);
+
+    // Smart Eco-Sync Polling (Saves 80%+ Bandwidth, Pauses when tab is hidden or admin is idle)
+    let syncInterval: any = null;
+    let idleTimer: any = null;
+    let isUserIdle = false;
+
+    const startSync = () => {
+      if (syncInterval) clearInterval(syncInterval);
+      syncInterval = setInterval(() => {
+        if (!document.hidden && !isUserIdle) {
+          syncAllWithCloud();
+        }
+      }, 12000);
+    };
+
+    const stopSync = () => {
+      if (syncInterval) {
+        clearInterval(syncInterval);
+        syncInterval = null;
+      }
+    };
+
+    const handleUserActivity = () => {
+      if (isUserIdle) {
+        isUserIdle = false;
+        if (!document.hidden) {
+          syncAllWithCloud();
+          startSync();
+        }
+      }
+      if (idleTimer) clearTimeout(idleTimer);
+      idleTimer = setTimeout(() => {
+        isUserIdle = true;
+        stopSync();
+      }, 180000); // 3 mins idle timeout
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        stopSync();
+      } else {
+        isUserIdle = false;
+        syncAllWithCloud();
+        startSync();
+      }
+    };
+
+    const onFocus = () => {
+      isUserIdle = false;
+      syncAllWithCloud();
+      startSync();
+    };
+
+    startSync();
+    handleUserActivity();
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', onFocus);
+    window.addEventListener('mousemove', handleUserActivity, { passive: true });
+    window.addEventListener('touchstart', handleUserActivity, { passive: true });
+    window.addEventListener('scroll', handleUserActivity, { passive: true });
 
     let eventSource: EventSource | null = null;
     try {
@@ -594,8 +654,14 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     return () => {
       isMounted = false;
-      clearInterval(interval);
+      stopSync();
+      if (idleTimer) clearTimeout(idleTimer);
       if (eventSource) eventSource.close();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('mousemove', handleUserActivity);
+      window.removeEventListener('touchstart', handleUserActivity);
+      window.removeEventListener('scroll', handleUserActivity);
     };
   }, []);
 
