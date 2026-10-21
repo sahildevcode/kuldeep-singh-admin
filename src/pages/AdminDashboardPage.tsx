@@ -650,10 +650,9 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
   const [heroVideoProgress, setHeroVideoProgress] = useState<number>(0);
   const [heroVideoFeedback, setHeroVideoFeedback] = useState<string>('');
 
-  const [hasInitializedHero, setHasInitializedHero] = useState(false);
-
+  // Sync hero showcase fields from artistProfile (works on mount, on cloud fetch, and on refresh)
   useEffect(() => {
-    if (!hasInitializedHero && artistProfile) {
+    if (artistProfile) {
       if (artistProfile.heroShowcaseType) setHeroType(artistProfile.heroShowcaseType);
       if (artistProfile.heroShowcaseBadge) setHeroBadge(artistProfile.heroShowcaseBadge);
       if (artistProfile.heroShowcaseTitle) setHeroTitle(artistProfile.heroShowcaseTitle);
@@ -663,9 +662,18 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
       if (artistProfile.heroShowcaseVideoUrl) setHeroVideoUrl(artistProfile.heroShowcaseVideoUrl);
       if (artistProfile.heroShowcaseCertificateText) setHeroCert(artistProfile.heroShowcaseCertificateText);
       if (artistProfile.heroShowcaseArtworkId) setHeroArtworkId(artistProfile.heroShowcaseArtworkId);
-      setHasInitializedHero(true);
     }
-  }, [artistProfile, hasInitializedHero]);
+  }, [
+    artistProfile?.heroShowcaseType,
+    artistProfile?.heroShowcaseBadge,
+    artistProfile?.heroShowcaseTitle,
+    artistProfile?.heroShowcaseSubtitle,
+    artistProfile?.heroShowcasePrice,
+    artistProfile?.heroShowcaseImage,
+    artistProfile?.heroShowcaseVideoUrl,
+    artistProfile?.heroShowcaseCertificateText,
+    artistProfile?.heroShowcaseArtworkId
+  ]);
 
   const handleSaveHeroShowcase = async () => {
     if (heroVideoUrl && heroVideoUrl.startsWith('data:video')) {
@@ -761,6 +769,22 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
     reader.readAsDataURL(file);
   };
 
+  const persistHeroShowcaseData = async (updates: Record<string, any>) => {
+    updateArtistProfile(updates);
+    for (const base of getBackendUrls()) {
+      try {
+        await fetch(`${base}/api/profile`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updates),
+        });
+        break;
+      } catch {
+        // try next
+      }
+    }
+  };
+
   const fallbackHeroVideoUpload = async (file: File) => {
     setHeroVideoFeedback('⏳ Uploading video file via cloud API...');
     setHeroVideoProgress(25);
@@ -788,14 +812,27 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
     const result = await res.json();
     const finalUrl = result.embedUrl || result.directPlayUrl;
     setHeroVideoUrl(finalUrl);
+    const finalPoster = result.thumbnailUrl || heroImage;
     if (result.thumbnailUrl) {
       setHeroImage(result.thumbnailUrl);
     }
     setHeroType('video');
     setIsUploadingHeroVideo(false);
     setHeroVideoProgress(100);
-    setHeroVideoFeedback('✅ Uploaded to Bunny Stream CDN!');
-    showToast('🚀 Video uploaded and ready!');
+    setHeroVideoFeedback('✅ Uploaded to Bunny Stream CDN & Saved!');
+    showToast('🚀 Hero Showcase video uploaded & saved to website!');
+
+    persistHeroShowcaseData({
+      heroShowcaseType: 'video',
+      heroShowcaseVideoUrl: finalUrl,
+      heroShowcaseImage: finalPoster,
+      heroShowcaseTitle: heroTitle || file.name.replace(/\.[^/.]+$/, ''),
+      heroShowcaseBadge: heroBadge || 'Featured Canvas',
+      heroShowcaseSubtitle: heroSubtitle,
+      heroShowcasePrice: heroPrice,
+      heroShowcaseCertificateText: heroCert,
+      heroShowcaseArtworkId: heroArtworkId,
+    });
   };
 
   const handleHeroVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -861,14 +898,27 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
           onSuccess: () => {
             const finalUrl = embedUrl || `https://iframe.mediadelivery.net/embed/${libraryId}/${videoId}`;
             setHeroVideoUrl(finalUrl);
+            const finalPoster = thumbnailUrl || heroImage;
             if (thumbnailUrl) {
               setHeroImage(thumbnailUrl);
             }
             setHeroType('video');
             setIsUploadingHeroVideo(false);
             setHeroVideoProgress(100);
-            setHeroVideoFeedback('✅ Uploaded to Bunny Stream CDN!');
-            showToast('🚀 Hero Showcase video uploaded successfully!');
+            setHeroVideoFeedback('✅ Uploaded to Bunny Stream CDN & Saved!');
+            showToast('🚀 Hero Showcase video uploaded & saved to website!');
+
+            persistHeroShowcaseData({
+              heroShowcaseType: 'video',
+              heroShowcaseVideoUrl: finalUrl,
+              heroShowcaseImage: finalPoster,
+              heroShowcaseTitle: heroTitle || file.name.replace(/\.[^/.]+$/, ''),
+              heroShowcaseBadge: heroBadge || 'Featured Canvas',
+              heroShowcaseSubtitle: heroSubtitle,
+              heroShowcasePrice: heroPrice,
+              heroShowcaseCertificateText: heroCert,
+              heroShowcaseArtworkId: heroArtworkId,
+            });
           },
         });
 
