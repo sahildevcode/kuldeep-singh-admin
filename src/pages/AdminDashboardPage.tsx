@@ -238,6 +238,20 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
   // SIDE A: ARTWORKS & ORDERS STATE & HANDLERS
   // =========================================================
   const [orderFilter, setOrderFilter] = useState<string>('all');
+  const [orderCategoryTab, setOrderCategoryTab] = useState<'paintings' | 'courses' | 'all'>('paintings');
+
+  const isOrderCourse = (o: OrderRecord) => {
+    return (
+      (o.items || []).some((it) => it.type === 'course') ||
+      (o.items || []).some((it) => {
+        const t = (it.title || '').toLowerCase();
+        return t.includes('course') || t.includes('masterclass') || t.includes('batch');
+      })
+    );
+  };
+
+  const paintingOrdersCount = useMemo(() => orders.filter((o) => !isOrderCourse(o)).length, [orders]);
+  const courseOrdersCount = useMemo(() => orders.filter((o) => isOrderCourse(o)).length, [orders]);
   const [orderSearchQuery, setOrderSearchQuery] = useState('');
   const [selectedOrderForModal, setSelectedOrderForModal] = useState<OrderRecord | null>(null);
   const [isNewOrderModalOpen, setIsNewOrderModalOpen] = useState(false);
@@ -962,6 +976,10 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
   // Filtered Orders
   const filteredOrders = useMemo(() => {
     return orders.filter((o) => {
+      const isCourse = isOrderCourse(o);
+      if (orderCategoryTab === 'paintings' && isCourse) return false;
+      if (orderCategoryTab === 'courses' && !isCourse) return false;
+
       const matchesSearch =
         o.id.toLowerCase().includes(orderSearchQuery.toLowerCase()) ||
         o.customerName.toLowerCase().includes(orderSearchQuery.toLowerCase()) ||
@@ -975,7 +993,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
       if (orderFilter === 'step4') return o.currentStep === 4;
       return true;
     });
-  }, [orders, orderSearchQuery, orderFilter]);
+  }, [orders, orderSearchQuery, orderFilter, orderCategoryTab]);
 
   // Filtered Artworks
   const filteredArtworks = useMemo(() => {
@@ -2920,59 +2938,124 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                   {/* Top Stats */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div className="bg-[#14171E] border border-[#202530] rounded-2xl p-5 shadow">
-                      <span className="text-gray-400 text-xs font-semibold uppercase">Total Painting Orders</span>
-                      <div className="text-2xl font-bold font-serif text-white mt-1">{orders.length}</div>
-                      <span className="text-[11px] text-emerald-400 mt-1 block">Live pipeline tracking</span>
+                      <span className="text-gray-400 text-xs font-semibold uppercase">Physical Art Orders</span>
+                      <div className="text-2xl font-bold font-serif text-white mt-1">{paintingOrdersCount}</div>
+                      <span className="text-[11px] text-emerald-400 mt-1 block">Packaging & Courier Pipeline</span>
                     </div>
 
                     <div className="bg-[#14171E] border border-[#202530] rounded-2xl p-5 shadow">
-                      <span className="text-gray-400 text-xs font-semibold uppercase">Packing & Curing</span>
-                      <div className="text-2xl font-bold font-serif text-amber-400 mt-1">
-                        {orders.filter((o) => o.currentStep === 2).length}
+                      <span className="text-gray-400 text-xs font-semibold uppercase">Course Enrollments</span>
+                      <div className="text-2xl font-bold font-serif text-[#FF5722] mt-1">
+                        {courseOrdersCount}
                       </div>
-                      <span className="text-[11px] text-gray-400 mt-1 block">Step 2 in pipeline</span>
+                      <span className="text-[11px] text-gray-400 mt-1 block">Live Atelier Students</span>
                     </div>
 
                     <div className="bg-[#14171E] border border-[#202530] rounded-2xl p-5 shadow">
                       <span className="text-gray-400 text-xs font-semibold uppercase">In Transit / Crating</span>
                       <div className="text-2xl font-bold font-serif text-blue-400 mt-1">
-                        {orders.filter((o) => o.currentStep === 3).length}
+                        {orders.filter((o) => !isOrderCourse(o) && o.currentStep === 3).length}
                       </div>
                       <span className="text-[11px] text-gray-400 mt-1 block">Step 3 out for delivery</span>
                     </div>
 
                     <div className="bg-[#14171E] border border-[#202530] rounded-2xl p-5 shadow">
-                      <span className="text-gray-400 text-xs font-semibold uppercase">Delivered & Collected</span>
+                      <span className="text-gray-400 text-xs font-semibold uppercase">Delivered Artworks</span>
                       <div className="text-2xl font-bold font-serif text-emerald-400 mt-1">
-                        {orders.filter((o) => o.currentStep === 4).length}
+                        {orders.filter((o) => !isOrderCourse(o) && o.currentStep === 4).length}
                       </div>
                       <span className="text-[11px] text-gray-400 mt-1 block">Step 4 completed ✓</span>
                     </div>
                   </div>
 
-                  {/* Actions & Filters */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="flex items-center gap-2 overflow-x-auto pb-1 flex-1">
-                      {['all', 'step1', 'step2', 'step3', 'step4'].map((st) => (
-                        <button
-                          key={st}
-                          onClick={() => setOrderFilter(st)}
-                          className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-                            orderFilter === st
-                              ? 'bg-[#FF5722] text-white shadow-md'
-                              : 'bg-[#14171E] text-gray-400 hover:text-white'
-                          }`}
-                        >
-                          {st === 'all' && 'All Orders'}
-                          {st === 'step1' && 'Step 1: Placed'}
-                          {st === 'step2' && 'Step 2: Packing'}
-                          {st === 'step3' && 'Step 3: Out for Delivery'}
-                          {st === 'step4' && 'Step 4: Delivered ✓'}
-                        </button>
-                      ))}
+                  {/* Category Switcher: Physical Paintings vs Course Enrollments */}
+                  <div className="flex flex-wrap items-center justify-between gap-3 bg-[#14171E] border border-[#202530] p-3 rounded-2xl">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        onClick={() => setOrderCategoryTab('paintings')}
+                        className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+                          orderCategoryTab === 'paintings'
+                            ? 'bg-gradient-to-r from-[#FF5722] to-[#FF7A45] text-white shadow-md'
+                            : 'bg-[#181C24] text-gray-400 hover:text-white'
+                        }`}
+                      >
+                        <Palette className="w-3.5 h-3.5" />
+                        <span>🎨 Physical Painting Orders (Courier Delivery)</span>
+                        <span className="bg-black/30 px-2 py-0.5 rounded-full text-[10px] font-mono">
+                          {paintingOrdersCount}
+                        </span>
+                      </button>
+
+                      <button
+                        onClick={() => setOrderCategoryTab('courses')}
+                        className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+                          orderCategoryTab === 'courses'
+                            ? 'bg-gradient-to-r from-red-600 to-[#FF5722] text-white shadow-md'
+                            : 'bg-[#181C24] text-gray-400 hover:text-white'
+                        }`}
+                      >
+                        <Users className="w-3.5 h-3.5" />
+                        <span>🎓 Course Enrollments</span>
+                        <span className="bg-black/30 px-2 py-0.5 rounded-full text-[10px] font-mono">
+                          {courseOrdersCount}
+                        </span>
+                      </button>
+
+                      <button
+                        onClick={() => setOrderCategoryTab('all')}
+                        className={`px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                          orderCategoryTab === 'all'
+                            ? 'bg-gray-700 text-white shadow-md'
+                            : 'bg-[#181C24] text-gray-400 hover:text-white'
+                        }`}
+                      >
+                        <span>All Transactions ({orders.length})</span>
+                      </button>
                     </div>
 
-                    <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => {
+                        setAdminMode('academy');
+                        setAcademyNav('students');
+                      }}
+                      className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ml-auto"
+                      title="Open Side 2: Live Académie to view students, passwords & attendance"
+                    >
+                      <Users className="w-3.5 h-3.5" />
+                      <span>Open Académie Students List ({students.length}) →</span>
+                    </button>
+                  </div>
+
+                  {/* Actions & Filters */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    {orderCategoryTab !== 'courses' ? (
+                      <div className="flex items-center gap-2 overflow-x-auto pb-1 flex-1">
+                        {['all', 'step1', 'step2', 'step3', 'step4'].map((st) => (
+                          <button
+                            key={st}
+                            onClick={() => setOrderFilter(st)}
+                            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                              orderFilter === st
+                                ? 'bg-[#FF5722] text-white shadow-md'
+                                : 'bg-[#14171E] text-gray-400 hover:text-white'
+                            }`}
+                          >
+                            {st === 'all' && 'All Steps'}
+                            {st === 'step1' && 'Step 1: Placed'}
+                            {st === 'step2' && 'Step 2: Packing'}
+                            {st === 'step3' && 'Step 3: Out for Delivery'}
+                            {st === 'step4' && 'Step 4: Delivered ✓'}
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-xs text-gray-400 flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                        <span>Online Courses are digital access products. Students get instant login credentials and access to masterclasses.</span>
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-3 ml-auto">
                       <div className="relative w-48 sm:w-60">
                         <Search className="w-3.5 h-3.5 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" />
                         <input
@@ -3000,63 +3083,110 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                       <thead>
                         <tr className="border-b border-gray-800 text-gray-400 text-[11px] uppercase tracking-wider">
                           <th className="pb-3 font-semibold">Order ID</th>
-                          <th className="pb-3 font-semibold">Collector</th>
-                          <th className="pb-3 font-semibold">Painting</th>
+                          <th className="pb-3 font-semibold">{orderCategoryTab === 'courses' ? 'Student' : 'Collector'}</th>
+                          <th className="pb-3 font-semibold">{orderCategoryTab === 'courses' ? 'Course / Masterclass' : 'Item / Painting'}</th>
                           <th className="pb-3 font-semibold">Amount</th>
-                          <th className="pb-3 font-semibold">Status / Pipeline</th>
+                          <th className="pb-3 font-semibold">{orderCategoryTab === 'courses' ? 'Course Access Status' : 'Status / Pipeline'}</th>
                           <th className="pb-3 font-semibold text-right">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-800/60">
-                        {filteredOrders.map((ord) => (
-                          <tr key={ord.id} className="hover:bg-gray-900/40 transition-colors">
-                            <td className="py-3.5 font-mono text-gray-300 font-bold">#{ord.id}</td>
-                            <td className="py-3.5">
-                              <div className="font-bold text-white">{ord.customerName}</div>
-                              <div className="text-[11px] text-gray-400">{ord.customerEmail}</div>
-                            </td>
-                            <td className="py-3.5 text-gray-300 font-medium">
-                              {ord.items[0]?.title || 'Fine Art Original'}
-                            </td>
-                            <td className="py-3.5 font-bold text-emerald-400">
-                              ₹{ord.totalAmount.toLocaleString('en-IN')}
-                            </td>
-                            <td className="py-3.5">
-                              <button
-                                onClick={() => advanceOrderStep(ord.id)}
-                                className="px-3 py-1 rounded-xl text-[11px] font-bold border transition-colors cursor-pointer flex items-center gap-1.5 bg-[#181C24] hover:bg-[#202530] border-gray-700 text-white"
-                                title="Click to advance to next step"
-                              >
-                                <span>Step {ord.currentStep}/4:</span>
-                                <span className="text-[#FF5722]">
-                                  {ord.currentStep === 1 && 'Placed → Pack'}
-                                  {ord.currentStep === 2 && 'Packing → Ship'}
-                                  {ord.currentStep === 3 && 'Out for Delivery → Deliver'}
-                                  {ord.currentStep === 4 && 'Delivered ✓'}
-                                </span>
-                              </button>
-                            </td>
-                            <td className="py-3.5 text-right space-x-2">
-                              <button
-                                onClick={() => setSelectedOrderForModal(ord)}
-                                className="px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-200 text-xs font-semibold cursor-pointer"
-                              >
-                                Details
-                              </button>
-                              <button
-                                onClick={() => {
-                                  if (window.confirm(`Delete Order #${ord.id}?`)) {
-                                    deleteOrder(ord.id);
-                                    showToast('Order deleted.');
-                                  }
-                                }}
-                                className="p-1.5 rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-500/10 cursor-pointer"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
+                        {filteredOrders.length === 0 ? (
+                          <tr>
+                            <td colSpan={6} className="py-8 text-center text-gray-500 text-xs">
+                              {orderCategoryTab === 'paintings'
+                                ? 'No physical painting orders yet.'
+                                : orderCategoryTab === 'courses'
+                                ? 'No course orders found.'
+                                : 'No orders found matching your search.'}
                             </td>
                           </tr>
-                        ))}
+                        ) : (
+                          filteredOrders.map((ord) => {
+                            const isCourse = isOrderCourse(ord);
+                            return (
+                              <tr key={ord.id} className="hover:bg-gray-900/40 transition-colors">
+                                <td className="py-3.5 font-mono text-gray-300 font-bold">#{ord.id}</td>
+                                <td className="py-3.5">
+                                  <div className="font-bold text-white">{ord.customerName}</div>
+                                  <div className="text-[11px] text-gray-400 font-mono">{ord.customerEmail}</div>
+                                </td>
+                                <td className="py-3.5 text-gray-300 font-medium">
+                                  <div className="flex items-center gap-2">
+                                    {isCourse ? (
+                                      <span className="bg-red-500/10 text-red-400 border border-red-500/20 text-[10px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wider shrink-0">
+                                        Course
+                                      </span>
+                                    ) : (
+                                      <span className="bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[10px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wider shrink-0">
+                                        Painting
+                                      </span>
+                                    )}
+                                    <span className="truncate max-w-[220px]">{ord.items[0]?.title || 'Fine Art Original'}</span>
+                                  </div>
+                                </td>
+                                <td className="py-3.5 font-bold text-emerald-400">
+                                  ₹{ord.totalAmount.toLocaleString('en-IN')}
+                                </td>
+                                <td className="py-3.5">
+                                  {isCourse ? (
+                                    <div className="flex items-center gap-2">
+                                      <span className="px-3 py-1 rounded-xl text-[11px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5">
+                                        <CheckCircle2 className="w-3.5 h-3.5" />
+                                        <span>Active in Académie ✓</span>
+                                      </span>
+                                      <button
+                                        onClick={() => {
+                                          setAdminMode('academy');
+                                          setAcademyNav('students');
+                                          setStudentSearchQuery(ord.customerEmail || ord.customerName);
+                                        }}
+                                        className="px-2.5 py-1 rounded-xl text-[11px] font-semibold bg-[#181C24] hover:bg-[#202530] text-gray-300 hover:text-white border border-gray-700 flex items-center gap-1 transition-all cursor-pointer"
+                                        title="View in Enrolled Students list"
+                                      >
+                                        <span>Manage Student</span>
+                                        <ArrowUpRight className="w-3 h-3 text-[#FF5722]" />
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <button
+                                      onClick={() => advanceOrderStep(ord.id)}
+                                      className="px-3 py-1 rounded-xl text-[11px] font-bold border transition-colors cursor-pointer flex items-center gap-1.5 bg-[#181C24] hover:bg-[#202530] border-gray-700 text-white"
+                                      title="Click to advance to next step"
+                                    >
+                                      <span>Step {ord.currentStep}/4:</span>
+                                      <span className="text-[#FF5722]">
+                                        {ord.currentStep === 1 && 'Placed → Pack'}
+                                        {ord.currentStep === 2 && 'Packing → Ship'}
+                                        {ord.currentStep === 3 && 'Out for Delivery → Deliver'}
+                                        {ord.currentStep === 4 && 'Delivered ✓'}
+                                      </span>
+                                    </button>
+                                  )}
+                                </td>
+                                <td className="py-3.5 text-right space-x-2">
+                                  <button
+                                    onClick={() => setSelectedOrderForModal(ord)}
+                                    className="px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-200 text-xs font-semibold cursor-pointer"
+                                  >
+                                    Details
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      if (window.confirm(`Delete Order #${ord.id}?`)) {
+                                        deleteOrder(ord.id);
+                                        showToast('Order deleted.');
+                                      }
+                                    }}
+                                    className="p-1.5 rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-500/10 cursor-pointer"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
                       </tbody>
                     </table>
                   </div>
@@ -7144,7 +7274,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
 
             <div className="space-y-3 text-xs bg-[#0C0E12] p-4 rounded-2xl border border-gray-800">
               <div className="flex justify-between">
-                <span className="text-gray-400">Collector:</span>
+                <span className="text-gray-400">{isOrderCourse(selectedOrderForModal) ? 'Student Name:' : 'Collector:'}</span>
                 <span className="font-bold text-white">{selectedOrderForModal.customerName}</span>
               </div>
               <div className="flex justify-between">
@@ -7152,31 +7282,62 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                 <span className="text-gray-300 font-mono">{selectedOrderForModal.customerEmail}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-400">Delivery Address:</span>
-                <span className="text-gray-300">{selectedOrderForModal.deliveryAddress || selectedOrderForModal.customerCity || 'Studio Crating'}</span>
+                <span className="text-gray-400">{isOrderCourse(selectedOrderForModal) ? 'Course Title:' : 'Artwork Purchased:'}</span>
+                <span className="text-gray-200 font-semibold">{selectedOrderForModal.items[0]?.title || 'Fine Art Original'}</span>
               </div>
+              {isOrderCourse(selectedOrderForModal) ? (
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Access Mode:</span>
+                  <span className="text-emerald-400 font-bold">Online Masterclass Access ✓</span>
+                </div>
+              ) : (
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Delivery Address:</span>
+                  <span className="text-gray-300">{selectedOrderForModal.deliveryAddress || selectedOrderForModal.customerCity || 'Studio Crating'}</span>
+                </div>
+              )}
               <div className="flex justify-between pt-2 border-t border-gray-800">
                 <span className="text-gray-400">Total Price:</span>
                 <span className="font-bold text-emerald-400 text-sm">₹{selectedOrderForModal.totalAmount.toLocaleString('en-IN')}</span>
               </div>
             </div>
 
-            {/* Advance Step Action */}
-            <div className="space-y-2 pt-2">
-              <span className="text-xs font-semibold text-gray-400">Pipeline Progression:</span>
-              <button
-                onClick={() => {
-                  advanceOrderStep(selectedOrderForModal.id);
-                  const next = selectedOrderForModal.currentStep < 4 ? selectedOrderForModal.currentStep + 1 : 4;
-                  setSelectedOrderForModal({ ...selectedOrderForModal, currentStep: next as any });
-                  showToast(`Order #${selectedOrderForModal.id} advanced to Step ${next}!`);
-                }}
-                className="w-full py-2.5 rounded-xl bg-[#FF5722] hover:bg-[#e64a19] text-white font-bold text-xs flex items-center justify-center gap-2 cursor-pointer shadow"
-              >
-                <span>Advance to Next Step (Current: Step {selectedOrderForModal.currentStep}/4)</span>
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
+            {/* Advance Step Action or Course Access Action */}
+            {isOrderCourse(selectedOrderForModal) ? (
+              <div className="space-y-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const studentQuery = selectedOrderForModal.customerEmail || selectedOrderForModal.customerName;
+                    setSelectedOrderForModal(null);
+                    setAdminMode('academy');
+                    setAcademyNav('students');
+                    setStudentSearchQuery(studentQuery);
+                  }}
+                  className="w-full py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs flex items-center justify-center gap-2 cursor-pointer shadow"
+                >
+                  <Users className="w-4 h-4" />
+                  <span>Manage Student in Académie (Attendance & Password)</span>
+                  <ArrowUpRight className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2 pt-2">
+                <span className="text-xs font-semibold text-gray-400">Pipeline Progression:</span>
+                <button
+                  onClick={() => {
+                    advanceOrderStep(selectedOrderForModal.id);
+                    const next = selectedOrderForModal.currentStep < 4 ? selectedOrderForModal.currentStep + 1 : 4;
+                    setSelectedOrderForModal({ ...selectedOrderForModal, currentStep: next as any });
+                    showToast(`Order #${selectedOrderForModal.id} advanced to Step ${next}!`);
+                  }}
+                  className="w-full py-2.5 rounded-xl bg-[#FF5722] hover:bg-[#e64a19] text-white font-bold text-xs flex items-center justify-center gap-2 cursor-pointer shadow"
+                >
+                  <span>Advance to Next Step (Current: Step {selectedOrderForModal.currentStep}/4)</span>
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
