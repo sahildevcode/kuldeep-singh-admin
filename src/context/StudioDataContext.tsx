@@ -275,7 +275,7 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   // 9. Upcoming Courses State
   const [upcomingCourses, setUpcomingCourses] = useState<UpcomingCourse[]>(() => {
     try {
-      const saved = localStorage.getItem('kuldeep_studio_upcoming_courses');
+      const saved = localStorage.getItem('kuldeep_studio_upcoming_courses_v2');
       return saved ? JSON.parse(saved) : INITIAL_UPCOMING_COURSES;
     } catch {
       return INITIAL_UPCOMING_COURSES;
@@ -284,7 +284,7 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   useEffect(() => {
     try {
-      localStorage.setItem('kuldeep_studio_upcoming_courses', JSON.stringify(upcomingCourses));
+      localStorage.setItem('kuldeep_studio_upcoming_courses_v2', JSON.stringify(upcomingCourses));
     } catch (e) {
       console.error(e);
     }
@@ -443,7 +443,7 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             if (upRes.ok) {
               const upData = await upRes.json();
               const list = upData?.upcomingCourses || (Array.isArray(upData) ? upData : null);
-              if (Array.isArray(list) && isMounted && list.length > 0) {
+              if (Array.isArray(list) && isMounted) {
                 setUpcomingCourses(list);
                 break;
               }
