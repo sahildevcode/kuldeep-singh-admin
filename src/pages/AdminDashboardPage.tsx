@@ -656,11 +656,11 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
   // =========================================================
   const [heroType, setHeroType] = useState<'painting' | 'video'>(() => artistProfile?.heroShowcaseType || 'video');
   const [heroBadge, setHeroBadge] = useState<string>(() => artistProfile?.heroShowcaseBadge || 'Featured Canvas');
-  const [heroTitle, setHeroTitle] = useState<string>(() => artistProfile?.heroShowcaseTitle || 'Symphony of the Solitary Tide');
+  const [heroTitle, setHeroTitle] = useState<string>(() => artistProfile?.heroShowcaseTitle || 'Art That Transforms Spaces Into Stories');
   const [heroSubtitle, setHeroSubtitle] = useState<string>(() => artistProfile?.heroShowcaseSubtitle || 'Original Oil on Belgian Linen (40 x 54 in)');
   const [heroPrice, setHeroPrice] = useState<string>(() => artistProfile?.heroShowcasePrice || '₹4,12,250');
   const [heroImage, setHeroImage] = useState<string>(() => artistProfile?.heroShowcaseImage || 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=800&auto=format&fit=crop');
-  const [heroVideoUrl, setHeroVideoUrl] = useState<string>(() => artistProfile?.heroShowcaseVideoUrl || artistProfile?.studioVideoUrl || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4');
+  const [heroVideoUrl, setHeroVideoUrl] = useState<string>(() => artistProfile?.heroShowcaseVideoUrl || artistProfile?.studioVideoUrl || '/videos/hero-cinematic.mp4');
   const [heroCert, setHeroCert] = useState<string>(() => artistProfile?.heroShowcaseCertificateText || 'Archival Certificate');
   const [heroArtworkId, setHeroArtworkId] = useState<string>(() => artistProfile?.heroShowcaseArtworkId || '');
   const [isSavingHero, setIsSavingHero] = useState(false);
