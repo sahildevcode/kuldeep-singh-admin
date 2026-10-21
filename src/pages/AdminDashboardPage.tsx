@@ -1417,17 +1417,29 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
     images: string[];
     liveClassUrl: string;
     summary: string;
+    whatYouWillLearn: string[];
+    materialsNeeded: string[];
   }>({
     title: '',
     startDate: '22 Oct, 2026',
     schedule: 'Saturday & Sunday • 6:00 PM – 8:00 PM IST',
     price: 9999,
-    durationMonths: '2 Months',
+    durationMonths: '1 Month',
     maxSeats: 25,
     thumbnail: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=1400&auto=format&fit=crop',
     images: ['https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=1400&auto=format&fit=crop'],
     liveClassUrl: 'https://meet.google.com/ks-studio-atelier',
-    summary: 'Direct atelier mentorship, live easel demonstration and critique with Artist Kuldeep Singh.'
+    summary: 'Direct atelier mentorship, live easel demonstration and critique with Artist Kuldeep Singh.',
+    whatYouWillLearn: [
+      'Live Real-Time Easel Demonstrations',
+      'Direct 1-on-1 Critique & Q&A Rooms',
+      'Permanent Access to HD Class Recordings & Archives'
+    ],
+    materialsNeeded: [
+      'Linseed Oil & Turpentine',
+      'Raw Pigments & Oil Paints',
+      'Belgian Stretched Linen'
+    ]
   });
 
   const STANDARD_CATEGORIES = [
@@ -1448,12 +1460,22 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
       startDate: '22 Oct, 2026',
       schedule: 'Saturday & Sunday • 6:00 PM – 8:00 PM IST',
       price: 9999,
-      durationMonths: '2 Months',
+      durationMonths: '1 Month',
       maxSeats: 25,
       thumbnail: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=1400&auto=format&fit=crop',
       images: ['https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=1400&auto=format&fit=crop'],
       liveClassUrl: 'https://meet.google.com/ks-studio-atelier',
-      summary: 'Direct atelier mentorship, live easel demonstration and critique with Artist Kuldeep Singh.'
+      summary: 'Direct atelier mentorship, live easel demonstration and critique with Artist Kuldeep Singh.',
+      whatYouWillLearn: [
+        'Live Real-Time Easel Demonstrations',
+        'Direct 1-on-1 Critique & Q&A Rooms',
+        'Permanent Access to HD Class Recordings & Archives'
+      ],
+      materialsNeeded: [
+        'Linseed Oil & Turpentine',
+        'Raw Pigments & Oil Paints',
+        'Belgian Stretched Linen'
+      ]
     });
     setIsNewBatchModalOpen(true);
   };
@@ -1476,12 +1498,26 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
       startDate: course.startDate || '22 Oct, 2026',
       schedule: course.schedule || 'Saturday & Sunday • 6:00 PM – 8:00 PM IST',
       price: course.price,
-      durationMonths: course.durationMonths || '2 Months',
+      durationMonths: course.durationMonths || '1 Month',
       maxSeats: 25,
       thumbnail: rawImages[0] || course.thumbnail || '',
       images: rawImages,
       liveClassUrl: course.liveClassUrl || 'https://meet.google.com/ks-studio-atelier',
-      summary: course.summary || course.description || ''
+      summary: course.summary || course.description || '',
+      whatYouWillLearn: Array.isArray(course.whatYouWillLearn) && course.whatYouWillLearn.length > 0
+        ? [...course.whatYouWillLearn]
+        : [
+            'Live Real-Time Easel Demonstrations',
+            'Direct 1-on-1 Critique & Q&A Rooms',
+            'Permanent Access to HD Class Recordings & Archives'
+          ],
+      materialsNeeded: Array.isArray(course.materialsNeeded) && course.materialsNeeded.length > 0
+        ? [...course.materialsNeeded]
+        : [
+            'Linseed Oil & Turpentine',
+            'Raw Pigments & Oil Paints',
+            'Belgian Stretched Linen'
+          ]
     });
     setIsNewBatchModalOpen(true);
   };
@@ -1610,6 +1646,13 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
       : (newBatchForm.thumbnail ? [newBatchForm.thumbnail] : []);
     const primaryThumbnail = finalImages[0] || newBatchForm.thumbnail || 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=1400&auto=format&fit=crop';
 
+    const cleanWhatYouWillLearn = (newBatchForm.whatYouWillLearn || [])
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const cleanMaterialsNeeded = (newBatchForm.materialsNeeded || [])
+      .map((s) => s.trim())
+      .filter(Boolean);
+
     if (courseToEdit) {
       updateCourse(courseToEdit.id, {
         title: newBatchForm.title,
@@ -1622,7 +1665,17 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
         images: finalImages,
         liveClassUrl: newBatchForm.liveClassUrl,
         summary: newBatchForm.summary,
-        description: newBatchForm.summary
+        description: newBatchForm.summary,
+        whatYouWillLearn: cleanWhatYouWillLearn.length > 0 ? cleanWhatYouWillLearn : [
+          'Live Real-Time Easel Demonstrations',
+          'Direct 1-on-1 Critique & Q&A Rooms',
+          'Permanent Access to HD Class Recordings & Archives'
+        ],
+        materialsNeeded: cleanMaterialsNeeded.length > 0 ? cleanMaterialsNeeded : [
+          'Linseed Oil & Turpentine',
+          'Raw Pigments & Oil Paints',
+          'Belgian Stretched Linen'
+        ]
       });
       showToast(`Batch "${newBatchForm.title}" updated successfully!`);
       setCourseToEdit(null);
@@ -1649,12 +1702,16 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
         images: finalImages,
         summary: newBatchForm.summary,
         description: newBatchForm.summary,
-        whatYouWillLearn: [
+        whatYouWillLearn: cleanWhatYouWillLearn.length > 0 ? cleanWhatYouWillLearn : [
           'Live Real-Time Easel Demonstrations',
           'Direct 1-on-1 Critique & Q&A Rooms',
           'Permanent Access to HD Class Recordings & Archives'
         ],
-        materialsNeeded: ['Linseed Oil & Turpentine', 'Raw Pigments & Oil Paints', 'Belgian Stretched Linen'],
+        materialsNeeded: cleanMaterialsNeeded.length > 0 ? cleanMaterialsNeeded : [
+          'Linseed Oil & Turpentine',
+          'Raw Pigments & Oil Paints',
+          'Belgian Stretched Linen'
+        ],
         modules: [
           {
             id: `mod-${Date.now()}-1`,
@@ -5406,7 +5463,19 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-gray-300 mb-1.5 font-semibold">Duration * (e.g. 1 Month, 2 Months)</label>
+                  <input
+                    type="text"
+                    required
+                    value={newBatchForm.durationMonths}
+                    onChange={(e) => setNewBatchForm({ ...newBatchForm, durationMonths: e.target.value })}
+                    className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-[#FF5722]"
+                    placeholder="e.g. 1 Month"
+                  />
+                </div>
+
                 <div>
                   <label className="block text-gray-300 mb-1.5 font-semibold">Tuition Fee (₹ INR) *</label>
                   <input
@@ -5443,13 +5512,127 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
               </div>
 
               <div>
-                <label className="block text-gray-300 mb-1.5 font-semibold">Syllabus Overview</label>
+                <label className="block text-gray-300 mb-1.5 font-semibold">Syllabus Overview / Description</label>
                 <textarea
                   rows={2}
                   value={newBatchForm.summary}
                   onChange={(e) => setNewBatchForm({ ...newBatchForm, summary: e.target.value })}
                   className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2 text-white focus:outline-none focus:border-[#FF5722]"
                 />
+              </div>
+
+              {/* What You Will Master Section */}
+              <div className="space-y-3 bg-[#181C24]/80 border border-[#242A36] rounded-2xl p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="text-gray-300 font-semibold flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-amber-400" />
+                      <span>What You Will Master ({newBatchForm.whatYouWillLearn?.length || 0} Points)</span>
+                    </label>
+                    <span className="text-[11px] text-gray-400">
+                      Key bullet points shown with checkmarks on the course page
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setNewBatchForm({
+                      ...newBatchForm,
+                      whatYouWillLearn: [...(newBatchForm.whatYouWillLearn || []), '']
+                    })}
+                    className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-amber-400 hover:text-white rounded-xl text-xs font-semibold cursor-pointer border border-gray-700 flex items-center gap-1.5 transition-all"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>+ Add Point</span>
+                  </button>
+                </div>
+
+                <div className="space-y-2 mt-2">
+                  {(newBatchForm.whatYouWillLearn || []).map((point, pIdx) => (
+                    <div key={pIdx} className="flex items-center gap-2">
+                      <span className="w-6 text-center text-gray-500 font-mono text-[11px]">{pIdx + 1}.</span>
+                      <input
+                        type="text"
+                        value={point}
+                        onChange={(e) => {
+                          const next = [...(newBatchForm.whatYouWillLearn || [])];
+                          next[pIdx] = e.target.value;
+                          setNewBatchForm({ ...newBatchForm, whatYouWillLearn: next });
+                        }}
+                        placeholder="e.g. Live Real-Time Easel Demonstrations"
+                        className="flex-1 bg-[#12141A] border border-[#242A36] rounded-xl px-3 py-2 text-white text-xs placeholder-gray-500 focus:outline-none focus:border-[#FF5722]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const next = (newBatchForm.whatYouWillLearn || []).filter((_, i) => i !== pIdx);
+                          setNewBatchForm({ ...newBatchForm, whatYouWillLearn: next });
+                        }}
+                        disabled={(newBatchForm.whatYouWillLearn?.length || 0) <= 1}
+                        className="p-2 text-gray-400 hover:text-red-400 disabled:opacity-30 cursor-pointer rounded-lg hover:bg-red-500/10 transition-colors"
+                        title="Delete Point"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Materials & Equipment Needed Section */}
+              <div className="space-y-3 bg-[#181C24]/80 border border-[#242A36] rounded-2xl p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="text-gray-300 font-semibold flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                      <span>Materials & Equipment Needed ({newBatchForm.materialsNeeded?.length || 0} Items)</span>
+                    </label>
+                    <span className="text-[11px] text-gray-400">
+                      Tools & pigments students need for this course
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setNewBatchForm({
+                      ...newBatchForm,
+                      materialsNeeded: [...(newBatchForm.materialsNeeded || []), '']
+                    })}
+                    className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-emerald-400 hover:text-white rounded-xl text-xs font-semibold cursor-pointer border border-gray-700 flex items-center gap-1.5 transition-all"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>+ Add Material</span>
+                  </button>
+                </div>
+
+                <div className="space-y-2 mt-2">
+                  {(newBatchForm.materialsNeeded || []).map((mat, mIdx) => (
+                    <div key={mIdx} className="flex items-center gap-2">
+                      <span className="w-6 text-center text-gray-500 font-mono text-[11px]">•</span>
+                      <input
+                        type="text"
+                        value={mat}
+                        onChange={(e) => {
+                          const next = [...(newBatchForm.materialsNeeded || [])];
+                          next[mIdx] = e.target.value;
+                          setNewBatchForm({ ...newBatchForm, materialsNeeded: next });
+                        }}
+                        placeholder="e.g. Belgian Stretched Linen, Raw Pigments"
+                        className="flex-1 bg-[#12141A] border border-[#242A36] rounded-xl px-3 py-2 text-white text-xs placeholder-gray-500 focus:outline-none focus:border-[#FF5722]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const next = (newBatchForm.materialsNeeded || []).filter((_, i) => i !== mIdx);
+                          setNewBatchForm({ ...newBatchForm, materialsNeeded: next });
+                        }}
+                        disabled={(newBatchForm.materialsNeeded?.length || 0) <= 1}
+                        className="p-2 text-gray-400 hover:text-red-400 disabled:opacity-30 cursor-pointer rounded-lg hover:bg-red-500/10 transition-colors"
+                        title="Delete Material"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               </div>
