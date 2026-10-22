@@ -58,10 +58,10 @@ export const DEFAULT_PROMO_CODES: PromoCode[] = [
 ];
 
 export const DEFAULT_DELIVERY_SETTINGS: StoreDeliverySettings = {
-  deliveryFee: 180,
-  freeDeliveryThreshold: 3000,
+  deliveryFee: 0,
+  freeDeliveryThreshold: 0,
   deliveryLabel: 'Insured Fine Art Delivery',
-  isEnabled: true
+  isEnabled: false
 };
 
 const DEFAULT_PROFILE: ArtistProfile = {
