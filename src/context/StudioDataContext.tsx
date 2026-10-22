@@ -186,7 +186,17 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [artworks, setArtworks] = useState<Artwork[]>(() => {
     try {
       const saved = localStorage.getItem('kuldeep_studio_artworks');
-      return saved ? JSON.parse(saved) : ARTWORKS;
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          const seedMap: Record<string, number> = {
+            'art-01': 412250, 'art-02': 331500, 'art-03': 165750, 'art-04': 476000, 'art-05': 123250,
+            'art-06': 55250, 'art-07': 289000, 'art-08': 136000, 'art-09': 38250, 'art-10': 44200
+          };
+          return parsed.map((a: any) => (seedMap[a.id] && a.price < 10000 ? { ...a, price: seedMap[a.id] } : a));
+        }
+      }
+      return ARTWORKS;
     } catch {
       return ARTWORKS;
     }

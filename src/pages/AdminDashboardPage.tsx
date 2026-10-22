@@ -1422,7 +1422,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
         year: Number(newArtworkForm.year) || 2026,
         medium: (newArtworkForm.medium as MediumType) || 'Oil on Canvas',
         dimensions: newArtworkForm.dimensions?.trim() || '36 x 48 in (91 x 122 cm)',
-        price: Number(newArtworkForm.price) || 95000,
+        price: newArtworkForm.price !== undefined && !isNaN(Number(newArtworkForm.price)) ? Number(newArtworkForm.price) : 95000,
         image: primaryImage,
         detailImages: detailImages,
         description: newArtworkForm.description?.trim() || '',
@@ -3378,7 +3378,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
 
                           <div className="pt-3 border-t border-gray-800 flex items-center justify-between">
                             <span className="font-serif font-bold text-lg text-emerald-400">
-                              ₹{(art.price >= 10000 ? art.price : Math.round(art.price * 85)).toLocaleString('en-IN')}
+                              ₹{art.price.toLocaleString('en-IN')}
                             </span>
                             <div className="flex items-center gap-2">
                               <button
