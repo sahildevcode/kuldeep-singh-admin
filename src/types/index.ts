@@ -290,4 +290,21 @@ export interface UpcomingCourse {
   isActive: boolean;
 }
 
+export interface PromoCode {
+  id: string;
+  code: string;
+  discountType: 'percentage' | 'fixed';
+  discountValue: number;
+  minOrderAmount?: number;
+  isActive: boolean;
+  description?: string;
+}
+
+export interface StoreDeliverySettings {
+  deliveryFee: number;
+  freeDeliveryThreshold: number;
+  deliveryLabel: string;
+  isEnabled: boolean;
+}
+
 

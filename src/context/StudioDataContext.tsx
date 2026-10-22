@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import type { Artwork, Course, CourseModule, CourseLecture, ArtistProfile, AchievementTimelineItem, Award, EnrolledStudent, RegisteredUser, Inquiry, UpcomingCourse, CollectorReview } from '../types';
+import type { PromoCode, StoreDeliverySettings, Artwork, Course, CourseModule, CourseLecture, ArtistProfile, AchievementTimelineItem, Award, EnrolledStudent, RegisteredUser, Inquiry, UpcomingCourse, CollectorReview } from '../types';
 import { ARTWORKS } from '../data/artworks';
 import { COURSES } from '../data/courses';
 import { TIMELINE, AWARDS } from '../data/achievements';
@@ -24,6 +24,44 @@ export const deleteBunnyVideo = async (videoUrlOrId: string) => {
       // try next
     }
   }
+};
+
+
+export const DEFAULT_PROMO_CODES: PromoCode[] = [
+  {
+    id: 'promo-1',
+    code: 'ARTISAN15',
+    discountType: 'percentage',
+    discountValue: 15,
+    minOrderAmount: 0,
+    isActive: true,
+    description: '15% Off on Atelier Artworks & Prints'
+  },
+  {
+    id: 'promo-2',
+    code: 'KULDEEP15',
+    discountType: 'percentage',
+    discountValue: 15,
+    minOrderAmount: 0,
+    isActive: true,
+    description: '15% Collector Welcome Discount'
+  },
+  {
+    id: 'promo-3',
+    code: 'VIP20',
+    discountType: 'percentage',
+    discountValue: 20,
+    minOrderAmount: 500,
+    isActive: true,
+    description: '20% VIP Patron Discount'
+  }
+];
+
+export const DEFAULT_DELIVERY_SETTINGS: StoreDeliverySettings = {
+  deliveryFee: 180,
+  freeDeliveryThreshold: 3000,
+  deliveryLabel: 'Insured Fine Art Delivery',
+  isEnabled: true
 };
 
 const DEFAULT_PROFILE: ArtistProfile = {
@@ -128,6 +166,13 @@ interface StudioDataContextType {
   addReview: (review: CollectorReview) => void;
   updateReview: (id: string, updates: Partial<CollectorReview>) => void;
   deleteReview: (id: string) => void;
+  // Promos & Delivery
+  promoCodes: PromoCode[];
+  deliverySettings: StoreDeliverySettings;
+  addPromoCode: (promo: PromoCode) => void;
+  updatePromoCode: (id: string, updates: Partial<PromoCode>) => void;
+  deletePromoCode: (id: string) => void;
+  updateDeliverySettings: (updates: Partial<StoreDeliverySettings>) => void;
   // Paintings CRUD
   addArtwork: (artwork: Artwork) => void;
   updateArtwork: (id: string, updates: Partial<Artwork>) => void;
@@ -180,6 +225,54 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         };
       })
     }));
+  };
+
+  // Promos State
+  const [promoCodes, setPromoCodes] = useState<PromoCode[]>(() => {
+    try {
+      const saved = localStorage.getItem('kuldeep_studio_promos');
+      return saved ? JSON.parse(saved) : DEFAULT_PROMO_CODES;
+    } catch {
+      return DEFAULT_PROMO_CODES;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('kuldeep_studio_promos', JSON.stringify(promoCodes));
+    } catch {}
+  }, [promoCodes]);
+
+  // Delivery Settings State
+  const [deliverySettings, setDeliverySettings] = useState<StoreDeliverySettings>(() => {
+    try {
+      const saved = localStorage.getItem('kuldeep_studio_delivery');
+      return saved ? JSON.parse(saved) : DEFAULT_DELIVERY_SETTINGS;
+    } catch {
+      return DEFAULT_DELIVERY_SETTINGS;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('kuldeep_studio_delivery', JSON.stringify(deliverySettings));
+    } catch {}
+  }, [deliverySettings]);
+
+  const addPromoCode = (promo: PromoCode) => {
+    setPromoCodes((prev) => [promo, ...prev]);
+  };
+
+  const updatePromoCode = (id: string, updates: Partial<PromoCode>) => {
+    setPromoCodes((prev) => prev.map((p) => (p.id === id ? { ...p, ...updates } : p)));
+  };
+
+  const deletePromoCode = (id: string) => {
+    setPromoCodes((prev) => prev.filter((p) => p.id !== id));
+  };
+
+  const updateDeliverySettings = (updates: Partial<StoreDeliverySettings>) => {
+    setDeliverySettings((prev) => ({ ...prev, ...updates }));
   };
 
   // 1. Artworks State
@@ -1547,6 +1640,12 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         addReview,
         updateReview,
         deleteReview,
+        promoCodes,
+        deliverySettings,
+        addPromoCode,
+        updatePromoCode,
+        deletePromoCode,
+        updateDeliverySettings,
         addArtwork,
         updateArtwork,
         deleteArtwork,

@@ -42,13 +42,15 @@ import {
   Flame,
   Quote,
   Save,
-  ArrowUpRight
+  ArrowUpRight,
+  Tag,
+  Truck,
 } from 'lucide-react';
 import * as tus from 'tus-js-client';
 import { useStudioData, getBackendUrls, deleteBunnyVideo } from '../context/StudioDataContext';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
-import type { Artwork, MediumType, OrderRecord, Course, CourseLecture, EnrolledStudent, StudioReel, RegisteredUser, UpcomingCourse, CollectorReview } from '../types';
+import type { PromoCode, Artwork, MediumType, OrderRecord, Course, CourseLecture, EnrolledStudent, StudioReel, RegisteredUser, UpcomingCourse, CollectorReview } from '../types';
 
 const DEFAULT_STUDIO_REELS: StudioReel[] = [
   {
@@ -153,6 +155,12 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
     addUpcomingCourse,
     updateUpcomingCourse,
     deleteUpcomingCourse,
+    promoCodes,
+    deliverySettings,
+    addPromoCode,
+    updatePromoCode,
+    deletePromoCode,
+    updateDeliverySettings,
     reviews,
     addReview,
     updateReview,
@@ -180,7 +188,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
   });
 
   // Sub-Navigation for Mode 1: Art Gallery & Sales
-  const [galleryNav, setGalleryNav] = useState<'orders' | 'artworks' | 'hero' | 'inquiries' | 'analytics' | 'settings' | 'video' | 'testimonials'>(() => {
+  const [galleryNav, setGalleryNav] = useState<'orders' | 'artworks' | 'hero' | 'inquiries' | 'analytics' | 'settings' | 'video' | 'testimonials' | 'promos'>(() => {
     try {
       const saved = localStorage.getItem('ks_admin_gallery_nav');
       if (saved === 'orders' || saved === 'artworks' || saved === 'hero' || saved === 'inquiries' || saved === 'analytics' || saved === 'settings' || saved === 'video' || saved === 'testimonials') return saved as any;
@@ -235,6 +243,329 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
   };
 
   // =========================================================
+  // PROMOS & DELIVERY SETTINGS STATE
+  const [isAddPromoModalOpen, setIsAddPromoModalOpen] = useState(false);
+  const [promoToEdit, setPromoToEdit] = useState<PromoCode | null>(null);
+  const [promoForm, setPromoForm] = useState<Partial<PromoCode>>({
+    code: '',
+    discountType: 'percentage',
+    discountValue: 15,
+    minOrderAmount: 0,
+    isActive: true,
+    description: ''
+  });
+
+  const [deliveryFeeForm, setDeliveryFeeForm] = useState<number>(() => deliverySettings?.deliveryFee ?? 180);
+  const [freeThresholdForm, setFreeThresholdForm] = useState<number>(() => deliverySettings?.freeDeliveryThreshold ?? 3000);
+  const [deliveryLabelForm, setDeliveryLabelForm] = useState<string>(() => deliverySettings?.deliveryLabel || 'Insured Fine Art Delivery');
+  const [isDeliveryEnabledForm, setIsDeliveryEnabledForm] = useState<boolean>(() => deliverySettings?.isEnabled ?? true);
+
+  // Sync delivery form when deliverySettings updates from cloud/storage
+  useEffect(() => {
+    if (deliverySettings) {
+      setDeliveryFeeForm(deliverySettings.deliveryFee ?? 180);
+      setFreeThresholdForm(deliverySettings.freeDeliveryThreshold ?? 3000);
+      setDeliveryLabelForm(deliverySettings.deliveryLabel || 'Insured Fine Art Delivery');
+      setIsDeliveryEnabledForm(deliverySettings.isEnabled ?? true);
+    }
+  }, [deliverySettings]);
+
+  const handleSaveDeliverySettings = (e: React.FormEvent) => {
+    e.preventDefault();
+    updateDeliverySettings({
+      deliveryFee: Number(deliveryFeeForm),
+      freeDeliveryThreshold: Number(freeThresholdForm),
+      deliveryLabel: deliveryLabelForm.trim() || 'Insured Fine Art Delivery',
+      isEnabled: isDeliveryEnabledForm
+    });
+    showToast('Insured Delivery settings updated successfully!');
+  };
+
+  const handleSavePromo = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!promoForm.code?.trim()) {
+      showToast('Please enter a valid coupon code');
+      return;
+    }
+    const cleanCode = promoForm.code.trim().toUpperCase();
+
+    if (promoToEdit) {
+      updatePromoCode(promoToEdit.id, {
+        code: cleanCode,
+        discountType: promoForm.discountType || 'percentage',
+        discountValue: Number(promoForm.discountValue) || 10,
+        minOrderAmount: Number(promoForm.minOrderAmount) || 0,
+        isActive: promoForm.isActive !== false,
+        description: promoForm.description?.trim() || ''
+      });
+      showToast(`Promo code "${cleanCode}" updated successfully!`);
+    } else {
+      const newPromo: PromoCode = {
+        id: 'promo-' + Date.now(),
+        code: cleanCode,
+        discountType: promoForm.discountType || 'percentage',
+        discountValue: Number(promoForm.discountValue) || 10,
+        minOrderAmount: Number(promoForm.minOrderAmount) || 0,
+        isActive: promoForm.isActive !== false,
+        description: promoForm.description?.trim() || ''
+      };
+      addPromoCode(newPromo);
+      showToast(`Promo code "${cleanCode}" created!`);
+    }
+    setIsAddPromoModalOpen(false);
+    setPromoToEdit(null);
+  };
+
+
+  const renderPromosAndDeliveryTabContent = () => (
+    <div className="space-y-8 animate-fade-in">
+      {/* Top Banner Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-gray-800">
+        <div>
+          <h2 className="text-xl sm:text-2xl font-serif font-bold text-white flex items-center gap-2.5">
+            <Tag className="w-6 h-6 text-[#FF5722]" />
+            <span>Store Promo Codes & Fine Art Delivery Settings</span>
+          </h2>
+          <p className="text-xs text-gray-400 mt-1">
+            Configure collector coupon discounts and set insured delivery shipping rules in real time
+          </p>
+        </div>
+        <button
+          onClick={() => {
+            setPromoToEdit(null);
+            setPromoForm({
+              code: '',
+              discountType: 'percentage',
+              discountValue: 15,
+              minOrderAmount: 0,
+              isActive: true,
+              description: ''
+            });
+            setIsAddPromoModalOpen(true);
+          }}
+          className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#FF5722] to-[#FF7A45] hover:opacity-95 text-white font-bold text-xs flex items-center gap-2 cursor-pointer shadow-lg shrink-0"
+        >
+          <Plus className="w-4 h-4" />
+          <span>+ Create New Promo Code</span>
+        </button>
+      </div>
+
+      {/* SECTION 1: INSURED FINE ART DELIVERY CONTROL CARD */}
+      <div className="bg-[#14171E] border border-[#242A36] rounded-3xl p-6 sm:p-8 shadow-xl relative overflow-hidden">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-gray-800">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-2xl bg-blue-500/15 text-blue-400 flex items-center justify-center shrink-0">
+              <Truck className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold font-serif text-white">Insured Fine Art Delivery Controls</h3>
+              <p className="text-xs text-gray-400">Set shipping rates, complimentary order thresholds & display label</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 bg-[#1A1E27] px-4 py-2 rounded-2xl border border-gray-800">
+            <span className="text-xs font-semibold text-gray-300">Delivery Status:</span>
+            <button
+              type="button"
+              onClick={() => setIsDeliveryEnabledForm(!isDeliveryEnabledForm)}
+              className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                isDeliveryEnabledForm
+                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                  : 'bg-red-500/20 text-red-400 border border-red-500/30'
+              }`}
+            >
+              {isDeliveryEnabledForm ? 'Active (Charged / Free Threshold)' : 'Disabled (Always Complimentary)'}
+            </button>
+          </div>
+        </div>
+
+        <form onSubmit={handleSaveDeliverySettings} className="mt-6 space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div>
+              <label className="block text-xs font-semibold text-gray-300 mb-2">
+                Standard Delivery Fee (INR ₹)
+              </label>
+              <div className="relative">
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 font-bold text-sm">₹</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  required
+                  value={deliveryFeeForm}
+                  onChange={(e) => setDeliveryFeeForm(Number(e.target.value))}
+                  placeholder="e.g. 180"
+                  className="w-full bg-[#181C24] border border-[#242A36] rounded-xl pl-8 pr-3.5 py-2.5 text-white font-semibold text-sm focus:outline-none focus:border-[#FF5722]"
+                />
+              </div>
+              <p className="text-[11px] text-gray-500 mt-1">Default fee charged when subtotal is below the free threshold.</p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-300 mb-2">
+                Complimentary (Free) Delivery Above (INR ₹)
+              </label>
+              <div className="relative">
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 font-bold text-sm">₹</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  required
+                  value={freeThresholdForm}
+                  onChange={(e) => setFreeThresholdForm(Number(e.target.value))}
+                  placeholder="e.g. 3000"
+                  className="w-full bg-[#181C24] border border-[#242A36] rounded-xl pl-8 pr-3.5 py-2.5 text-white font-semibold text-sm focus:outline-none focus:border-[#FF5722]"
+                />
+              </div>
+              <p className="text-[11px] text-gray-500 mt-1">Orders reaching this value get ₹0 complimentary delivery (Set 0 for always free).</p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-300 mb-2">
+                Delivery Label (Cart & Checkout)
+              </label>
+              <input
+                type="text"
+                required
+                value={deliveryLabelForm}
+                onChange={(e) => setDeliveryLabelForm(e.target.value)}
+                placeholder="Insured Fine Art Delivery"
+                className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white font-medium text-sm focus:outline-none focus:border-[#FF5722]"
+              />
+              <p className="text-[11px] text-gray-500 mt-1">Text displayed beside the delivery fee on the buyer cart.</p>
+            </div>
+          </div>
+
+          {/* Real-time Simulator Preview */}
+          <div className="p-4 rounded-2xl bg-[#161922] border border-[#252B38] flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs">
+            <div className="space-y-1">
+              <span className="text-[10px] text-gray-400 uppercase font-bold tracking-wider block">Live Cart Behavior Simulator</span>
+              <div className="text-gray-300">
+                {isDeliveryEnabledForm ? (
+                  <span>
+                    Cart below ₹{freeThresholdForm.toLocaleString('en-IN')}: <strong className="text-white">₹{deliveryFeeForm} {deliveryLabelForm}</strong>.
+                    Cart ₹{freeThresholdForm.toLocaleString('en-IN')}+: <strong className="text-emerald-400">Complimentary (₹0)</strong>.
+                  </span>
+                ) : (
+                  <span className="text-emerald-400 font-bold">Complimentary Delivery on all orders (Delivery Fee is Disabled)</span>
+                )}
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:opacity-95 text-white rounded-xl text-xs font-bold shadow cursor-pointer shrink-0"
+            >
+              Save Delivery Settings
+            </button>
+          </div>
+        </form>
+      </div>
+
+      {/* SECTION 2: PROMO CODES LIST */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <h3 className="text-lg font-bold font-serif text-white">Active Promo Codes & Vouchers</h3>
+            <span className="bg-[#242934] text-gray-300 text-xs px-2.5 py-0.5 rounded-full font-bold">
+              {promoCodes ? promoCodes.length : 0} Total
+            </span>
+          </div>
+        </div>
+
+        {(!promoCodes || promoCodes.length === 0) ? (
+          <div className="p-12 text-center bg-[#14171E] rounded-3xl border border-[#242A36] text-gray-400 text-xs">
+            No promo codes configured. Click &quot;+ Create New Promo Code&quot; to add your first discount coupon.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {promoCodes.map((promo) => (
+              <div
+                key={promo.id}
+                className={`bg-[#14171E] border rounded-2xl p-5 space-y-3 transition-all relative ${
+                  promo.isActive ? 'border-[#242A36] hover:border-gray-700' : 'border-gray-800 opacity-60'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="px-3 py-1 bg-amber-500/15 border border-amber-500/30 text-amber-400 font-mono font-bold text-sm rounded-xl tracking-wider">
+                    {promo.code}
+                  </span>
+                  <span
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
+                      promo.isActive
+                        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                        : 'bg-gray-800 text-gray-400'
+                    }`}
+                  >
+                    {promo.isActive ? 'Active' : 'Paused'}
+                  </span>
+                </div>
+
+                <div className="pt-2 border-t border-gray-800/80">
+                  <div className="text-xl font-bold font-serif text-white">
+                    {promo.discountType === 'percentage' ? `${promo.discountValue}% OFF` : `₹${promo.discountValue} OFF`}
+                  </div>
+                  {promo.description && (
+                    <p className="text-xs text-gray-400 mt-1 line-clamp-2">{promo.description}</p>
+                  )}
+                  <div className="text-[11px] text-gray-500 mt-2">
+                    {promo.minOrderAmount && promo.minOrderAmount > 0 ? (
+                      <span>Min Order: ₹{promo.minOrderAmount.toLocaleString('en-IN')}</span>
+                    ) : (
+                      <span>No Minimum Order</span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="pt-3 border-t border-gray-800/80 flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      updatePromoCode(promo.id, { isActive: !promo.isActive });
+                      showToast(`Promo ${promo.code} ${promo.isActive ? 'paused' : 'activated'}!`);
+                    }}
+                    className="text-xs font-semibold text-gray-400 hover:text-white cursor-pointer"
+                  >
+                    {promo.isActive ? 'Pause Code' : 'Activate Code'}
+                  </button>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPromoToEdit(promo);
+                        setPromoForm({ ...promo });
+                        setIsAddPromoModalOpen(true);
+                      }}
+                      className="p-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white cursor-pointer"
+                      title="Edit Promo"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (window.confirm(`Delete promo code "${promo.code}"?`)) {
+                          deletePromoCode(promo.id);
+                          showToast(`Promo code ${promo.code} deleted`);
+                        }
+                      }}
+                      className="p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 cursor-pointer"
+                      title="Delete Promo"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
   // SIDE A: ARTWORKS & ORDERS STATE & HANDLERS
   // =========================================================
   const [orderFilter, setOrderFilter] = useState<string>('all');
@@ -4581,6 +4912,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
 
               {/* TESTIMONIALS & REVIEWS TAB (Gallery Console) */}
               {galleryNav === 'testimonials' && renderTestimonialsTabContent()}
+              {galleryNav === 'promos' && renderPromosAndDeliveryTabContent()}
             </div>
           )}
 
@@ -6896,13 +7228,139 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
         </div>
       )}
 
+      
+      {/* MODAL: ADD / EDIT PROMO CODE */}
+      {isAddPromoModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md animate-fade-in">
+          <div className="bg-[#14171E] border border-[#242A36] rounded-3xl w-full max-w-md shadow-2xl relative text-white flex flex-col max-h-[92vh] overflow-hidden my-auto">
+            <div className="flex items-center justify-between p-5 sm:p-6 pb-4 border-b border-gray-800 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-500/15 text-amber-400 flex items-center justify-center">
+                  <Tag className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold font-serif text-white">
+                    {promoToEdit ? 'Edit Promo Code' : 'Create New Promo Code'}
+                  </h3>
+                  <p className="text-xs text-gray-400">Coupon discount & collector incentive</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsAddPromoModalOpen(false)}
+                className="p-1.5 text-gray-400 hover:text-white rounded-xl bg-gray-800/50 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSavePromo} className="flex flex-col flex-1 min-h-0 overflow-hidden text-xs">
+              <div className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1">
+                <div>
+                  <label className="block text-gray-300 mb-1 font-semibold">Promo Code *</label>
+                  <input
+                    type="text"
+                    required
+                    value={promoForm.code || ''}
+                    onChange={(e) => setPromoForm({ ...promoForm, code: e.target.value.toUpperCase() })}
+                    placeholder="e.g. ARTISAN20, FESTIVE50"
+                    className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white font-mono font-bold tracking-wider uppercase focus:outline-none focus:border-[#FF5722]"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-gray-300 mb-1 font-semibold">Discount Type</label>
+                    <select
+                      value={promoForm.discountType || 'percentage'}
+                      onChange={(e) => setPromoForm({ ...promoForm, discountType: e.target.value as any })}
+                      className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#FF5722]"
+                    >
+                      <option value="percentage">Percentage (%)</option>
+                      <option value="fixed">Flat Amount (₹)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-gray-300 mb-1 font-semibold">
+                      Discount Value ({promoForm.discountType === 'fixed' ? '₹' : '%'}) *
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      required
+                      value={promoForm.discountValue ?? 15}
+                      onChange={(e) => setPromoForm({ ...promoForm, discountValue: Number(e.target.value) })}
+                      placeholder="15"
+                      className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2 text-white font-bold focus:outline-none focus:border-[#FF5722]"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-gray-300 mb-1 font-semibold">Minimum Order Amount (INR ₹)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={promoForm.minOrderAmount ?? 0}
+                    onChange={(e) => setPromoForm({ ...promoForm, minOrderAmount: Number(e.target.value) })}
+                    placeholder="0 (No minimum)"
+                    className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2 text-white focus:outline-none focus:border-[#FF5722]"
+                  />
+                  <p className="text-[11px] text-gray-500 mt-1">Leave 0 if code applies to orders of any size.</p>
+                </div>
+
+                <div>
+                  <label className="block text-gray-300 mb-1 font-semibold">Description / Note</label>
+                  <input
+                    type="text"
+                    value={promoForm.description || ''}
+                    onChange={(e) => setPromoForm({ ...promoForm, description: e.target.value })}
+                    placeholder="e.g. 15% discount for collectors"
+                    className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2 text-white focus:outline-none focus:border-[#FF5722]"
+                  />
+                </div>
+
+                <div className="flex items-center gap-3 pt-2">
+                  <input
+                    type="checkbox"
+                    id="promoIsActive"
+                    checked={promoForm.isActive !== false}
+                    onChange={(e) => setPromoForm({ ...promoForm, isActive: e.target.checked })}
+                    className="w-4 h-4 rounded text-[#FF5722] focus:ring-0 bg-[#181C24] border-gray-700 cursor-pointer"
+                  />
+                  <label htmlFor="promoIsActive" className="text-gray-300 cursor-pointer font-medium">
+                    Promo Code is Active & Redeemable
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 p-4 sm:p-5 border-t border-gray-800 shrink-0 bg-[#14171E] rounded-b-3xl">
+                <button
+                  type="button"
+                  onClick={() => setIsAddPromoModalOpen(false)}
+                  className="px-4 py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl text-xs font-semibold cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2.5 bg-gradient-to-r from-[#FF5722] to-[#FF7A45] text-white rounded-xl text-xs font-bold shadow-lg cursor-pointer"
+                >
+                  {promoToEdit ? 'Save Changes' : 'Create Promo Code'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* ========================================================= */}
       {/* MODAL 4: ADD / EDIT PAINTING (Side 1)                      */}
       {/* ========================================================= */}
       {isAddArtworkModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md overflow-y-auto animate-fade-in">
-          <div className="bg-[#14171E] border border-[#242A36] rounded-3xl w-full max-w-xl p-6 sm:p-8 shadow-2xl relative text-white space-y-4 my-8">
-            <div className="flex items-center justify-between pb-3 border-b border-gray-800">
+          <div className="bg-[#14171E] border border-[#242A36] rounded-3xl w-full max-w-xl shadow-2xl relative text-white flex flex-col max-h-[92vh] overflow-hidden my-auto">
+            <div className="flex items-center justify-between p-5 sm:p-6 pb-4 border-b border-gray-800 shrink-0">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-[#FF5722]/15 text-[#FF5722] flex items-center justify-center">
                   <Palette className="w-5 h-5" />
@@ -6919,7 +7377,8 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
               </button>
             </div>
 
-            <form onSubmit={handleSaveArtwork} className="space-y-4 text-xs">
+            <form onSubmit={handleSaveArtwork} className="flex flex-col flex-1 min-h-0 overflow-hidden text-xs">
+              <div className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1">
               <div>
                 <label className="block text-gray-300 mb-1 font-semibold">Painting Title *</label>
                 <input
@@ -7137,7 +7596,9 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-800">
+              </div>
+
+              <div className="flex items-center justify-end gap-3 p-4 sm:p-5 border-t border-gray-800 shrink-0 bg-[#14171E] rounded-b-3xl">
                 <button type="button" onClick={() => setIsAddArtworkModalOpen(false)} className="px-4 py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl text-xs font-semibold cursor-pointer">
                   Cancel
                 </button>
