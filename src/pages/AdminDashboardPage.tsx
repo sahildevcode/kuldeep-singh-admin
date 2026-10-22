@@ -2619,7 +2619,8 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
     courseId: '',
     courseTitle: '',
     feesPaid: 349,
-    batchSchedule: ''
+    batchSchedule: '',
+    phone: ''
   });
   const [isEditStudentModalOpen, setIsEditStudentModalOpen] = useState(false);
 
@@ -5683,11 +5684,15 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                         {students
                           .filter((s) => {
                             const q = studentSearchQuery.toLowerCase();
+                            const matchedOrderPhone = orders.find(o => o.customerEmail?.toLowerCase() === s.email?.toLowerCase())?.customerPhone || '';
+                            const matchedInqPhone = inquiries.find(i => i.email?.toLowerCase() === s.email?.toLowerCase())?.phone || '';
+                            const sPhone = (s.phone || matchedOrderPhone || matchedInqPhone).toLowerCase();
                             return (
                               (s.name || '').toLowerCase().includes(q) ||
                               (s.email || '').toLowerCase().includes(q) ||
                               (s.courseTitle || '').toLowerCase().includes(q) ||
-                              (s.username || '').toLowerCase().includes(q)
+                              (s.username || '').toLowerCase().includes(q) ||
+                              sPhone.includes(q)
                             );
                           })
                           .map((stu) => {
@@ -5704,6 +5709,38 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                                     )}
                                   </div>
                                   <div className="text-[11px] text-gray-400 font-mono">{stu.email}</div>
+                                  {(() => {
+                                    const registeredNumber = stu.phone || orders.find(o => o.customerEmail?.toLowerCase() === stu.email?.toLowerCase())?.customerPhone || inquiries.find(i => i.email?.toLowerCase() === stu.email?.toLowerCase())?.phone || '';
+                                    if (registeredNumber) {
+                                      const cleanPhone = registeredNumber.replace(/[^\d+]/g, '');
+                                      return (
+                                        <div className="text-[11px] text-emerald-400 font-mono flex items-center gap-1.5 mt-1 font-semibold">
+                                          <Phone className="w-3 h-3 text-[#FF5722]" />
+                                          <a
+                                            href={`tel:${cleanPhone}`}
+                                            className="hover:underline"
+                                            title="Click to Call / WhatsApp"
+                                          >
+                                            {registeredNumber}
+                                          </a>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleCopyPassword(registeredNumber, `phone-${stu.id}`)}
+                                            className="text-gray-500 hover:text-white p-0.5 cursor-pointer ml-0.5"
+                                            title="Copy Register Number"
+                                          >
+                                            {copiedKey === `phone-${stu.id}` ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                                          </button>
+                                        </div>
+                                      );
+                                    }
+                                    return (
+                                      <div className="text-[10px] text-gray-600 font-mono mt-0.5 flex items-center gap-1">
+                                        <Phone className="w-2.5 h-2.5 text-gray-600" />
+                                        <span>No number registered</span>
+                                      </div>
+                                    );
+                                  })()}
                                 </td>
                                 <td className="py-3.5 text-gray-300 font-medium">
                                   <div>{stu.courseTitle}</div>
@@ -5769,7 +5806,8 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                                           courseId: stu.courseId,
                                           courseTitle: stu.courseTitle,
                                           feesPaid: stu.feesPaid || 349,
-                                          batchSchedule: stu.batchSchedule || ''
+                                          batchSchedule: stu.batchSchedule || '',
+                                          phone: stu.phone || ''
                                         });
                                         setIsEditStudentModalOpen(true);
                                       }}
@@ -6975,6 +7013,17 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
               </div>
 
               <div>
+                <label className="block text-gray-300 mb-1.5 font-semibold">Register Mobile Number (Phone)</label>
+                <input
+                  type="tel"
+                  value={newStudentForm.phone || ''}
+                  onChange={(e) => setNewStudentForm({ ...newStudentForm, phone: e.target.value })}
+                  placeholder="e.g. +91 98765 43210"
+                  className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white font-mono focus:outline-none focus:border-[#FF5722]"
+                />
+              </div>
+
+              <div>
                 <label className="block text-gray-300 mb-1.5 font-semibold">Select Course to Unlock</label>
                 <select
                   value={newStudentForm.courseId}
@@ -7144,7 +7193,8 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                   courseId: editStudentForm.courseId,
                   courseTitle: editStudentForm.courseTitle,
                   feesPaid: Number(editStudentForm.feesPaid) || 349,
-                  batchSchedule: editStudentForm.batchSchedule
+                  batchSchedule: editStudentForm.batchSchedule,
+                  phone: editStudentForm.phone.trim()
                 });
                 showToast(`Enrolled student ${editStudentForm.name} updated!`);
                 setIsEditStudentModalOpen(false);
@@ -7169,6 +7219,17 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                   required
                   value={editStudentForm.email}
                   onChange={(e) => setEditStudentForm({ ...editStudentForm, email: e.target.value })}
+                  className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white font-mono focus:outline-none focus:border-[#FF5722]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-gray-300 mb-1.5 font-semibold">Register Mobile Number (Phone)</label>
+                <input
+                  type="tel"
+                  value={editStudentForm.phone || ''}
+                  onChange={(e) => setEditStudentForm({ ...editStudentForm, phone: e.target.value })}
+                  placeholder="e.g. +91 98765 43210"
                   className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white font-mono focus:outline-none focus:border-[#FF5722]"
                 />
               </div>
