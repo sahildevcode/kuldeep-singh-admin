@@ -246,8 +246,11 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   // Delivery Settings State
   const [deliverySettings, setDeliverySettings] = useState<StoreDeliverySettings>(() => {
     try {
-      const saved = localStorage.getItem('kuldeep_studio_delivery');
-      return saved ? JSON.parse(saved) : DEFAULT_DELIVERY_SETTINGS;
+      const saved = localStorage.getItem('kuldeep_studio_delivery_v2');
+      if (saved) return JSON.parse(saved);
+      // Clean up legacy delivery fee if existed
+      localStorage.removeItem('kuldeep_studio_delivery');
+      return DEFAULT_DELIVERY_SETTINGS;
     } catch {
       return DEFAULT_DELIVERY_SETTINGS;
     }
@@ -255,7 +258,7 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   useEffect(() => {
     try {
-      localStorage.setItem('kuldeep_studio_delivery', JSON.stringify(deliverySettings));
+      localStorage.setItem('kuldeep_studio_delivery_v2', JSON.stringify(deliverySettings));
     } catch {}
   }, [deliverySettings]);
 
