@@ -18,6 +18,8 @@ export interface Artwork {
   paletteColors: string[]; // hex codes of primary pigments used
   weight?: string;
   varnishType?: string;
+  createdAt?: string;
+  updatedAt?: string;
   fileType?: 'image' | 'pdf';
   fileName?: string;
   fileSize?: string;

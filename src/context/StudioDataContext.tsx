@@ -278,18 +278,22 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setDeliverySettings((prev) => ({ ...prev, ...updates }));
   };
 
-  // 1. Artworks State
+  // 1. Artworks State - Real-time cloud sync & smart cache hydration
   const [artworks, setArtworks] = useState<Artwork[]>(() => {
     try {
       const saved = localStorage.getItem('kuldeep_studio_artworks');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          const seedMap: Record<string, number> = {
-            'art-01': 412250, 'art-02': 331500, 'art-03': 165750, 'art-04': 476000, 'art-05': 123250,
-            'art-06': 55250, 'art-07': 289000, 'art-08': 136000, 'art-09': 38250, 'art-10': 44200
-          };
-          return parsed.map((a: any) => (seedMap[a.id] && a.price < 10000 ? { ...a, price: seedMap[a.id] } : a));
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // If cached data is missing any seeded artwork, merge them seamlessly
+          const cachedIds = new Set(parsed.map((a: any) => a.id));
+          const missingArtworks = ARTWORKS.filter((a) => !cachedIds.has(a.id));
+          if (missingArtworks.length > 0) {
+            const merged = [...parsed, ...missingArtworks];
+            try { localStorage.setItem('kuldeep_studio_artworks', JSON.stringify(merged)); } catch {}
+            return merged;
+          }
+          return parsed;
         }
       }
       return ARTWORKS;
