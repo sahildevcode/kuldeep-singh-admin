@@ -6234,6 +6234,29 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                 />
               </div>
 
+              {/* Official Student WhatsApp Community Link */}
+              <div className="bg-emerald-950/30 border border-emerald-500/50 rounded-2xl p-4 shadow-inner">
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-emerald-400 font-bold flex items-center gap-2 text-sm">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span>Official Batch WhatsApp Group Link (Post-Purchase Only)</span>
+                  </label>
+                  <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                    High Privacy Lock
+                  </span>
+                </div>
+                <p className="text-[11px] text-gray-400 mb-2.5 leading-relaxed">
+                  Yeh invite link sirf un students ko dikhegi jo course buy kar chuke honge (Order Success & Student Portal me highlighted rahegi).
+                </p>
+                <input
+                  type="url"
+                  value={newBatchForm.whatsappGroupUrl || ''}
+                  onChange={(e) => setNewBatchForm({ ...newBatchForm, whatsappGroupUrl: e.target.value })}
+                  className="w-full bg-[#12141A] border border-emerald-500/40 rounded-xl px-3.5 py-2.5 text-white placeholder-gray-500 text-xs focus:outline-none focus:border-emerald-400 font-mono"
+                  placeholder="https://chat.whatsapp.com/AbCdEfGhIjKlMnOpQr"
+                />
+              </div>
+
               <div>
                 <label className="block text-gray-300 mb-1.5 font-semibold">Syllabus Overview / Description</label>
                 <textarea
