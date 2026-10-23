@@ -72,6 +72,7 @@ export interface Course {
   featured?: boolean;
   liveClassUrl?: string;
   liveClassStatus?: 'offline' | 'live' | 'scheduled';
+  whatsappGroupUrl?: string;
 }
 
 export interface AchievementTimelineItem {

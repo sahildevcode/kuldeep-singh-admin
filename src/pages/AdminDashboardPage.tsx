@@ -1970,6 +1970,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
     thumbnail: string;
     images: string[];
     liveClassUrl: string;
+    whatsappGroupUrl?: string;
     summary: string;
     whatYouWillLearn: string[];
     materialsNeeded: string[];
@@ -1983,6 +1984,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
     thumbnail: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=1400&auto=format&fit=crop',
     images: ['https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=1400&auto=format&fit=crop'],
     liveClassUrl: 'https://meet.google.com/ks-studio-atelier',
+    whatsappGroupUrl: '',
     summary: 'Direct atelier mentorship, live easel demonstration and critique with Artist Kuldeep Singh.',
     whatYouWillLearn: [
       'Live Real-Time Easel Demonstrations',
@@ -2019,6 +2021,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
       thumbnail: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=1400&auto=format&fit=crop',
       images: ['https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=1400&auto=format&fit=crop'],
       liveClassUrl: 'https://meet.google.com/ks-studio-atelier',
+      whatsappGroupUrl: '',
       summary: 'Direct atelier mentorship, live easel demonstration and critique with Artist Kuldeep Singh.',
       whatYouWillLearn: [
         'Live Real-Time Easel Demonstrations',
@@ -2057,6 +2060,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
       thumbnail: rawImages[0] || course.thumbnail || '',
       images: rawImages,
       liveClassUrl: course.liveClassUrl || 'https://meet.google.com/ks-studio-atelier',
+      whatsappGroupUrl: course.whatsappGroupUrl || '',
       summary: course.summary || course.description || '',
       whatYouWillLearn: Array.isArray(course.whatYouWillLearn) && course.whatYouWillLearn.length > 0
         ? [...course.whatYouWillLearn]
@@ -2218,6 +2222,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
         thumbnail: primaryThumbnail,
         images: finalImages,
         liveClassUrl: newBatchForm.liveClassUrl,
+        whatsappGroupUrl: newBatchForm.whatsappGroupUrl?.trim() || '',
         summary: newBatchForm.summary,
         description: newBatchForm.summary,
         whatYouWillLearn: cleanWhatYouWillLearn.length > 0 ? cleanWhatYouWillLearn : [
@@ -2277,6 +2282,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
           }
         ],
         liveClassUrl: newBatchForm.liveClassUrl,
+        whatsappGroupUrl: newBatchForm.whatsappGroupUrl?.trim() || '',
         liveClassStatus: 'offline'
       };
 
