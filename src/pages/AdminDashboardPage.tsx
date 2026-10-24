@@ -176,7 +176,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
   // =========================================================
   const [adminMode, setAdminMode] = useState<'gallery' | 'academy'>(() => {
     try {
-      const hash = window.location.hash.replace('#', '').toLowerCase();
+      const hash = '';
       if (hash === 'academy' || hash === 'live' || hash === 'courses') return 'academy';
       if (hash === 'gallery' || hash === 'art' || hash === 'orders') return 'gallery';
       const saved = localStorage.getItem('ks_admin_mode');
