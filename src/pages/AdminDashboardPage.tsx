@@ -210,7 +210,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
   useEffect(() => {
     try {
       localStorage.setItem('ks_admin_mode', adminMode);
-      window.history.replaceState(null, '', `#${adminMode}`);
+      if (window.location.hash) { window.history.replaceState(null, '', window.location.pathname + window.location.search); }
     } catch (e) {
       console.warn(e);
     }
