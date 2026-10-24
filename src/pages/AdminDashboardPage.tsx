@@ -4926,35 +4926,62 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
           {adminMode === 'academy' && (
             <div className="space-y-8 animate-fade-in">
               {/* TOP METRICS */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="bg-[#14171E] border border-[#202530] rounded-2xl p-5 shadow">
-                  <span className="text-gray-400 text-xs font-semibold uppercase">Scheduled Batches</span>
-                  <div className="text-2xl font-bold font-serif text-white mt-1">{courses.length}</div>
-                  <span className="text-[11px] text-emerald-400 mt-1 block">Active cohorts in database</span>
-                </div>
+              {/* TOP METRICS (Split Razorpay Online vs Admin Direct Access) */}
+              {(() => {
+                const razorpayStudents = students.filter((s: any) => s.paymentSource === 'razorpay' || (s.feesPaid && s.feesPaid <= 10 && s.paymentSource !== 'admin'));
+                const adminStudents = students.filter((s: any) => !razorpayStudents.includes(s));
+                
+                const razorpayTotal = razorpayStudents.reduce((sum, s) => sum + (s.feesPaid || 0), 0);
+                const adminTotal = adminStudents.reduce((sum, s) => sum + (s.feesPaid || 0), 0);
 
-                <div className="bg-[#14171E] border border-[#202530] rounded-2xl p-5 shadow">
-                  <span className="text-gray-400 text-xs font-semibold uppercase">Enrolled Students</span>
-                  <div className="text-2xl font-bold font-serif text-white mt-1">{students.length}</div>
-                  <span className="text-[11px] text-gray-400 mt-1 block">Total across all masterclasses</span>
-                </div>
+                return (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                    <div className="bg-[#14171E] border border-[#202530] rounded-2xl p-5 shadow">
+                      <span className="text-gray-400 text-xs font-semibold uppercase">Scheduled Batches</span>
+                      <div className="text-2xl font-bold font-serif text-white mt-1">{courses.length}</div>
+                      <span className="text-[11px] text-emerald-400 mt-1 block">Active cohorts in database</span>
+                    </div>
 
-                <div className="bg-[#14171E] border border-[#202530] rounded-2xl p-5 shadow">
-                  <span className="text-gray-400 text-xs font-semibold uppercase">Tuition Fees Collected</span>
-                  <div className="text-2xl font-bold font-serif text-amber-400 mt-1">
-                    ₹{students.reduce((acc, s) => acc + (s.feesPaid || 0), 0).toLocaleString('en-IN')}
+                    <div className="bg-[#14171E] border border-[#202530] rounded-2xl p-5 shadow">
+                      <span className="text-gray-400 text-xs font-semibold uppercase">Enrolled Students</span>
+                      <div className="text-2xl font-bold font-serif text-white mt-1">{students.length}</div>
+                      <span className="text-[11px] text-gray-400 mt-1 block">Total across all masterclasses</span>
+                    </div>
+
+                    {/* RAZORPAY ONLINE REVENUE */}
+                    <div className="bg-[#14171E] border border-blue-500/30 bg-gradient-to-b from-blue-950/20 to-transparent rounded-2xl p-5 shadow">
+                      <div className="flex items-center justify-between">
+                        <span className="text-blue-400 text-xs font-semibold uppercase">💳 Razorpay Online</span>
+                        <span className="text-[10px] bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full font-bold">Online</span>
+                      </div>
+                      <div className="text-2xl font-bold font-serif text-blue-300 mt-1">
+                        ₹{razorpayTotal.toLocaleString('en-IN')}
+                      </div>
+                      <span className="text-[11px] text-gray-400 mt-1 block">{razorpayStudents.length} Students via Gateway</span>
+                    </div>
+
+                    {/* ADMIN DIRECT / OFFLINE ACCESS */}
+                    <div className="bg-[#14171E] border border-emerald-500/30 bg-gradient-to-b from-emerald-950/20 to-transparent rounded-2xl p-5 shadow">
+                      <div className="flex items-center justify-between">
+                        <span className="text-emerald-400 text-xs font-semibold uppercase">👤 Admin Direct Access</span>
+                        <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full font-bold">Manual / Cash</span>
+                      </div>
+                      <div className="text-2xl font-bold font-serif text-emerald-400 mt-1">
+                        ₹{adminTotal.toLocaleString('en-IN')}
+                      </div>
+                      <span className="text-[11px] text-gray-400 mt-1 block">{adminStudents.length} Students added by Admin</span>
+                    </div>
+
+                    <div className="bg-[#14171E] border border-[#202530] rounded-2xl p-5 shadow">
+                      <span className="text-gray-400 text-xs font-semibold uppercase">Live Attendance Today</span>
+                      <div className="text-2xl font-bold font-serif text-red-400 mt-1">
+                        {students.filter((s) => s.attendanceStatus === 'Attended').length}
+                      </div>
+                      <span className="text-[11px] text-gray-400 mt-1 block">Marked present for stream</span>
+                    </div>
                   </div>
-                  <span className="text-[11px] text-gray-400 mt-1 block">Course revenue ledger</span>
-                </div>
-
-                <div className="bg-[#14171E] border border-[#202530] rounded-2xl p-5 shadow">
-                  <span className="text-gray-400 text-xs font-semibold uppercase">Live Attendance Today</span>
-                  <div className="text-2xl font-bold font-serif text-red-400 mt-1">
-                    {students.filter((s) => s.attendanceStatus === 'Attended').length}
-                  </div>
-                  <span className="text-[11px] text-gray-400 mt-1 block">Marked present for stream</span>
-                </div>
-              </div>
+                );
+              })()}
 
               {/* BATCHES & STREAM TAB */}
               {academyNav === 'batches' && (

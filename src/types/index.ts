@@ -1,4 +1,4 @@
-export type MediumType = 'Oil on Canvas' | 'Charcoal & Graphite' | 'Watercolor & Ink' | 'Acrylic & Mixed Media' | 'Limited Edition Print';
+﻿export type MediumType = 'Oil on Canvas' | 'Charcoal & Graphite' | 'Watercolor & Ink' | 'Acrylic & Mixed Media' | 'Limited Edition Print';
 
 export interface Artwork {
   id: string;
@@ -249,6 +249,7 @@ export interface EnrolledStudent {
   batchSchedule: string;
   enrolledDate: string;
   feesPaid: number;
+  paymentSource?: 'razorpay' | 'admin' | 'direct';
   paymentStatus: 'Paid' | 'Processing';
   progressPercent: number;
   avatar?: string;
