@@ -73,7 +73,7 @@ const DEFAULT_PROFILE: ArtistProfile = {
   exhibitionsCount: '18',
   studentsCount: '5.2K+',
   portraitImage: 'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?q=80&w=1200&auto=format&fit=crop',
-  studioImage: 'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?q=80&w=1200&auto=format&fit=crop',
+  studioImage: '/images/artist-kuldeep-singh.jpg',
   bioHeadline: 'A Life Dedicated to the Alchemy of Light, Oil & Form.',
   bioStory: [
     'Artist Kuldeep Singh has spent over a decade perfecting the discipline of classical European oil painting, anatomical draftsmanship, and pigment chemistry, bringing historical reverence into modern gallery spaces.',
