@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+﻿import React, { createContext, useContext, useState, useEffect } from 'react';
 import type { PromoCode, StoreDeliverySettings, Artwork, Course, CourseModule, CourseLecture, ArtistProfile, AchievementTimelineItem, Award, EnrolledStudent, RegisteredUser, Inquiry, UpcomingCourse, CollectorReview } from '../types';
 import { ARTWORKS } from '../data/artworks';
 import { COURSES } from '../data/courses';
@@ -227,6 +227,44 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }));
   };
 
+  // Merge cloud courses with local courses:
+  // - Cloud is source of truth for structure/metadata
+  // - But local lectures that are NOT yet in cloud are preserved (pending sync)
+  const mergeCoursesWithCloud = (localCourses: Course[], cloudCourses: Course[]): Course[] => {
+    return cloudCourses.map((cloudCourse) => {
+      const localCourse = localCourses.find((c) => c.id === cloudCourse.id);
+      if (!localCourse) return cloudCourse;
+
+      // Merge modules: use cloud modules but inject any local-only lectures not yet on cloud
+      const mergedModules = cloudCourse.modules.map((cloudMod, modIdx) => {
+        const localMod = localCourse.modules?.[modIdx];
+        const cloudLecs = Array.isArray(cloudMod.lectures) ? cloudMod.lectures : [];
+        const localLecs = Array.isArray(localMod?.lectures) ? localMod.lectures : [];
+
+        // Find local lectures not yet present in cloud (by id or videoUrl)
+        const pendingLocalLecs = localLecs.filter(
+          (localLec) =>
+            !cloudLecs.some(
+              (cl) =>
+                (localLec.id && cl.id === localLec.id) ||
+                (localLec.videoUrl && cl.videoUrl === localLec.videoUrl)
+            )
+        );
+
+        const allLecs = [...cloudLecs, ...pendingLocalLecs];
+        return {
+          ...cloudMod,
+          lectures: allLecs,
+          lessonsCount: allLecs.length,
+          topics: allLecs.map((l) => l.title)
+        };
+      });
+
+      const total = mergedModules.reduce((acc, m) => acc + m.lectures.length, 0);
+      return { ...cloudCourse, modules: mergedModules, totalLessons: total };
+    });
+  };
+
   // Promos State
   const [promoCodes, setPromoCodes] = useState<PromoCode[]>(() => {
     try {
@@ -445,10 +483,16 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         if (artRes.ok) {
           const cloudArtworks: Artwork[] = await artRes.json();
           if (Array.isArray(cloudArtworks) && isMounted) {
-            setArtworks(cloudArtworks);
-            try {
-              localStorage.setItem('kuldeep_studio_artworks', JSON.stringify(cloudArtworks));
-            } catch {}
+            // Guard: don't wipe local artworks with empty cloud response (cold start protection)
+            setArtworks((prev) => {
+              if (cloudArtworks.length === 0 && prev.length > 0) return prev;
+              return cloudArtworks;
+            });
+            if (cloudArtworks.length > 0) {
+              try {
+                localStorage.setItem('kuldeep_studio_artworks', JSON.stringify(cloudArtworks));
+              } catch {}
+            }
           }
         }
 
@@ -458,13 +502,19 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           const cloudCourses: Course[] = await courseRes.json();
           if (Array.isArray(cloudCourses) && isMounted) {
             const validCloudCourses = cloudCourses.filter((c) => !DUMMY_COURSE_IDS.includes(c.id));
-            const normalized = normalizeCourses(validCloudCourses);
-            setCourses(normalized);
-            try {
-              localStorage.setItem('kuldeep_studio_courses', JSON.stringify(normalized));
-              localStorage.removeItem('kuldeep_studio_deleted_courses');
-              localStorage.removeItem('kuldeep_studio_deleted_lectures');
-            } catch {}
+            const normalizedCloud = normalizeCourses(validCloudCourses);
+            // Merge: preserve any local lectures not yet persisted to cloud
+            // Guard: don't wipe local courses if cloud returns empty (cold-start protection)
+            setCourses((prev) => {
+              if (normalizedCloud.length === 0 && prev.length > 0) return prev;
+              const merged = mergeCoursesWithCloud(prev, normalizedCloud);
+              try {
+                localStorage.setItem('kuldeep_studio_courses', JSON.stringify(merged));
+                localStorage.removeItem('kuldeep_studio_deleted_courses');
+                localStorage.removeItem('kuldeep_studio_deleted_lectures');
+              } catch {}
+              return merged;
+            });
           }
         }
 
@@ -483,11 +533,20 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }
 
         if (Array.isArray(cloudStudents) && isMounted) {
-          setStudents(cloudStudents);
-          try {
-            localStorage.setItem('kuldeep_studio_students', JSON.stringify(cloudStudents));
-            localStorage.removeItem('ks_deleted_students');
-          } catch {}
+          // Only replace local data if cloud returned real data (guard against empty cold-start response)
+          setStudents((prev) => {
+            const hasCloudData = cloudStudents.length > 0;
+            const hasLocalData = prev.length > 0;
+            // If cloud is empty but local has data, keep local (cloud might be cold-starting)
+            if (!hasCloudData && hasLocalData) return prev;
+            return cloudStudents;
+          });
+          if (cloudStudents.length > 0) {
+            try {
+              localStorage.setItem('kuldeep_studio_students', JSON.stringify(cloudStudents));
+              localStorage.removeItem('ks_deleted_students');
+            } catch {}
+          }
         }
 
         // 4. Registered Users (All Website Logins)
