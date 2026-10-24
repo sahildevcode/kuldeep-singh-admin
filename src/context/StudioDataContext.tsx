@@ -7,7 +7,7 @@ import { INITIAL_UPCOMING_COURSES } from '../data/upcomingCourses';
 import { REVIEWS } from '../data/reviews';
 
 export const getBackendUrls = (): string[] => {
-  return ['https://kuldeep-singh-backend-q1di.onrender.com', 'http://localhost:5000'];
+  return ['https://kuldeep-singh-backend-nehy.onrender.com', 'http://localhost:5000'];
 };
 
 export const deleteBunnyVideo = async (videoUrlOrId: string) => {
@@ -479,7 +479,7 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const syncAllWithCloud = async () => {
       try {
         // 1. Artworks (Cloud is absolute source of truth)
-        const artRes = await fetch('https://kuldeep-singh-backend-q1di.onrender.com/api/artworks');
+        const artRes = await fetch('https://kuldeep-singh-backend-nehy.onrender.com/api/artworks');
         if (artRes.ok) {
           const cloudArtworks: Artwork[] = await artRes.json();
           if (Array.isArray(cloudArtworks) && isMounted) {
@@ -497,7 +497,7 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }
 
         // 2. Courses & Lectures
-        const courseRes = await fetch('https://kuldeep-singh-backend-q1di.onrender.com/api/courses').catch(() => null);
+        const courseRes = await fetch('https://kuldeep-singh-backend-nehy.onrender.com/api/courses').catch(() => null);
         if (courseRes && courseRes.ok) {
           const cloudCourses: Course[] = await courseRes.json();
           if (Array.isArray(cloudCourses) && isMounted) {
@@ -887,7 +887,7 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const addArtwork = async (artwork: Artwork) => {
     setArtworks((prev) => [artwork, ...prev]);
     try {
-      await fetch('https://kuldeep-singh-backend-q1di.onrender.com/api/artworks', {
+      await fetch('https://kuldeep-singh-backend-nehy.onrender.com/api/artworks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(artwork)
@@ -902,7 +902,7 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       prev.map((item) => (item.id === id ? { ...item, ...updates } : item))
     );
     try {
-      await fetch(`https://kuldeep-singh-backend-q1di.onrender.com/api/artworks/${id}`, {
+      await fetch(`https://kuldeep-singh-backend-nehy.onrender.com/api/artworks/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updates)
@@ -1290,7 +1290,7 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     if (courseToPut) {
       const backendEndpoints = [
-        'https://kuldeep-singh-backend-q1di.onrender.com',
+        'https://kuldeep-singh-backend-nehy.onrender.com',
         'http://localhost:5000'
       ];
       for (const baseUrl of backendEndpoints) {
@@ -1344,7 +1344,7 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     if (courseToPut) {
       const backendEndpoints = [
-        'https://kuldeep-singh-backend-q1di.onrender.com',
+        'https://kuldeep-singh-backend-nehy.onrender.com',
         'http://localhost:5000'
       ];
       for (const baseUrl of backendEndpoints) {

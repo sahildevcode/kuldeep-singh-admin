@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+﻿import React, { createContext, useContext, useState, useEffect } from 'react';
 import type { CartItem, OrderRecord, OrderPipelineStep } from '../types';
 
 interface CartContextType {
@@ -88,7 +88,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [orders]);
 
-  const BACKEND_API_BASE = 'https://kuldeep-singh-backend-q1di.onrender.com/api/orders';
+  const BACKEND_API_BASE = 'https://kuldeep-singh-backend-nehy.onrender.com/api/orders';
 
   // Real-time bidirectional database sync with backend daemon
   useEffect(() => {

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+﻿import React, { useState, useMemo, useEffect } from 'react';
 import {
   Package,
   Palette,
@@ -785,7 +785,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
 
       let res: Response;
       try {
-        res = await fetch('https://kuldeep-singh-backend-q1di.onrender.com/api/upload/video', {
+        res = await fetch('https://kuldeep-singh-backend-nehy.onrender.com/api/upload/video', {
           method: 'POST',
           body: formData,
         });
@@ -833,7 +833,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
 
       // Sync to backend PUT /api/profile
       try {
-        await fetch('https://kuldeep-singh-backend-q1di.onrender.com/api/profile', {
+        await fetch('https://kuldeep-singh-backend-nehy.onrender.com/api/profile', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -907,7 +907,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
     };
 
     try {
-      await fetch('https://kuldeep-singh-backend-q1di.onrender.com/api/profile', {
+      await fetch('https://kuldeep-singh-backend-nehy.onrender.com/api/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -966,7 +966,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
     updateArtistProfile(payload);
 
     try {
-      await fetch('https://kuldeep-singh-backend-q1di.onrender.com/api/profile', {
+      await fetch('https://kuldeep-singh-backend-nehy.onrender.com/api/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -1848,7 +1848,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
 
   // Sync initial live broadcast status from cloud backend
   useEffect(() => {
-    fetch('https://kuldeep-singh-backend-q1di.onrender.com/api/live')
+    fetch('https://kuldeep-singh-backend-nehy.onrender.com/api/live')
       .then((res) => res.json())
       .then((data) => {
         if (data) {
@@ -1889,7 +1889,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
     });
 
     try {
-      await fetch('https://kuldeep-singh-backend-q1di.onrender.com/api/live', {
+      await fetch('https://kuldeep-singh-backend-nehy.onrender.com/api/live', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1934,7 +1934,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
 
   const handleUpdateLiveUrl = async () => {
     try {
-      await fetch('https://kuldeep-singh-backend-q1di.onrender.com/api/live', {
+      await fetch('https://kuldeep-singh-backend-nehy.onrender.com/api/live', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -2364,7 +2364,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
       // 1. Get Direct TUS Upload Token from Backend
       let tokenRes: Response;
       try {
-        tokenRes = await fetch('https://kuldeep-singh-backend-q1di.onrender.com/api/upload/bunny-token', {
+        tokenRes = await fetch('https://kuldeep-singh-backend-nehy.onrender.com/api/upload/bunny-token', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ title: titleToUse })
@@ -6923,17 +6923,32 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
             {/* Video Player Display */}
             {(() => {
               const vUrl = previewingLecture.videoUrl || '';
+              const isBunnyEmbed = vUrl.includes('mediadelivery.net') || vUrl.includes('/embed/');
+              const isYoutube = vUrl.includes('youtube.com') || vUrl.includes('youtu.be');
+              const isEmpty = !vUrl || vUrl.trim() === '';
               return (
                 <div className="relative aspect-video rounded-2xl overflow-hidden bg-black border border-gray-800 shadow-2xl flex items-center justify-center">
-                  {vUrl.includes('mediadelivery.net') || vUrl.includes('/embed/') ? (
+                  {isEmpty ? (
+                    <div className="flex flex-col items-center justify-center text-center gap-3 p-6">
+                      <div className="w-14 h-14 rounded-full bg-gray-800 border border-gray-700 flex items-center justify-center">
+                        <Film className="w-7 h-7 text-gray-500" />
+                      </div>
+                      <p className="text-gray-400 text-sm font-semibold">No video URL set for this lecture.</p>
+                      <p className="text-xs text-gray-500">Edit the lecture to add a Bunny CDN, YouTube, or MP4 link.</p>
+                    </div>
+                  ) : isBunnyEmbed ? (
                     <iframe
+                      key={vUrl}
                       src={vUrl}
                       title={previewingLecture.title}
                       className="w-full h-full border-0"
                       allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
                       allowFullScreen
+                      onLoad={(e) => {
+                        // iframe loaded — BunnyCDN handles its own loading/error state
+                      }}
                     />
-                  ) : vUrl.includes('youtube.com') || vUrl.includes('youtu.be') ? (
+                  ) : isYoutube ? (
                     <iframe
                       src={
                         vUrl.includes('youtu.be/')
