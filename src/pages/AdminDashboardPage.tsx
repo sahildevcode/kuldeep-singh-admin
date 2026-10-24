@@ -5041,7 +5041,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                             <div className="text-xs text-gray-400 line-clamp-1">{c.schedule}</div>
                             <div className="pt-2 border-t border-gray-800 flex items-center justify-between text-xs text-gray-300">
                               <span>👥 <strong>{batchStudents.length}</strong> Enrolled</span>
-                              <span className="text-emerald-400 font-bold">₹{(batchStudents.length * c.price).toLocaleString('en-IN')}</span>
+                              <span className="text-emerald-400 font-bold">₹{batchStudents.reduce((sum, s) => sum + (s.feesPaid || 0), 0).toLocaleString('en-IN')}</span>
                             </div>
                           </div>
                         );
