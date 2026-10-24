@@ -176,15 +176,12 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
   // =========================================================
   const [adminMode, setAdminMode] = useState<'gallery' | 'academy'>(() => {
     try {
-      const hash = '';
-      if (hash === 'academy' || hash === 'live' || hash === 'courses') return 'academy';
-      if (hash === 'gallery' || hash === 'art' || hash === 'orders') return 'gallery';
       const saved = localStorage.getItem('ks_admin_mode');
       if (saved === 'academy' || saved === 'gallery') return saved;
     } catch (e) {
       console.warn(e);
     }
-    return 'gallery';
+    return 'academy';
   });
 
   // Sub-Navigation for Mode 1: Art Gallery & Sales
@@ -6944,7 +6941,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                       className="w-full h-full border-0"
                       allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
                       allowFullScreen
-                      onLoad={(e) => {
+                      onLoad={() => {
                         // iframe loaded — BunnyCDN handles its own loading/error state
                       }}
                     />
