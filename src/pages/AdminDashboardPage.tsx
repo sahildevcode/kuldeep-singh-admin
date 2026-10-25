@@ -1814,8 +1814,23 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
     } catch (e) {
       console.warn(e);
     }
-    return courses[0]?.id || 'course-oil-mastery';
+    const withLectures = courses.find((c) => (c.modules || []).some((m) => (m.lectures || []).length > 0));
+    return withLectures?.id || courses[0]?.id || 'course-oil-mastery';
   });
+
+  // Prioritize course that has lectures if current selected course has none
+  useEffect(() => {
+    if (courses.length > 0) {
+      const current = courses.find((c) => c.id === selectedLiveBatchId);
+      const currentLecturesCount = (current?.modules || []).reduce((acc, m) => acc + (m.lectures || []).length, 0);
+      if (currentLecturesCount === 0) {
+        const courseWithLectures = courses.find((c) => (c.modules || []).some((m) => (m.lectures || []).length > 0));
+        if (courseWithLectures && courseWithLectures.id !== selectedLiveBatchId) {
+          setSelectedLiveBatchId(courseWithLectures.id);
+        }
+      }
+    }
+  }, [courses]);
 
   useEffect(() => {
     if (selectedLiveBatchId) {
@@ -5259,11 +5274,14 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                             onChange={(e) => setSelectedLiveBatchId(e.target.value)}
                             className="bg-transparent text-white text-xs font-bold focus:outline-none cursor-pointer max-w-[180px] sm:max-w-xs truncate"
                           >
-                            {courses.map((c) => (
-                              <option key={c.id} value={c.id} className="bg-[#14171E] text-white">
-                                {c.title}
-                              </option>
-                            ))}
+                            {courses.map((c) => {
+                              const lecCount = (c.modules || []).reduce((acc, m) => acc + (m.lectures || []).length, 0);
+                              return (
+                                <option key={c.id} value={c.id} className="bg-[#14171E] text-white">
+                                  {c.title} {lecCount > 0 ? `(${lecCount} video${lecCount > 1 ? 's' : ''} uploaded)` : '(0 videos)'}
+                                </option>
+                              );
+                            })}
                           </select>
                         </div>
                       )}
@@ -5279,6 +5297,36 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                   </div>
 
                   {/* Modules & Lectures list */}
+                  {(() => {
+                    const activeLecCount = (activeCourse?.modules || []).reduce((acc, m) => acc + (m.lectures || []).length, 0);
+                    const courseWithLectures = courses.find((c) => (c.modules || []).some((m) => (m.lectures || []).length > 0));
+                    if (activeLecCount === 0 && courseWithLectures && courseWithLectures.id !== activeCourse?.id) {
+                      return (
+                        <div className="bg-gradient-to-r from-amber-500/10 via-amber-600/10 to-transparent border border-amber-500/30 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
+                              <Film className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <div className="text-white text-xs font-bold font-serif">
+                                Note: Current selected course "{activeCourse?.title}" has 0 lectures.
+                              </div>
+                              <div className="text-[11px] text-amber-300">
+                                Lectures are uploaded in <span className="font-bold underline">"{courseWithLectures.title}"</span>.
+                              </div>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => setSelectedLiveBatchId(courseWithLectures.id)}
+                            className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs rounded-xl shadow cursor-pointer transition-transform active:scale-95 shrink-0"
+                          >
+                            Switch to {courseWithLectures.title} &rarr;
+                          </button>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
                   {(!activeCourse?.modules || activeCourse.modules.length === 0) ? (
                     <div className="p-8 text-center bg-[#14171E] border border-[#202530] rounded-3xl space-y-3">
                       <Film className="w-8 h-8 text-gray-500 mx-auto" />
