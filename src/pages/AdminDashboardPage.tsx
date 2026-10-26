@@ -1494,7 +1494,8 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
       const img = new Image();
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const MAX_WIDTH = field === 'aboutHeroBanner' ? 2400 : 1200;
+        const MAX_WIDTH = field === 'aboutHeroBanner' ? 1920 : 1000;
+        const quality = field === 'aboutHeroBanner' ? 0.82 : 0.8;
         let width = img.width;
         let height = img.height;
         if (width > MAX_WIDTH) {
@@ -1506,7 +1507,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
         const ctx = canvas.getContext('2d');
         if (ctx) {
           ctx.drawImage(img, 0, 0, width, height);
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+          const dataUrl = canvas.toDataURL('image/jpeg', quality);
           updateAboutPageImage(field, dataUrl);
         }
       };
@@ -3911,7 +3912,7 @@ const handleSaveTestimonialSectionSettings = (e: React.FormEvent) => {
                           </div>
                         </div>
 
-                        <div className="aspect-[4/3] w-full rounded-xl overflow-hidden bg-black/40 border border-gray-800 flex items-center justify-center">
+                        <div className="aspect-[3/4] sm:aspect-[4/5] max-h-[360px] w-full rounded-xl overflow-hidden bg-black/40 border border-gray-800 flex items-center justify-center">
                           <img
                             src={artistProfile?.aboutSection01Image || '/images/buddha-tree-of-life-painting.jpg'}
                             alt="Section 01 Preview"
@@ -3952,7 +3953,7 @@ const handleSaveTestimonialSectionSettings = (e: React.FormEvent) => {
                           </div>
                         </div>
 
-                        <div className="aspect-[4/3] w-full rounded-xl overflow-hidden bg-black/40 border border-gray-800 flex items-center justify-center">
+                        <div className="aspect-[3/4] sm:aspect-[4/5] max-h-[360px] w-full rounded-xl overflow-hidden bg-black/40 border border-gray-800 flex items-center justify-center">
                           <img
                             src={artistProfile?.aboutSection02Image || '/images/abstract-spiritual-canvas-print.jpg'}
                             alt="Section 02 Preview"
@@ -3993,7 +3994,7 @@ const handleSaveTestimonialSectionSettings = (e: React.FormEvent) => {
                           </div>
                         </div>
 
-                        <div className="aspect-[4/3] w-full rounded-xl overflow-hidden bg-black/40 border border-gray-800 flex items-center justify-center">
+                        <div className="aspect-[3/4] sm:aspect-[4/5] max-h-[360px] w-full rounded-xl overflow-hidden bg-black/40 border border-gray-800 flex items-center justify-center">
                           <img
                             src={artistProfile?.aboutSection03Image || '/images/abstract-woman-leopard-eagle-painting.jpg'}
                             alt="Section 03 Preview"
@@ -4034,7 +4035,7 @@ const handleSaveTestimonialSectionSettings = (e: React.FormEvent) => {
                           </div>
                         </div>
 
-                        <div className="aspect-[4/3] w-full rounded-xl overflow-hidden bg-black/40 border border-gray-800 flex items-center justify-center">
+                        <div className="aspect-[3/4] sm:aspect-[4/5] max-h-[360px] w-full rounded-xl overflow-hidden bg-black/40 border border-gray-800 flex items-center justify-center">
                           <img
                             src={artistProfile?.aboutSection04Image || '/images/abstract-face-contemporary-painting.jpg'}
                             alt="Section 04 Preview"
