@@ -95,7 +95,12 @@ const DEFAULT_PROFILE: ArtistProfile = {
   heroShowcasePrice: '₹4,12,250',
   heroShowcaseImage: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=800&auto=format&fit=crop',
   heroShowcaseVideoUrl: '/videos/hero-cinematic.mp4',
-  heroShowcaseCertificateText: 'Archival Certificate'
+  heroShowcaseCertificateText: 'Archival Certificate',
+  aboutHeroBanner: '/images/artist-hero-banner.png',
+  aboutSection01Image: '/images/buddha-tree-of-life-painting.jpg',
+  aboutSection02Image: '/images/abstract-spiritual-canvas-print.jpg',
+  aboutSection03Image: '/images/abstract-woman-leopard-eagle-painting.jpg',
+  aboutSection04Image: '/images/abstract-face-contemporary-painting.jpg'
 };
 
 const INITIAL_USERS: RegisteredUser[] = [

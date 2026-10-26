@@ -185,10 +185,10 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
   });
 
   // Sub-Navigation for Mode 1: Art Gallery & Sales
-  const [galleryNav, setGalleryNav] = useState<'orders' | 'artworks' | 'hero' | 'inquiries' | 'analytics' | 'settings' | 'video' | 'testimonials' | 'promos'>(() => {
+  const [galleryNav, setGalleryNav] = useState<'orders' | 'artworks' | 'hero' | 'about' | 'inquiries' | 'analytics' | 'settings' | 'video' | 'testimonials' | 'promos'>(() => {
     try {
       const saved = localStorage.getItem('ks_admin_gallery_nav');
-      if (saved === 'orders' || saved === 'artworks' || saved === 'hero' || saved === 'inquiries' || saved === 'analytics' || saved === 'settings' || saved === 'video' || saved === 'testimonials') return saved as any;
+      if (saved === 'orders' || saved === 'artworks' || saved === 'hero' || saved === 'about' || saved === 'inquiries' || saved === 'analytics' || saved === 'settings' || saved === 'video' || saved === 'testimonials') return saved as any;
     } catch (e) {
       console.warn(e);
     }
@@ -1463,7 +1463,61 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
     setEditingTestimonial(null);
   };
 
-  const handleSaveTestimonialSectionSettings = (e: React.FormEvent) => {
+    // =========================================================
+  // ABOUT PAGE IMAGES MANAGEMENT
+  const updateAboutPageImage = async (field: 'aboutHeroBanner' | 'aboutSection01Image' | 'aboutSection02Image' | 'aboutSection03Image' | 'aboutSection04Image', value: string) => {
+    const updates = { [field]: value };
+    updateArtistProfile(updates);
+    showToast(`✓ Image updated for About Page!`);
+    for (const base of getBackendUrls()) {
+      try {
+        await fetch(`${base}/api/profile`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updates)
+        });
+        break;
+      } catch {
+        // try next
+      }
+    }
+  };
+
+  const handleAboutImageFileChange = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    field: 'aboutHeroBanner' | 'aboutSection01Image' | 'aboutSection02Image' | 'aboutSection03Image' | 'aboutSection04Image'
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = field === 'aboutHeroBanner' ? 2400 : 1200;
+        let width = img.width;
+        let height = img.height;
+        if (width > MAX_WIDTH) {
+          height = Math.round((height * MAX_WIDTH) / width);
+          width = MAX_WIDTH;
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+          updateAboutPageImage(field, dataUrl);
+        }
+      };
+      if (typeof event.target?.result === 'string') {
+        img.src = event.target.result;
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+const handleSaveTestimonialSectionSettings = (e: React.FormEvent) => {
     e.preventDefault();
     updateArtistProfile({
       testimonialSectionTitle: testimonialSectionTitleInput.trim() || 'Upcoming Courses',
@@ -3091,6 +3145,23 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
                   </button>
 
                   <button
+                    onClick={() => setGalleryNav('about')}
+                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
+                      galleryNav === 'about'
+                        ? 'bg-[#1D212A] text-white font-semibold shadow-sm border border-gray-700/40'
+                        : 'text-gray-400 hover:text-white hover:bg-[#161920]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <ImageIcon className={`w-4 h-4 ${galleryNav === 'about' ? 'text-[#FF5722]' : 'text-gray-400'}`} />
+                      <span>About Page Images</span>
+                    </div>
+                    <span className="bg-[#242934] text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                      5 Images
+                    </span>
+                  </button>
+
+                  <button
                     onClick={() => setGalleryNav('inquiries')}
                     className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
                       galleryNav === 'inquiries'
@@ -3768,7 +3839,235 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
               )}
 
               {/* FEATURED HERO SHOWCASE TAB (CANVAS / VIDEO) */}
-              {galleryNav === 'hero' && (
+                            {galleryNav === 'about' && (
+                <div className="space-y-8 animate-fade-in pb-12">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-gray-800">
+                    <div>
+                      <h2 className="text-xl sm:text-2xl font-serif font-bold text-white flex items-center gap-2.5">
+                        <ImageIcon className="w-6 h-6 text-[#FF5722]" />
+                        <span>About Page Images & Banner Manager</span>
+                      </h2>
+                      <p className="text-xs sm:text-sm text-gray-400 mt-1">
+                        Customize and update the top Hero Banner and all 4 narrative section images for the live About Page.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-8">
+                    {/* 1. Main Hero Banner Card */}
+                    <div className="bg-[#161920] rounded-2xl border border-gray-800 p-6 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <span className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center font-bold text-sm">
+                            ★
+                          </span>
+                          <div>
+                            <h3 className="text-base font-bold text-white">Top Website Hero Banner</h3>
+                            <p className="text-xs text-gray-400">The wide horizontal banner displayed at the top of the About page</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="aspect-[3.6/1] w-full max-h-[220px] rounded-xl overflow-hidden bg-black/60 border border-gray-800 flex items-center justify-center">
+                        <img
+                          src={artistProfile?.aboutHeroBanner || '/images/artist-hero-banner.png'}
+                          alt="Hero Banner Preview"
+                          className="w-full h-full object-contain"
+                        />
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row items-center gap-3">
+                        <input
+                          type="text"
+                          value={artistProfile?.aboutHeroBanner || ''}
+                          onChange={(e) => updateAboutPageImage('aboutHeroBanner', e.target.value)}
+                          placeholder="Paste Image URL or upload new image below"
+                          className="flex-1 bg-[#1A1D24] border border-gray-700/60 rounded-xl px-4 py-2.5 text-xs sm:text-sm text-white focus:outline-none focus:border-[#FF5722]"
+                        />
+                        <label className="cursor-pointer bg-[#FF5722] hover:bg-[#e64a19] text-white font-medium px-4 py-2.5 rounded-xl text-xs flex items-center gap-2 transition-colors whitespace-nowrap">
+                          <Upload className="w-4 h-4" />
+                          <span>Upload Banner</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => handleAboutImageFileChange(e, 'aboutHeroBanner')}
+                          />
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* 2. Four About Section Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {/* Section 01 */}
+                      <div className="bg-[#161920] rounded-2xl border border-gray-800 p-5 space-y-3">
+                        <div className="flex items-center gap-2.5">
+                          <span className="w-7 h-7 rounded-lg bg-orange-500/10 text-orange-400 flex items-center justify-center font-bold text-xs">
+                            01
+                          </span>
+                          <div>
+                            <h4 className="text-sm font-bold text-white">01 | ABOUT THE ARTIST</h4>
+                            <p className="text-[11px] text-gray-400">Artwork image for Section 1</p>
+                          </div>
+                        </div>
+
+                        <div className="aspect-[4/3] w-full rounded-xl overflow-hidden bg-black/40 border border-gray-800 flex items-center justify-center">
+                          <img
+                            src={artistProfile?.aboutSection01Image || '/images/buddha-tree-of-life-painting.jpg'}
+                            alt="Section 01 Preview"
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={artistProfile?.aboutSection01Image || ''}
+                            onChange={(e) => updateAboutPageImage('aboutSection01Image', e.target.value)}
+                            placeholder="Image URL"
+                            className="flex-1 bg-[#1A1D24] border border-gray-700/60 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#FF5722]"
+                          />
+                          <label className="cursor-pointer bg-[#242934] hover:bg-gray-700 text-white font-medium px-3 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-colors whitespace-nowrap border border-gray-700">
+                            <Upload className="w-3.5 h-3.5" />
+                            <span>Upload</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => handleAboutImageFileChange(e, 'aboutSection01Image')}
+                            />
+                          </label>
+                        </div>
+                      </div>
+
+                      {/* Section 02 */}
+                      <div className="bg-[#161920] rounded-2xl border border-gray-800 p-5 space-y-3">
+                        <div className="flex items-center gap-2.5">
+                          <span className="w-7 h-7 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center font-bold text-xs">
+                            02
+                          </span>
+                          <div>
+                            <h4 className="text-sm font-bold text-white">02 | ARTISTIC VISION & PHILOSOPHY</h4>
+                            <p className="text-[11px] text-gray-400">Artwork image for Section 2</p>
+                          </div>
+                        </div>
+
+                        <div className="aspect-[4/3] w-full rounded-xl overflow-hidden bg-black/40 border border-gray-800 flex items-center justify-center">
+                          <img
+                            src={artistProfile?.aboutSection02Image || '/images/abstract-spiritual-canvas-print.jpg'}
+                            alt="Section 02 Preview"
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={artistProfile?.aboutSection02Image || ''}
+                            onChange={(e) => updateAboutPageImage('aboutSection02Image', e.target.value)}
+                            placeholder="Image URL"
+                            className="flex-1 bg-[#1A1D24] border border-gray-700/60 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#FF5722]"
+                          />
+                          <label className="cursor-pointer bg-[#242934] hover:bg-gray-700 text-white font-medium px-3 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-colors whitespace-nowrap border border-gray-700">
+                            <Upload className="w-3.5 h-3.5" />
+                            <span>Upload</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => handleAboutImageFileChange(e, 'aboutSection02Image')}
+                            />
+                          </label>
+                        </div>
+                      </div>
+
+                      {/* Section 03 */}
+                      <div className="bg-[#161920] rounded-2xl border border-gray-800 p-5 space-y-3">
+                        <div className="flex items-center gap-2.5">
+                          <span className="w-7 h-7 rounded-lg bg-rose-500/10 text-rose-400 flex items-center justify-center font-bold text-xs">
+                            03
+                          </span>
+                          <div>
+                            <h4 className="text-sm font-bold text-white">03 | EXHIBITIONS & PRESENCE</h4>
+                            <p className="text-[11px] text-gray-400">Artwork image for Section 3</p>
+                          </div>
+                        </div>
+
+                        <div className="aspect-[4/3] w-full rounded-xl overflow-hidden bg-black/40 border border-gray-800 flex items-center justify-center">
+                          <img
+                            src={artistProfile?.aboutSection03Image || '/images/abstract-woman-leopard-eagle-painting.jpg'}
+                            alt="Section 03 Preview"
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={artistProfile?.aboutSection03Image || ''}
+                            onChange={(e) => updateAboutPageImage('aboutSection03Image', e.target.value)}
+                            placeholder="Image URL"
+                            className="flex-1 bg-[#1A1D24] border border-gray-700/60 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#FF5722]"
+                          />
+                          <label className="cursor-pointer bg-[#242934] hover:bg-gray-700 text-white font-medium px-3 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-colors whitespace-nowrap border border-gray-700">
+                            <Upload className="w-3.5 h-3.5" />
+                            <span>Upload</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => handleAboutImageFileChange(e, 'aboutSection03Image')}
+                            />
+                          </label>
+                        </div>
+                      </div>
+
+                      {/* Section 04 */}
+                      <div className="bg-[#161920] rounded-2xl border border-gray-800 p-5 space-y-3">
+                        <div className="flex items-center gap-2.5">
+                          <span className="w-7 h-7 rounded-lg bg-purple-500/10 text-purple-400 flex items-center justify-center font-bold text-xs">
+                            04
+                          </span>
+                          <div>
+                            <h4 className="text-sm font-bold text-white">04 | AWARDS & JOURNEY</h4>
+                            <p className="text-[11px] text-gray-400">Artwork image for Section 4</p>
+                          </div>
+                        </div>
+
+                        <div className="aspect-[4/3] w-full rounded-xl overflow-hidden bg-black/40 border border-gray-800 flex items-center justify-center">
+                          <img
+                            src={artistProfile?.aboutSection04Image || '/images/abstract-face-contemporary-painting.jpg'}
+                            alt="Section 04 Preview"
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={artistProfile?.aboutSection04Image || ''}
+                            onChange={(e) => updateAboutPageImage('aboutSection04Image', e.target.value)}
+                            placeholder="Image URL"
+                            className="flex-1 bg-[#1A1D24] border border-gray-700/60 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#FF5722]"
+                          />
+                          <label className="cursor-pointer bg-[#242934] hover:bg-gray-700 text-white font-medium px-3 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-colors whitespace-nowrap border border-gray-700">
+                            <Upload className="w-3.5 h-3.5" />
+                            <span>Upload</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => handleAboutImageFileChange(e, 'aboutSection04Image')}
+                            />
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+{galleryNav === 'hero' && (
                 <div className="space-y-6 animate-fade-in">
                   {/* Top Header */}
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">

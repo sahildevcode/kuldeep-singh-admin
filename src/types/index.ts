@@ -210,6 +210,12 @@ export interface ArtistProfile {
   heroTopVideoTitle?: string;
   heroTopVideoSubtitle?: string;
   heroTopVideoAutoplay?: boolean;
+  // About Page Images & Banner
+  aboutHeroBanner?: string;
+  aboutSection01Image?: string;
+  aboutSection02Image?: string;
+  aboutSection03Image?: string;
+  aboutSection04Image?: string;
 }
 
 export interface StudioReel {
