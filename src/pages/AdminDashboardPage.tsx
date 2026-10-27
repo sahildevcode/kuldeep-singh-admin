@@ -3340,7 +3340,42 @@ const handleSaveTestimonialSectionSettings = (e: React.FormEvent) => {
           </div>
         </div>
 
-        <div></div>
+        {/* 2-SIDE MASTER TOGGLE SWITCH */}
+        <div className="flex items-center bg-[#0C0E12] p-1.5 rounded-2xl border border-[#232732] shadow-inner">
+          <button
+            onClick={() => setAdminMode('gallery')}
+            className={`flex items-center gap-2.5 px-5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              adminMode === 'gallery'
+                ? 'bg-gradient-to-r from-[#FF5722] to-[#FF7A45] text-white shadow-lg shadow-[#FF5722]/30'
+                : 'text-gray-400 hover:text-white hover:bg-[#181C24]'
+            }`}
+          >
+            <Palette className="w-4 h-4" />
+            <span>🎨 Side 1: Art Gallery & Sales</span>
+            <span className={`text-[10px] px-2 py-0.5 rounded-full ${
+              adminMode === 'gallery' ? 'bg-black/30 text-white' : 'bg-[#181C24] text-gray-400'
+            }`}>
+              {artworks.length} Art • {orders.length} Orders
+            </span>
+          </button>
+
+          <button
+            onClick={() => setAdminMode('academy')}
+            className={`flex items-center gap-2.5 px-5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              adminMode === 'academy'
+                ? 'bg-gradient-to-r from-red-600 to-[#FF5722] text-white shadow-lg shadow-red-500/30'
+                : 'text-gray-400 hover:text-white hover:bg-[#181C24]'
+            }`}
+          >
+            <Radio className={`w-4 h-4 ${isLiveBroadcasting ? 'text-white animate-pulse' : ''}`} />
+            <span>🎓 Side 2: Live Académie & Courses</span>
+            <span className={`text-[10px] px-2 py-0.5 rounded-full ${
+              adminMode === 'academy' ? 'bg-black/30 text-white' : 'bg-[#181C24] text-gray-400'
+            }`}>
+              {courses.length} Batches • {students.length} Students
+            </span>
+          </button>
+        </div>
 
         {/* Right Quick Controls */}
         <div className="flex items-center gap-3">
