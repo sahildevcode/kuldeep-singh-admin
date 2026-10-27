@@ -125,7 +125,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setAdminAuthStep('otp');
       return { success: true, devMode: data.devMode };
     } catch (err: any) {
-      const errMsg = 'Cannot reach backend server. Please check your network or try again.';
+      console.error('requestAdminOtp exception:', err);
+      const errMsg = err?.message && !err.message.includes('fetch')
+        ? err.message
+        : 'Cannot reach backend server. Please check your network or try again.';
       setAdminError(errMsg);
       return { success: false, error: errMsg };
     }
