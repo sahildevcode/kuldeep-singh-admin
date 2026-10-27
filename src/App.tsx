@@ -1,193 +1,322 @@
-import React, { useState } from 'react';
-import { StudioDataProvider } from './context/StudioDataContext';
+import React, { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { StudioDataProvider } from './context/StudioDataContext';
 import { CartProvider } from './context/CartContext';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
-import { ShieldCheck, Lock, Mail, Key, ExternalLink, Sparkles, ArrowRight, AlertCircle } from 'lucide-react';
+import { Lock, Mail, KeyRound, ShieldAlert, ArrowLeft, RefreshCw, CheckCircle2 } from 'lucide-react';
 
 const AdminPortalContent: React.FC = () => {
-  const { isAdminAuthenticated, adminLogin, adminLogout } = useAuth();
-  const [email, setEmail] = useState('');
+  const {
+    isAdminAuthenticated,
+    adminUser,
+    adminLoading,
+    adminAuthStep,
+    pendingAdminEmail,
+    adminError,
+    setAdminError,
+    requestAdminOtp,
+    verifyAdminOtp,
+    resendAdminOtp,
+    adminLogout,
+    resetAdminAuthState
+  } = useAuth();
+
+  const [email, setEmail] = useState('admin@kuldeepsingh.art');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [otp, setOtp] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
+  const [devOtpNotice, setDevOtpNotice] = useState<boolean>(false);
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  // Countdown timer for resend cooldown
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const timer = setInterval(() => {
+      setCooldown((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [cooldown]);
+
+  const handleCredentialsSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
-    setIsLoading(true);
+    if (!email || !password) {
+      setAdminError('Email and password are both required.');
+      return;
+    }
+    setIsSubmitting(true);
+    setDevOtpNotice(false);
+    const result = await requestAdminOtp(email, password);
+    setIsSubmitting(false);
 
-    setTimeout(() => {
-      const success = adminLogin(email, password);
-      setIsLoading(false);
-      if (!success) {
-        setError('Invalid studio credentials. Default is admin@kuldeepsingh.art / kuldeep2026');
+    if (result.success) {
+      setCooldown(60);
+      if (result.devMode) {
+        setDevOtpNotice(true);
       }
-    }, 400);
+    }
   };
 
-  const handleQuickDemoLogin = () => {
-    setEmail('admin@kuldeepsingh.art');
-    setPassword('kuldeep2026');
-    adminLogin('admin@kuldeepsingh.art', 'kuldeep2026');
+  const handleOtpSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (otp.length !== 6) {
+      setAdminError('Please enter the complete 6-digit verification code.');
+      return;
+    }
+    setIsSubmitting(true);
+    const result = await verifyAdminOtp(otp);
+    setIsSubmitting(false);
+    if (!result.success) {
+      setOtp('');
+    }
   };
 
+  const handleResendOtp = async () => {
+    if (cooldown > 0 || isSubmitting) return;
+    setIsSubmitting(true);
+    const result = await resendAdminOtp();
+    setIsSubmitting(false);
+    if (result.success) {
+      setCooldown(60);
+    } else if (result.cooldownRemaining) {
+      setCooldown(result.cooldownRemaining);
+    }
+  };
+
+  if (adminLoading) {
+    return (
+      <div className="min-h-screen bg-[#07090e] flex flex-col items-center justify-center text-gray-400">
+        <div className="w-10 h-10 border-2 border-[#d4af37] border-t-transparent rounded-full animate-spin mb-4" />
+        <p className="text-sm tracking-widest uppercase font-serif">Verifying Security Credentials...</p>
+      </div>
+    );
+  }
+
+  // Not authenticated: Render Secure Multi-Factor Login Portal
   if (!isAdminAuthenticated) {
     return (
-      <div className="min-h-screen bg-[#0B0F19] text-[#F3F4F6] flex flex-col justify-center items-center px-4 sm:px-6 relative overflow-hidden">
-        {/* Background decorative glow */}
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-[#E63946]/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-10 right-10 w-72 h-72 bg-amber-500/5 rounded-full blur-2xl pointer-events-none" />
+      <div className="min-h-screen bg-[#080a10] text-[#f4ede4] flex flex-col justify-center items-center px-4 relative overflow-hidden select-none">
+        {/* Subtle background ambient glow */}
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[550px] h-[550px] bg-[#d4af37]/5 rounded-full blur-[130px] pointer-events-none" />
 
-        <div className="w-full max-w-md bg-[#131B2E] border border-gray-800 rounded-3xl p-8 sm:p-10 shadow-2xl relative z-10">
+        <div className="max-w-md w-full bg-[#11141e] border border-[#262c3d] rounded-2xl p-8 shadow-2xl relative z-10 backdrop-blur-sm">
           {/* Header */}
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-[#E63946] to-amber-600 text-white shadow-lg mb-5 ring-4 ring-[#E63946]/20">
-              <ShieldCheck className="w-8 h-8" />
+            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-[#181d2a] border border-[#d4af37]/30 flex items-center justify-center text-[#d4af37] shadow-inner shadow-[#d4af37]/10">
+              <Lock className="w-8 h-8" />
             </div>
-            <span className="text-[10px] uppercase font-bold tracking-[0.3em] text-[#E63946] bg-[#E63946]/10 px-3 py-1 rounded-full border border-[#E63946]/30">
-              Studio Owner Portal
-            </span>
-            <h1 className="text-2xl sm:text-3xl font-serif font-bold text-white mt-3 mb-1 tracking-tight">
-              Artist Kuldeep Singh
+            <h1 className="text-2xl font-serif font-bold text-[#f4ede4] tracking-wide">
+              Studio Admin Portal
             </h1>
-            <p className="text-xs text-gray-400">
-              Direct Management Console • Paintings, Courses & Live Studio
+            <p className="text-xs text-gray-400 mt-1 uppercase tracking-widest font-sans">
+              Artist Kuldeep Singh Atelier &bull; High Security
             </p>
           </div>
 
-          {/* Form */}
-          <form onSubmit={handleLoginSubmit} className="space-y-4">
-            {error && (
-              <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-xs flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                <span>{error}</span>
-              </div>
-            )}
+          {/* Error Message Alert */}
+          {adminError && (
+            <div className="mb-6 p-4 rounded-xl bg-red-950/40 border border-red-500/30 flex items-start space-x-3 text-red-200 text-xs leading-relaxed animate-shake">
+              <ShieldAlert className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
+              <span>{adminError}</span>
+            </div>
+          )}
 
-            <div>
-              <label className="block text-[11px] uppercase font-bold tracking-wider text-gray-400 mb-1.5">
-                Owner Email
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+          {/* Development Mode Notice */}
+          {devOtpNotice && (
+            <div className="mb-6 p-3 rounded-lg bg-amber-950/30 border border-amber-500/30 text-amber-200 text-xs text-center">
+              <strong>Local Development Mode:</strong> Check your backend terminal console for the simulated 6-digit OTP code.
+            </div>
+          )}
+
+          {/* STEP 1: Email + Password Challenge */}
+          {adminAuthStep === 'credentials' && (
+            <form onSubmit={handleCredentialsSubmit} className="space-y-5">
+              <div>
+                <label className="block text-xs uppercase tracking-wider text-gray-400 font-semibold mb-2">
+                  Administrator Email
+                </label>
+                <div className="relative">
+                  <Mail className="absolute left-3.5 top-3 w-4 h-4 text-gray-500" />
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    placeholder="admin@kuldeepsingh.art"
+                    className="w-full pl-10 pr-4 py-2.5 bg-[#0a0d14] border border-[#23293a] rounded-xl text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-[#d4af37] focus:ring-1 focus:ring-[#d4af37] transition"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs uppercase tracking-wider text-gray-400 font-semibold mb-2">
+                  Admin Master Password
+                </label>
+                <div className="relative">
+                  <KeyRound className="absolute left-3.5 top-3 w-4 h-4 text-gray-500" />
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    placeholder="Enter admin password"
+                    className="w-full pl-10 pr-4 py-2.5 bg-[#0a0d14] border border-[#23293a] rounded-xl text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-[#d4af37] focus:ring-1 focus:ring-[#d4af37] transition"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[#d4af37] to-[#b38f28] hover:from-[#e5c14f] hover:to-[#c49e35] text-black font-semibold text-sm tracking-wide transition shadow-lg shadow-[#d4af37]/20 flex items-center justify-center space-x-2 disabled:opacity-60 cursor-pointer"
+              >
+                {isSubmitting ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Verifying Credentials...</span>
+                  </>
+                ) : (
+                  <span>Continue to 2FA Verification</span>
+                )}
+              </button>
+            </form>
+          )}
+
+          {/* STEP 2: Resend 6-Digit Email OTP Challenge */}
+          {adminAuthStep === 'otp' && (
+            <form onSubmit={handleOtpSubmit} className="space-y-6">
+              <div className="text-center">
+                <p className="text-xs text-gray-400 mb-1">
+                  A 6-digit security code was dispatched to:
+                </p>
+                <p className="text-sm font-semibold text-[#d4af37] font-mono">
+                  {pendingAdminEmail}
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs uppercase tracking-wider text-gray-400 font-semibold text-center mb-3">
+                  Enter 6-Digit Security Code
+                </label>
                 <input
                   type="text"
+                  maxLength={6}
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+                  autoFocus
                   required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="admin@kuldeepsingh.art"
-                  className="w-full bg-[#0B0F19] border border-gray-700/80 rounded-xl py-3 pl-10 pr-4 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#E63946] transition-colors"
+                  placeholder="&bull;&bull;&bull;&bull;&bull;&bull;"
+                  className="w-full py-3 text-center text-3xl font-mono tracking-[12px] bg-[#0a0d14] border-2 border-[#2b3347] focus:border-[#d4af37] rounded-xl text-[#d4af37] focus:outline-none focus:ring-2 focus:ring-[#d4af37]/30 transition"
                 />
+                <p className="text-[11px] text-gray-500 text-center mt-2">
+                  Code expires in 5 minutes &bull; Max 5 attempts
+                </p>
               </div>
-            </div>
 
-            <div>
-              <label className="block text-[11px] uppercase font-bold tracking-wider text-gray-400 mb-1.5">
-                Passcode / Master Key
-              </label>
-              <div className="relative">
-                <Key className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-                <input
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••••••"
-                  className="w-full bg-[#0B0F19] border border-gray-700/80 rounded-xl py-3 pl-10 pr-4 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#E63946] transition-colors"
-                />
+              <div className="flex flex-col space-y-3">
+                <button
+                  type="submit"
+                  disabled={isSubmitting || otp.length !== 6}
+                  className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[#d4af37] to-[#b38f28] hover:from-[#e5c14f] hover:to-[#c49e35] text-black font-semibold text-sm tracking-wide transition shadow-lg shadow-[#d4af37]/20 flex items-center justify-center space-x-2 disabled:opacity-50 cursor-pointer"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>Verifying Security Code...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>Authenticate & Enter Studio</span>
+                    </>
+                  )}
+                </button>
+
+                <div className="flex items-center justify-between pt-2 text-xs">
+                  <button
+                    type="button"
+                    onClick={resetAdminAuthState}
+                    className="text-gray-400 hover:text-gray-200 flex items-center space-x-1 cursor-pointer"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    <span>Back to login</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleResendOtp}
+                    disabled={cooldown > 0 || isSubmitting}
+                    className={`font-medium cursor-pointer ${
+                      cooldown > 0
+                        ? 'text-gray-600 cursor-not-allowed'
+                        : 'text-[#d4af37] hover:underline'
+                    }`}
+                  >
+                    {cooldown > 0 ? `Resend code in ${cooldown}s` : 'Resend Code'}
+                  </button>
+                </div>
               </div>
-            </div>
+            </form>
+          )}
 
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full bg-[#E63946] hover:bg-[#c92a37] text-white font-semibold py-3.5 px-4 rounded-xl text-sm transition-all shadow-lg shadow-[#E63946]/30 flex items-center justify-center gap-2 mt-2 cursor-pointer disabled:opacity-50"
-            >
-              <Lock className="w-4 h-4" />
-              <span>{isLoading ? 'Authenticating...' : 'Enter Studio Control Center'}</span>
-            </button>
-          </form>
-
-          {/* Quick Demo Access */}
-          <div className="mt-6 pt-6 border-t border-gray-800/80">
-            <button
-              type="button"
-              onClick={handleQuickDemoLogin}
-              className="w-full py-2.5 px-4 bg-gray-800/60 hover:bg-gray-800 text-gray-300 hover:text-white rounded-xl text-xs font-medium flex items-center justify-center gap-2 transition-all border border-gray-700/50 cursor-pointer"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-              <span>One-Click Login as Artist Kuldeep</span>
-              <ArrowRight className="w-3 h-3 text-gray-400" />
-            </button>
-            <p className="text-[11px] text-gray-500 text-center mt-2.5">
-              Default: <code className="text-gray-400">admin@kuldeepsingh.art</code> / <code className="text-gray-400">kuldeep2026</code>
+          {/* Security Footer Notice */}
+          <div className="mt-8 pt-4 border-t border-[#1d2333] text-center">
+            <p className="text-[11px] text-gray-500">
+              Session is secured with 2FA, Argon2id, and single-use crypto tokens.
             </p>
-          </div>
-
-          {/* Public website link */}
-          <div className="mt-6 text-center">
-            <a
-              href="https://www.artistkuldeepsingh.com"
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1.5 text-xs text-gray-400 hover:text-[#E63946] transition-colors"
-            >
-              <span>View Public Student & Customer Website</span>
-              <ExternalLink className="w-3 h-3" />
-            </a>
           </div>
         </div>
       </div>
     );
   }
 
+  // Authenticated Admin Dashboard
   return (
-    <div className="min-h-screen bg-[#0B0F19] text-gray-100 flex flex-col">
+    <div className="min-h-screen bg-[#06070a]">
       {/* Top Standalone Admin Bar */}
-      <div className="bg-[#111827] border-b border-gray-800 px-6 py-2.5 flex items-center justify-between text-xs">
-        <div className="flex items-center gap-3">
-          <span className="flex h-2 w-2 relative">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+      <header className="sticky top-0 z-50 bg-[#0e111a]/95 backdrop-blur border-b border-[#22283a] px-6 py-3 flex items-center justify-between">
+        <div className="flex items-center space-x-3">
+          <div className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="font-semibold text-sm text-gray-200 tracking-wide">
+            Kuldeep Singh Studio Admin Portal
           </span>
-          <span className="font-semibold text-gray-200">Kuldeep Singh Studio Admin Portal</span>
-          <span className="hidden sm:inline text-gray-500">• Standalone Management Console</span>
+          <span className="text-xs px-2 py-0.5 rounded-full bg-[#d4af37]/20 text-[#d4af37] font-mono border border-[#d4af37]/30">
+            {adminUser?.email || 'Authorized Administrator'}
+          </span>
         </div>
-        <div className="flex items-center gap-4">
+
+        <div className="flex items-center space-x-4">
           <a
-            href="https://www.artistkuldeepsingh.com"
+            href="https://artistkuldeepsingh.com"
             target="_blank"
-            rel="noreferrer"
-            className="text-gray-400 hover:text-white flex items-center gap-1 transition-colors"
+            rel="noopener noreferrer"
+            className="text-xs text-gray-400 hover:text-[#d4af37] transition"
           >
-            <span>Live Public Site</span>
-            <ExternalLink className="w-3 h-3" />
+            Visit Live Atelier &rarr;
           </a>
           <button
             onClick={adminLogout}
-            className="text-red-400 hover:text-red-300 font-medium cursor-pointer"
+            className="text-xs px-3.5 py-1.5 rounded-lg bg-red-950/60 hover:bg-red-900 border border-red-800/40 text-red-200 transition font-medium cursor-pointer"
           >
-            Sign Out
+            Secure Sign Out
           </button>
         </div>
-      </div>
+      </header>
 
-      <div className="flex-1">
-        <AdminDashboardPage onBackToSite={adminLogout} />
-      </div>
+      <AdminDashboardPage onBackToSite={adminLogout} />
     </div>
   );
 };
 
-export default function App() {
+export function App() {
   return (
-    <StudioDataProvider>
-      <AuthProvider>
+    <AuthProvider>
+      <StudioDataProvider>
         <CartProvider>
           <AdminPortalContent />
         </CartProvider>
-      </AuthProvider>
-    </StudioDataProvider>
+      </StudioDataProvider>
+    </AuthProvider>
   );
 }
+
+export default App;
