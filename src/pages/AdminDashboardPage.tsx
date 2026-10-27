@@ -1,5 +1,7 @@
 ﻿import React, { useState, useMemo, useEffect } from 'react';
 import {
+  Package,
+  Radio,
   Sliders,
   ArrowUp,
   ArrowDown,
@@ -3381,120 +3383,236 @@ const handleSaveTestimonialSectionSettings = (e: React.FormEvent) => {
 
             {/* Navigation links based on activeMode */}
             <nav className="space-y-1 text-xs">
-              {/* 1. Artworks Catalog */}
-              <button
-                onClick={() => setGalleryNav('artworks')}
-                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
-                  galleryNav === 'artworks'
-                    ? 'bg-[#1D212A] text-white font-semibold shadow-sm border border-gray-700/40'
-                    : 'text-gray-400 hover:text-white hover:bg-[#161920]'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <Palette className={`w-4 h-4 ${galleryNav === 'artworks' ? 'text-[#FF5722]' : 'text-gray-400'}`} />
-                  <span>Artworks Catalog & Order</span>
-                </div>
-                <span className="bg-[#242934] text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-                  {artworks.length}
-                </span>
-              </button>
+              {adminMode === 'gallery' ? (
+                <>
+                  <button
+                    onClick={() => setGalleryNav('orders')}
+                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
+                      galleryNav === 'orders'
+                        ? 'bg-[#1D212A] text-white font-semibold shadow-sm border border-gray-700/40'
+                        : 'text-gray-400 hover:text-white hover:bg-[#161920]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Package className={`w-4 h-4 ${galleryNav === 'orders' ? 'text-[#FF5722]' : 'text-gray-400'}`} />
+                      <span>Live Orders & Sales</span>
+                    </div>
+                    <span className="bg-[#242934] text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                      {orders.length}
+                    </span>
+                  </button>
 
-              {/* 2. Homepage Hero Video */}
-              <button
-                onClick={() => setGalleryNav('hero')}
-                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
-                  galleryNav === 'hero'
-                    ? 'bg-[#1D212A] text-white font-semibold shadow-sm border border-gray-700/40'
-                    : 'text-gray-400 hover:text-white hover:bg-[#161920]'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <Sparkles className={`w-4 h-4 ${galleryNav === 'hero' ? 'text-amber-400' : 'text-gray-400'}`} />
-                  <span>Homepage Hero Video</span>
-                </div>
-                <span className="bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase">
-                  {heroType}
-                </span>
-              </button>
+                  <button
+                    onClick={() => setGalleryNav('artworks')}
+                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
+                      galleryNav === 'artworks'
+                        ? 'bg-[#1D212A] text-white font-semibold shadow-sm border border-gray-700/40'
+                        : 'text-gray-400 hover:text-white hover:bg-[#161920]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Palette className={`w-4 h-4 ${galleryNav === 'artworks' ? 'text-[#FF5722]' : 'text-gray-400'}`} />
+                      <span>Artworks Catalog & Order</span>
+                    </div>
+                    <span className="bg-[#242934] text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                      {artworks.length}
+                    </span>
+                  </button>
 
-              {/* 3. About Page Bio & Images Manager */}
-              <button
-                onClick={() => setGalleryNav('about')}
-                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
-                  galleryNav === 'about'
-                    ? 'bg-[#1D212A] text-white font-semibold shadow-sm border border-gray-700/40'
-                    : 'text-gray-400 hover:text-white hover:bg-[#161920]'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <ImageIcon className={`w-4 h-4 ${galleryNav === 'about' ? 'text-[#FF5722]' : 'text-gray-400'}`} />
-                  <span>About Page Bio & Images</span>
-                </div>
-                <span className="bg-amber-500/20 text-amber-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-500/30">
-                  Full Control
-                </span>
-              </button>
+                  <button
+                    onClick={() => setGalleryNav('hero')}
+                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
+                      galleryNav === 'hero'
+                        ? 'bg-[#1D212A] text-white font-semibold shadow-sm border border-gray-700/40'
+                        : 'text-gray-400 hover:text-white hover:bg-[#161920]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Sparkles className={`w-4 h-4 ${galleryNav === 'hero' ? 'text-amber-400' : 'text-gray-400'}`} />
+                      <span>Homepage Hero Video</span>
+                    </div>
+                    <span className="bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase">
+                      {heroType}
+                    </span>
+                  </button>
 
-              {/* 4. 100% Website Customizer (Fonts, Text, Points) */}
-              <button
-                onClick={() => setGalleryNav('settings')}
-                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
-                  galleryNav === 'settings'
-                    ? 'bg-[#1D212A] text-white font-semibold shadow-sm border border-gray-700/40'
-                    : 'text-gray-400 hover:text-white hover:bg-[#161920]'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <Sliders className={`w-4 h-4 ${galleryNav === 'settings' ? 'text-[#FF5722]' : 'text-gray-400'}`} />
-                  <span>100% Website Customizer</span>
-                </div>
-                <span className="bg-amber-500/20 text-amber-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-500/30">
-                  Fonts & Text
-                </span>
-              </button>
+                  <button
+                    onClick={() => setGalleryNav('about')}
+                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
+                      galleryNav === 'about'
+                        ? 'bg-[#1D212A] text-white font-semibold shadow-sm border border-gray-700/40'
+                        : 'text-gray-400 hover:text-white hover:bg-[#161920]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <ImageIcon className={`w-4 h-4 ${galleryNav === 'about' ? 'text-[#FF5722]' : 'text-gray-400'}`} />
+                      <span>About Page Bio & Images</span>
+                    </div>
+                    <span className="bg-amber-500/20 text-amber-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-500/30">
+                      Full Control
+                    </span>
+                  </button>
 
-              {/* 5. Customer Inquiries & Leads */}
-              <button
-                onClick={() => setGalleryNav('inquiries')}
-                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
-                  galleryNav === 'inquiries'
-                    ? 'bg-[#1D212A] text-white font-semibold shadow-sm border border-gray-700/40'
-                    : 'text-gray-400 hover:text-white hover:bg-[#161920]'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <MessageSquare className={`w-4 h-4 ${galleryNav === 'inquiries' ? 'text-[#FF5722]' : 'text-gray-400'}`} />
-                  <span>Customer Inquiries & Leads</span>
-                </div>
-                {newInquiriesCount > 0 ? (
-                  <span className="bg-red-500/20 text-red-400 border border-red-500/30 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 animate-pulse">
-                    <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
-                    {newInquiriesCount} New
-                  </span>
-                ) : (
-                  <span className="bg-[#242934] text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-                    {inquiries.length}
-                  </span>
-                )}
-              </button>
+                  <button
+                    onClick={() => setGalleryNav('settings')}
+                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
+                      galleryNav === 'settings'
+                        ? 'bg-[#1D212A] text-white font-semibold shadow-sm border border-gray-700/40'
+                        : 'text-gray-400 hover:text-white hover:bg-[#161920]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Sliders className={`w-4 h-4 ${galleryNav === 'settings' ? 'text-[#FF5722]' : 'text-gray-400'}`} />
+                      <span>100% Website Customizer</span>
+                    </div>
+                    <span className="bg-amber-500/20 text-amber-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-500/30">
+                      Fonts & Text
+                    </span>
+                  </button>
 
-              {/* 6. Testimonials & Reviews */}
-              <button
-                onClick={() => setGalleryNav('testimonials')}
-                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
-                  galleryNav === 'testimonials'
-                    ? 'bg-[#1D212A] text-white font-semibold shadow-sm border border-gray-700/40'
-                    : 'text-gray-400 hover:text-white hover:bg-[#161920]'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <Star className={`w-4 h-4 ${galleryNav === 'testimonials' ? 'text-amber-400' : 'text-gray-400'}`} />
-                  <span>Upcoming Courses & Testimonials</span>
-                </div>
-                <span className="bg-amber-500/20 text-amber-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-500/30">
-                  {reviews.length}
-                </span>
-              </button>
+                  <button
+                    onClick={() => setGalleryNav('inquiries')}
+                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
+                      galleryNav === 'inquiries'
+                        ? 'bg-[#1D212A] text-white font-semibold shadow-sm border border-gray-700/40'
+                        : 'text-gray-400 hover:text-white hover:bg-[#161920]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <MessageSquare className={`w-4 h-4 ${galleryNav === 'inquiries' ? 'text-[#FF5722]' : 'text-gray-400'}`} />
+                      <span>Customer Inquiries & Leads</span>
+                    </div>
+                    {newInquiriesCount > 0 ? (
+                      <span className="bg-red-500/20 text-red-400 border border-red-500/30 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 animate-pulse">
+                        <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
+                        {newInquiriesCount} New
+                      </span>
+                    ) : (
+                      <span className="bg-[#242934] text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                        {inquiries.length}
+                      </span>
+                    )}
+                  </button>
+
+                  <button
+                    onClick={() => setGalleryNav('testimonials')}
+                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
+                      galleryNav === 'testimonials'
+                        ? 'bg-[#1D212A] text-white font-semibold shadow-sm border border-gray-700/40'
+                        : 'text-gray-400 hover:text-white hover:bg-[#161920]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Star className={`w-4 h-4 ${galleryNav === 'testimonials' ? 'text-amber-400' : 'text-gray-400'}`} />
+                      <span>Upcoming Courses & Testimonials</span>
+                    </div>
+                    <span className="bg-amber-500/20 text-amber-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-500/30">
+                      {reviews.length}
+                    </span>
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={() => setAcademyNav('batches')}
+                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
+                      academyNav === 'batches'
+                        ? 'bg-[#1D212A] text-white font-semibold shadow-sm border border-gray-700/40'
+                        : 'text-gray-400 hover:text-white hover:bg-[#161920]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Radio className={`w-4 h-4 ${isLiveBroadcasting ? 'text-red-400 animate-pulse' : 'text-gray-400'}`} />
+                      <span>Live Batches & Stream</span>
+                    </div>
+                    <span className="bg-red-500/20 text-red-400 text-[10px] font-bold px-2 py-0.5 rounded-full border border-red-500/30">
+                      {courses.length}
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => setAcademyNav('curriculum')}
+                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
+                      academyNav === 'curriculum'
+                        ? 'bg-[#1D212A] text-white font-semibold shadow-sm border border-gray-700/40'
+                        : 'text-gray-400 hover:text-white hover:bg-[#161920]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Video className={`w-4 h-4 ${academyNav === 'curriculum' ? 'text-[#FF5722]' : 'text-gray-400'}`} />
+                      <span>Video Lectures (LMS)</span>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => setAcademyNav('upcoming')}
+                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
+                      academyNav === 'upcoming'
+                        ? 'bg-[#1D212A] text-white font-semibold shadow-sm border border-gray-700/40'
+                        : 'text-gray-400 hover:text-white hover:bg-[#161920]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Sparkles className={`w-4 h-4 ${academyNav === 'upcoming' ? 'text-amber-400' : 'text-gray-400'}`} />
+                      <span>Upcoming Courses</span>
+                    </div>
+                    <span className="bg-amber-500/20 text-amber-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-500/30">
+                      {upcomingCourses.length}
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => setAcademyNav('students')}
+                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
+                      academyNav === 'students'
+                        ? 'bg-[#1D212A] text-white font-semibold shadow-sm border border-gray-700/40'
+                        : 'text-gray-400 hover:text-white hover:bg-[#161920]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Users className={`w-4 h-4 ${academyNav === 'students' ? 'text-[#FF5722]' : 'text-gray-400'}`} />
+                      <span>Enrolled Students</span>
+                    </div>
+                    <span className="bg-[#242934] text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                      {students.length}
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => setAcademyNav('users')}
+                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
+                      academyNav === 'users'
+                        ? 'bg-[#1D212A] text-white font-semibold shadow-sm border border-gray-700/40'
+                        : 'text-gray-400 hover:text-white hover:bg-[#161920]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <KeyRound className={`w-4 h-4 ${academyNav === 'users' ? 'text-[#FF5722]' : 'text-gray-400'}`} />
+                      <span>Registered Logins</span>
+                    </div>
+                    <span className="bg-emerald-500/20 text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-500/30">
+                      {users.length}
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => setAcademyNav('testimonials')}
+                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
+                      academyNav === 'testimonials'
+                        ? 'bg-[#1D212A] text-white font-semibold shadow-sm border border-gray-700/40'
+                        : 'text-gray-400 hover:text-white hover:bg-[#161920]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Quote className={`w-4 h-4 ${academyNav === 'testimonials' ? 'text-amber-400' : 'text-gray-400'}`} />
+                      <span>Student Testimonials</span>
+                    </div>
+                    <span className="bg-amber-500/20 text-amber-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-500/30">
+                      {reviews.length}
+                    </span>
+                  </button>
+                </>
+              )}
             </nav>
           </div>
 
