@@ -1,5 +1,5 @@
 ﻿import React, { createContext, useContext, useState, useEffect } from 'react';
-import type { PromoCode, StoreDeliverySettings, Artwork, Course, CourseModule, CourseLecture, ArtistProfile, AchievementTimelineItem, Award, EnrolledStudent, RegisteredUser, Inquiry, UpcomingCourse, CollectorReview } from '../types';
+import type { SiteSettings, PromoCode, StoreDeliverySettings, Artwork, Course, CourseModule, CourseLecture, ArtistProfile, AchievementTimelineItem, Award, EnrolledStudent, RegisteredUser, Inquiry, UpcomingCourse, CollectorReview } from '../types';
 import { ARTWORKS } from '../data/artworks';
 import { COURSES } from '../data/courses';
 import { TIMELINE, AWARDS } from '../data/achievements';
@@ -56,6 +56,42 @@ export const DEFAULT_PROMO_CODES: PromoCode[] = [
     description: '20% VIP Patron Discount'
   }
 ];
+
+
+export const DEFAULT_SITE_SETTINGS: SiteSettings = {
+  id: 'global_settings',
+  fontHeading: 'Playfair Display',
+  fontBody: 'Plus Jakarta Sans',
+  fontAccent: 'Alex Brush',
+  primaryColor: '#E63946',
+  goldColor: '#C5A059',
+  brandNameFirst: 'KULDEEP',
+  brandNameSecond: 'SINGH',
+  siteTagline: 'Master Classical Realist & Atelier Founder',
+  heroPreTitle: 'The Art of',
+  heroMainTitle: 'Artist Kuldeep Singh',
+  heroButtonText: 'Discover The Artist',
+  statsYearsLabel: 'Years of Devoted Mastery',
+  statsYearsValue: '18',
+  statsArtworksLabel: 'Original Works Collected',
+  statsArtworksValue: '450+',
+  statsExhibitionsLabel: 'International Exhibitions',
+  statsExhibitionsValue: '24',
+  statsStudentsLabel: 'Global Academy Students',
+  statsStudentsValue: '5.2K+',
+  galleryHeading: 'Acquire Original Paintings & Limited Edition Prints.',
+  gallerySubheading: 'Explore authentic museum-grade masterworks hand-crafted with archival minerals, oils, and charcoals. Delivered worldwide with hand-embossed Certificates of Authenticity.',
+  aboutStoryHeading: 'A Life Dedicated to the Alchemy of Light, Oil & Form.',
+  philosophyQuote: 'Every stroke of oil on linen is a conversation between human patience and natural light.',
+  contactEmail: 'artistkuldeepsingh26@gmail.com',
+  contactPhone: '+91 88580 60101',
+  studioAddress: 'Delhi, India',
+  whatsappNumber: '918858060101',
+  instagramUrl: 'https://www.instagram.com/artist_kuldeep_singh/',
+  youtubeUrl: 'https://www.youtube.com/@artistkuldeepsingh',
+  enableParticles: true,
+  enableAudioAmbiance: true
+};
 
 export const DEFAULT_DELIVERY_SETTINGS: StoreDeliverySettings = {
   deliveryFee: 0,
@@ -182,6 +218,10 @@ interface StudioDataContextType {
   addArtwork: (artwork: Artwork) => void;
   updateArtwork: (id: string, updates: Partial<Artwork>) => void;
   deleteArtwork: (id: string) => void;
+  reorderArtworks: (orderedIds: string[], mainId?: string) => Promise<void>;
+  setMainArtwork: (id: string) => Promise<void>;
+  siteSettings: SiteSettings;
+  updateSiteSettings: (updates: Partial<SiteSettings>) => Promise<void>;
   // Courses CRUD
   addCourse: (course: Course) => void;
   updateCourse: (id: string, updates: Partial<Course>) => void;
@@ -358,6 +398,21 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   });
 
   // 3. Artist Profile State
+const [siteSettings, setSiteSettings] = useState<SiteSettings>(() => {
+    try {
+      const saved = localStorage.getItem('kuldeep_studio_settings');
+      return saved ? JSON.parse(saved) : DEFAULT_SITE_SETTINGS;
+    } catch {
+      return DEFAULT_SITE_SETTINGS;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('kuldeep_studio_settings', JSON.stringify(siteSettings));
+    } catch {}
+  }, [siteSettings]);
+
   const [artistProfile, setArtistProfile] = useState<ArtistProfile>(() => {
     try {
       const saved = localStorage.getItem('kuldeep_studio_profile');
@@ -482,6 +537,22 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     let isMounted = true;
 
     const syncAllWithCloud = async () => {
+        try {
+          // Fetch site settings
+          for (const base of getBackendUrls()) {
+            try {
+              const sRes = await fetch(`${base}/api/settings`);
+              if (sRes.ok) {
+                const cloudSettings = await sRes.json();
+                if (cloudSettings && isMounted) {
+                  setSiteSettings(prev => ({ ...prev, ...cloudSettings }));
+                  localStorage.setItem('kuldeep_studio_settings', JSON.stringify(cloudSettings));
+                  break;
+                }
+              }
+            } catch {}
+          }
+        } catch {}
       try {
         // 1. Artworks (Cloud is absolute source of truth)
         const artRes = await fetch('https://kuldeep-singh-backend-nehy.onrender.com/api/artworks');
@@ -932,6 +1003,96 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         });
       } catch (err) {
         console.error('Error deleting artwork from cloud database:', err);
+      }
+    }
+  };
+
+  const reorderArtworks = async (orderedIds: string[], mainId?: string) => {
+    // Optimistically update local artworks order
+    setArtworks((prev) => {
+      const map = new Map(prev.map(a => [a.id, a]));
+      const reordered: Artwork[] = [];
+      orderedIds.forEach((id, idx) => {
+        const item = map.get(id);
+        if (item) {
+          reordered.push({
+            ...item,
+            order: idx + 1,
+            isMain: mainId !== undefined ? (item.id === mainId) : item.isMain
+          });
+          map.delete(id);
+        }
+      });
+      for (const item of map.values()) {
+        reordered.push({
+          ...item,
+          order: (item.order || 999),
+          isMain: mainId !== undefined ? (item.id === mainId) : item.isMain
+        });
+      }
+      try {
+        localStorage.setItem('kuldeep_studio_artworks', JSON.stringify(reordered));
+      } catch {}
+      return reordered;
+    });
+
+    for (const base of getBackendUrls()) {
+      try {
+        await fetch(`${base}/api/artworks/reorder`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ artworkIds: orderedIds, mainArtworkId: mainId })
+        });
+        break;
+      } catch (e) {
+        console.error('Failed to reorder artworks on backend:', e);
+      }
+    }
+  };
+
+  const setMainArtwork = async (id: string) => {
+    setArtworks((prev) => {
+      const updated = prev.map(a => ({
+        ...a,
+        isMain: a.id === id
+      }));
+      try {
+        localStorage.setItem('kuldeep_studio_artworks', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+
+    for (const base of getBackendUrls()) {
+      try {
+        await fetch(`${base}/api/artworks/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ isMain: true })
+        });
+        break;
+      } catch (e) {
+        console.error('Failed to set main artwork on backend:', e);
+      }
+    }
+  };
+
+  const updateSiteSettings = async (updates: Partial<SiteSettings>) => {
+    const merged = { ...siteSettings, ...updates };
+    setSiteSettings(merged);
+    try {
+      localStorage.setItem('kuldeep_studio_settings', JSON.stringify(merged));
+    } catch {}
+
+    for (const base of getBackendUrls()) {
+      try {
+        await fetch(`${base}/api/settings`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(merged)
+        });
+        break;
+      } catch (e) {
+        console.error('Failed to update settings on backend:', e);
       }
     }
   };
@@ -1720,6 +1881,10 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         addArtwork,
         updateArtwork,
         deleteArtwork,
+          reorderArtworks,
+          setMainArtwork,
+          siteSettings,
+          updateSiteSettings,
         addCourse,
         updateCourse,
         deleteCourse,

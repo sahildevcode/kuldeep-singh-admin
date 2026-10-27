@@ -1,9 +1,9 @@
 ﻿import React, { useState, useMemo, useEffect } from 'react';
 import {
-  Package,
+  Sliders,
+  ArrowUp,
+  ArrowDown,
   Palette,
-  Radio,
-  BarChart3,
   Search,
   Plus,
   CheckCircle2,
@@ -164,7 +164,11 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
     reviews,
     addReview,
     updateReview,
-    deleteReview
+    deleteReview,
+    reorderArtworks,
+    setMainArtwork,
+    siteSettings,
+    updateSiteSettings
   } = useStudioData();
 
   const { adminLogout } = useAuth();
@@ -184,7 +188,103 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
     return 'academy';
   });
 
-  // Sub-Navigation for Mode 1: Art Gallery & Sales
+  // About Page Narrative & Bio Form State
+  const [aboutBioForm, setAboutBioForm] = useState({
+    aboutSection01Title: artistProfile?.aboutSection01Title || 'ABOUT THE ARTIST',
+    aboutSection01Text: artistProfile?.aboutSection01Text || 'I am Kuldeep Singh (b. 1998), an Indian contemporary visual artist. My work explores the profound relationship between spirituality, human consciousness, and cultural heritage. Rooted in the philosophical traditions of India, my practice moves beyond the visible, transforming painting into a contemplative exploration of existence, identity, and inner awareness.\n\nI hold a Bachelor of Fine Arts (B.F.A.) from Bundelkhand University and a Master of Fine Arts (M.F.A.) in Painting from Raja Mansingh Tomar Music & Arts University, Gwalior. Drawing upon my academic training and India\'s rich artistic traditions, I have developed a distinctive visual language that brings traditional symbolism into dialogue with contemporary expression.',
+    aboutSection02Title: artistProfile?.aboutSection02Title || 'ARTISTIC VISION & PHILOSOPHY',
+    aboutSection02Text: artistProfile?.aboutSection02Text || 'For me, art is a journey inward — a meeting point between the material world and the unseen dimensions of human consciousness. Inspired by Indian philosophy, spiritual narratives, and ancient symbolism, my work reflects on the nature of the self, the dissolution of ego, and the search for a deeper understanding of existence.\n\nMy signature series, Rahyasya and Beyond the Horizon, explore the tension between worldly attachments and spiritual aspirations. Through evocative imagery and contemplative compositions, these works invite viewers to look beyond appearances and engage with questions of identity, transformation, and inner awakening.\n\nWorking across oil, acrylic, charcoal, pen art, watercolour, and traditional Indian rangoli, I explore diverse ways of translating philosophical ideas and cultural memories into visual form. My practice brings together expressive mark-making, intricate detail, fluidity, and symbolism in an evolving dialogue between heritage and contemporary art.',
+    aboutSection03Title: artistProfile?.aboutSection03Title || 'EXHIBITIONS & INTERNATIONAL PRESENCE',
+    aboutSection03Text: artistProfile?.aboutSection03Text || 'My artistic journey has connected my practice with art venues and cultural platforms in India and internationally. My exhibitions and artistic engagements include AIFACS Art Gallery, New Delhi; State Gallery of Arts, Hyderabad; Kannauj Museum, Uttar Pradesh; Lighthouse Gallery, Puerto Rico; and Tons of Rock, Norway.\n\nThrough these engagements, I seek to contribute to cross-cultural dialogue, bringing perspectives shaped by Indian philosophy and artistic heritage into conversation with diverse audiences.',
+    aboutSection04Title: artistProfile?.aboutSection04Title || 'AWARDS, RECOGNITION & CONTINUING JOURNEY',
+    aboutSection04Text: artistProfile?.aboutSection04Text || 'My artistic achievements include The Kala Gaurav Award and The Raja Ravi Verma Award, along with recognition from the Rajya Lalit Kala Academy.\n\nMy journey continues through creative exploration, exhibitions, live art demonstrations, and collaborative initiatives. Guided by an enduring interest in spirituality, consciousness, and cultural expression, I seek to create works that encourage reflection beyond the surface of the image.\n\nFor me, art is not merely an act of seeing; it is an invitation to feel, question, and discover what lies within.',
+  });
+  const [isSavingAboutBio, setIsSavingAboutBio] = useState(false);
+
+  useEffect(() => {
+    if (artistProfile) {
+      setAboutBioForm({
+        aboutSection01Title: artistProfile.aboutSection01Title || 'ABOUT THE ARTIST',
+        aboutSection01Text: artistProfile.aboutSection01Text || 'I am Kuldeep Singh (b. 1998), an Indian contemporary visual artist. My work explores the profound relationship between spirituality, human consciousness, and cultural heritage. Rooted in the philosophical traditions of India, my practice moves beyond the visible, transforming painting into a contemplative exploration of existence, identity, and inner awareness.\n\nI hold a Bachelor of Fine Arts (B.F.A.) from Bundelkhand University and a Master of Fine Arts (M.F.A.) in Painting from Raja Mansingh Tomar Music & Arts University, Gwalior. Drawing upon my academic training and India\'s rich artistic traditions, I have developed a distinctive visual language that brings traditional symbolism into dialogue with contemporary expression.',
+        aboutSection02Title: artistProfile.aboutSection02Title || 'ARTISTIC VISION & PHILOSOPHY',
+        aboutSection02Text: artistProfile.aboutSection02Text || 'For me, art is a journey inward — a meeting point between the material world and the unseen dimensions of human consciousness. Inspired by Indian philosophy, spiritual narratives, and ancient symbolism, my work reflects on the nature of the self, the dissolution of ego, and the search for a deeper understanding of existence.\n\nMy signature series, Rahyasya and Beyond the Horizon, explore the tension between worldly attachments and spiritual aspirations. Through evocative imagery and contemplative compositions, these works invite viewers to look beyond appearances and engage with questions of identity, transformation, and inner awakening.\n\nWorking across oil, acrylic, charcoal, pen art, watercolour, and traditional Indian rangoli, I explore diverse ways of translating philosophical ideas and cultural memories into visual form. My practice brings together expressive mark-making, intricate detail, fluidity, and symbolism in an evolving dialogue between heritage and contemporary art.',
+        aboutSection03Title: artistProfile.aboutSection03Title || 'EXHIBITIONS & INTERNATIONAL PRESENCE',
+        aboutSection03Text: artistProfile.aboutSection03Text || 'My artistic journey has connected my practice with art venues and cultural platforms in India and internationally. My exhibitions and artistic engagements include AIFACS Art Gallery, New Delhi; State Gallery of Arts, Hyderabad; Kannauj Museum, Uttar Pradesh; Lighthouse Gallery, Puerto Rico; and Tons of Rock, Norway.\n\nThrough these engagements, I seek to contribute to cross-cultural dialogue, bringing perspectives shaped by Indian philosophy and artistic heritage into conversation with diverse audiences.',
+        aboutSection04Title: artistProfile.aboutSection04Title || 'AWARDS, RECOGNITION & CONTINUING JOURNEY',
+        aboutSection04Text: artistProfile.aboutSection04Text || 'My artistic achievements include The Kala Gaurav Award and The Raja Ravi Verma Award, along with recognition from the Rajya Lalit Kala Academy.\n\nMy journey continues through creative exploration, exhibitions, live art demonstrations, and collaborative initiatives. Guided by an enduring interest in spirituality, consciousness, and cultural expression, I seek to create works that encourage reflection beyond the surface of the image.\n\nFor me, art is not merely an act of seeing; it is an invitation to feel, question, and discover what lies within.',
+      });
+    }
+  }, [artistProfile]);
+
+  const handleSaveAboutBio = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setIsSavingAboutBio(true);
+    try {
+      updateArtistProfile(aboutBioForm);
+      for (const base of getBackendUrls()) {
+        try {
+          await fetch(`${base}/api/profile`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(aboutBioForm)
+          });
+          break;
+        } catch {
+          // try next
+        }
+      }
+      showToast('✓ About Page Bio, Titles & Story points updated successfully!');
+    } catch {
+      showToast('Failed to save bio');
+    } finally {
+      setIsSavingAboutBio(false);
+    }
+  };
+
+  // 100% Control Site Settings Form State
+  const [siteSettingsForm, setSiteSettingsForm] = useState(siteSettings);
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
+
+  useEffect(() => {
+    if (siteSettings) {
+      setSiteSettingsForm(siteSettings);
+    }
+  }, [siteSettings]);
+
+  const handleSaveSiteSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingSettings(true);
+    try {
+      await updateSiteSettings(siteSettingsForm);
+      showToast('Website 100% Customization & Typography Saved Live!');
+    } catch {
+      showToast('Failed to update website settings');
+    } finally {
+      setIsSavingSettings(false);
+    }
+  };
+
+  // Reorder Artworks helper functions
+  const handleMoveArtwork = async (index: number, direction: 'up' | 'down') => {
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= artworks.length) return;
+
+    const list = [...artworks];
+    const temp = list[index];
+    list[index] = list[targetIndex];
+    list[targetIndex] = temp;
+
+    const orderedIds = list.map(a => a.id);
+    await reorderArtworks(orderedIds);
+    showToast(`Sequence adjusted! "${temp.title}" moved ${direction}`);
+  };
+
+  const handleSetMainArtwork = async (art: Artwork) => {
+    await setMainArtwork(art.id);
+    showToast(`"${art.title}" is now the MAIN Highlighted Painting on the website!`);
+  };
+
+    // Sub-Navigation for Mode 1: Art Gallery & Sales
   const [galleryNav, setGalleryNav] = useState<'orders' | 'artworks' | 'hero' | 'about' | 'inquiries' | 'analytics' | 'settings' | 'video' | 'testimonials' | 'promos'>(() => {
     try {
       const saved = localStorage.getItem('ks_admin_gallery_nav');
@@ -2713,7 +2813,7 @@ const handleSaveTestimonialSectionSettings = (e: React.FormEvent) => {
           <div>
             <div className="flex items-center gap-2 mb-1">
               <Star className="w-5 h-5 text-amber-400 fill-amber-400" />
-              <h3 className="font-serif font-bold text-2xl text-white">Collector & Student Testimonials Management</h3>
+              <h3 className="font-serif font-bold text-2xl text-white">Upcoming Courses & Testimonials Management</h3>
             </div>
             <p className="text-xs text-gray-400 max-w-2xl">
               Manage student reviews, upcoming course anticipation testimonials, and art collector feedback displayed on the live website homepage. Customize the section heading, review quotes, star ratings, and student details.
@@ -2977,6 +3077,230 @@ const handleSaveTestimonialSectionSettings = (e: React.FormEvent) => {
     </div>
   );
 
+  const renderSiteSettingsTabContent = () => (
+    <div className="space-y-8 animate-fade-in pb-16">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-gray-800">
+        <div>
+          <div className="flex items-center gap-2">
+            <Sliders className="w-6 h-6 text-[#FF5722]" />
+            <h2 className="text-2xl font-serif font-bold text-white">Website 100% Control & Customization</h2>
+          </div>
+          <p className="text-xs sm:text-sm text-gray-400 mt-1">
+            Customize typography fonts, website headings, subheadings, hero text, and points dynamically.
+          </p>
+        </div>
+        <button
+          onClick={handleSaveSiteSettings}
+          disabled={isSavingSettings}
+          className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#FF5722] to-orange-600 hover:from-orange-500 hover:to-orange-600 text-white font-bold text-xs flex items-center gap-2 shadow-lg cursor-pointer"
+        >
+          <Save className="w-4 h-4" />
+          <span>{isSavingSettings ? 'Saving Changes...' : 'Save All Website Settings'}</span>
+        </button>
+      </div>
+
+      <form onSubmit={handleSaveSiteSettings} className="space-y-8">
+        {/* 1. TYPOGRAPHY & FONTS */}
+        <div className="bg-[#14171E] rounded-2xl border border-gray-800 p-6 space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="w-8 h-8 rounded-lg bg-[#FF5722]/10 text-[#FF5722] flex items-center justify-center font-bold text-sm">1</span>
+              <div>
+                <h3 className="font-bold text-base text-white">Typography & Global Fonts</h3>
+                <p className="text-xs text-gray-400">Control heading fonts, body fonts, and artistic cursive script fonts across the whole website.</p>
+              </div>
+            </div>
+            <span className="text-[10px] bg-amber-500/10 border border-amber-500/30 text-amber-300 px-2 py-0.5 rounded-full font-mono font-bold">Live Dynamic Google Fonts</span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2">
+            <div>
+              <label className="block text-xs font-semibold text-gray-300 mb-2">Heading Font (Titles & Big Labels)</label>
+              <select
+                value={siteSettingsForm?.fontHeading || 'Playfair Display'}
+                onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, fontHeading: e.target.value })}
+                className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white text-xs focus:outline-none focus:border-[#FF5722]"
+              >
+                <option value="Playfair Display">Playfair Display (Classical Elegant Serif)</option>
+                <option value="Cinzel">Cinzel (Regal Museum Style)</option>
+                <option value="Cormorant Garamond">Cormorant Garamond (High-Fashion Luxury)</option>
+                <option value="Syne">Syne (Modern Geometric Display)</option>
+                <option value="Plus Jakarta Sans">Plus Jakarta Sans (Contemporary Sans)</option>
+                <option value="Inter">Inter (Ultra-Clean Modern)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-300 mb-2">Body Font (Paragraphs & Content)</label>
+              <select
+                value={siteSettingsForm?.fontBody || 'Plus Jakarta Sans'}
+                onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, fontBody: e.target.value })}
+                className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white text-xs focus:outline-none focus:border-[#FF5722]"
+              >
+                <option value="Plus Jakarta Sans">Plus Jakarta Sans (Crisp & Readable)</option>
+                <option value="Inter">Inter (High-Legibility Modern)</option>
+                <option value="Roboto">Roboto (Google Neutral)</option>
+                <option value="Georgia">Georgia (Warm Editorial Serif)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-300 mb-2">Artistic Cursive / Signature Font</label>
+              <select
+                value={siteSettingsForm?.fontAccent || 'Alex Brush'}
+                onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, fontAccent: e.target.value })}
+                className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white text-xs focus:outline-none focus:border-[#FF5722]"
+              >
+                <option value="Alex Brush">Alex Brush (Calligraphic Elegance)</option>
+                <option value="Great Vibes">Great Vibes (Flowing Fine Art Pen)</option>
+                <option value="Pinyon Script">Pinyon Script (Vintage Atelier Monogram)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* 2. HERO SECTION CUSTOMIZER */}
+        <div className="bg-[#14171E] rounded-2xl border border-gray-800 p-6 space-y-6">
+          <div className="flex items-center gap-3">
+            <span className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center font-bold text-sm">2</span>
+            <div>
+              <h3 className="font-bold text-base text-white">Homepage Hero Banner & Top Video Text</h3>
+              <p className="text-xs text-gray-400">Customize the top headline overlay, pre-title, and call-to-action button text.</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            <div>
+              <label className="block text-xs font-semibold text-gray-300 mb-1.5">Pre-Title (Small Italian / Cursive Accent)</label>
+              <input
+                type="text"
+                value={siteSettingsForm?.heroPreTitle || ''}
+                onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, heroPreTitle: e.target.value })}
+                placeholder="The Art of"
+                className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white text-xs focus:outline-none focus:border-[#FF5722]"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-300 mb-1.5">Main Hero Title</label>
+              <input
+                type="text"
+                value={siteSettingsForm?.heroMainTitle || ''}
+                onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, heroMainTitle: e.target.value })}
+                placeholder="Artist Kuldeep Singh"
+                className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white text-xs focus:outline-none focus:border-[#FF5722]"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-300 mb-1.5">Hero Action Button Label</label>
+              <input
+                type="text"
+                value={siteSettingsForm?.heroButtonText || ''}
+                onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, heroButtonText: e.target.value })}
+                placeholder="Discover The Artist"
+                className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white text-xs focus:outline-none focus:border-[#FF5722]"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* 3. GALLERY STORE HEADINGS & SUBTEXT */}
+        <div className="bg-[#14171E] rounded-2xl border border-gray-800 p-6 space-y-6">
+          <div className="flex items-center gap-3">
+            <span className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center font-bold text-sm">3</span>
+            <div>
+              <h3 className="font-bold text-base text-white">Gallery Section Titles & Subheadings</h3>
+              <p className="text-xs text-gray-400">Control what visitors read when they navigate to the Gallery Store page.</p>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-gray-300 mb-1.5">Gallery Main Title</label>
+              <input
+                type="text"
+                value={siteSettingsForm?.galleryHeading || ''}
+                onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, galleryHeading: e.target.value })}
+                placeholder="Acquire Original Paintings & Limited Edition Prints."
+                className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white text-xs focus:outline-none focus:border-[#FF5722]"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-300 mb-1.5">Gallery Subtitle & Narrative Description</label>
+              <textarea
+                rows={2}
+                value={siteSettingsForm?.gallerySubheading || ''}
+                onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, gallerySubheading: e.target.value })}
+                placeholder="Explore authentic museum-grade masterworks..."
+                className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white text-xs focus:outline-none focus:border-[#FF5722]"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* 4. STUDIO CONTACT, WHATSAPP & SOCIAL LINKS */}
+        <div className="bg-[#14171E] rounded-2xl border border-gray-800 p-6 space-y-6">
+          <div className="flex items-center gap-3">
+            <span className="w-8 h-8 rounded-lg bg-purple-500/10 text-purple-400 flex items-center justify-center font-bold text-sm">4</span>
+            <div>
+              <h3 className="font-bold text-base text-white">Studio Contact Info & Direct Channels</h3>
+              <p className="text-xs text-gray-400">Live contact details that appear on the website and WhatsApp enquiry buttons.</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-gray-300 mb-1.5">WhatsApp Number (e.g. 918858060101)</label>
+              <input
+                type="text"
+                value={siteSettingsForm?.whatsappNumber || ''}
+                onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, whatsappNumber: e.target.value })}
+                className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white text-xs focus:outline-none focus:border-[#FF5722]"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-300 mb-1.5">Studio Phone (Display format)</label>
+              <input
+                type="text"
+                value={siteSettingsForm?.contactPhone || ''}
+                onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, contactPhone: e.target.value })}
+                className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white text-xs focus:outline-none focus:border-[#FF5722]"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-300 mb-1.5">Official Email</label>
+              <input
+                type="email"
+                value={siteSettingsForm?.contactEmail || ''}
+                onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, contactEmail: e.target.value })}
+                className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white text-xs focus:outline-none focus:border-[#FF5722]"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-300 mb-1.5">Studio City / Address</label>
+              <input
+                type="text"
+                value={siteSettingsForm?.studioAddress || ''}
+                onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, studioAddress: e.target.value })}
+                className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-3.5 py-2.5 text-white text-xs focus:outline-none focus:border-[#FF5722]"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="flex justify-end pt-4">
+          <button
+            type="submit"
+            disabled={isSavingSettings}
+            className="px-6 py-3 rounded-xl bg-gradient-to-r from-[#FF5722] to-orange-600 hover:from-orange-500 hover:to-orange-600 text-white font-bold text-xs flex items-center gap-2 shadow-xl cursor-pointer"
+          >
+            <Save className="w-4 h-4" />
+            <span>{isSavingSettings ? 'Saving Changes...' : 'Save All Website Settings Live'}</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-[#0C0E12] text-[#E1E4EA] font-sans flex flex-col antialiased selection:bg-[#FF5722] selection:text-white">
       {/* Toast Notification */}
@@ -3014,42 +3338,7 @@ const handleSaveTestimonialSectionSettings = (e: React.FormEvent) => {
           </div>
         </div>
 
-        {/* 2-SIDE MASTER TOGGLE SWITCH */}
-        <div className="flex items-center bg-[#0C0E12] p-1.5 rounded-2xl border border-[#232732] shadow-inner">
-          <button
-            onClick={() => setAdminMode('gallery')}
-            className={`flex items-center gap-2.5 px-5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-              adminMode === 'gallery'
-                ? 'bg-gradient-to-r from-[#FF5722] to-[#FF7A45] text-white shadow-lg shadow-[#FF5722]/30'
-                : 'text-gray-400 hover:text-white hover:bg-[#181C24]'
-            }`}
-          >
-            <Palette className="w-4 h-4" />
-            <span>🎨 Side 1: Art Gallery & Sales</span>
-            <span className={`text-[10px] px-2 py-0.5 rounded-full ${
-              adminMode === 'gallery' ? 'bg-black/30 text-white' : 'bg-[#181C24] text-gray-400'
-            }`}>
-              {artworks.length} Art • {orders.length} Orders
-            </span>
-          </button>
-
-          <button
-            onClick={() => setAdminMode('academy')}
-            className={`flex items-center gap-2.5 px-5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-              adminMode === 'academy'
-                ? 'bg-gradient-to-r from-red-600 to-[#FF5722] text-white shadow-lg shadow-red-500/30'
-                : 'text-gray-400 hover:text-white hover:bg-[#181C24]'
-            }`}
-          >
-            <Radio className={`w-4 h-4 ${isLiveBroadcasting ? 'text-white animate-pulse' : ''}`} />
-            <span>🎥 Side 2: Live Académie & Courses</span>
-            <span className={`text-[10px] px-2 py-0.5 rounded-full ${
-              adminMode === 'academy' ? 'bg-black/30 text-white' : 'bg-[#181C24] text-gray-400'
-            }`}>
-              {courses.length} Batches • {students.length} Students
-            </span>
-          </button>
-        </div>
+        <div></div>
 
         {/* Right Quick Controls */}
         <div className="flex items-center gap-3">
@@ -3086,256 +3375,126 @@ const handleSaveTestimonialSectionSettings = (e: React.FormEvent) => {
                 Active Console Mode:
               </span>
               <span className="font-bold text-sm text-white flex items-center gap-1.5 mt-0.5">
-                {adminMode === 'gallery' ? '🎨 Art Gallery Studio' : '🎥 Live Académie LMS'}
+                '🎨 Artist Master Console'
               </span>
             </div>
 
             {/* Navigation links based on activeMode */}
             <nav className="space-y-1 text-xs">
-              {adminMode === 'gallery' ? (
-                <>
-                  <button
-                    onClick={() => setGalleryNav('orders')}
-                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
-                      galleryNav === 'orders'
-                        ? 'bg-[#1D212A] text-white font-semibold shadow-sm border border-gray-700/40'
-                        : 'text-gray-400 hover:text-white hover:bg-[#161920]'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <Package className={`w-4 h-4 ${galleryNav === 'orders' ? 'text-[#FF5722]' : 'text-gray-400'}`} />
-                      <span>Live Orders & Sales</span>
-                    </div>
-                    <span className="bg-[#242934] text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-                      {orders.length}
-                    </span>
-                  </button>
+              {/* 1. Artworks Catalog */}
+              <button
+                onClick={() => setGalleryNav('artworks')}
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
+                  galleryNav === 'artworks'
+                    ? 'bg-[#1D212A] text-white font-semibold shadow-sm border border-gray-700/40'
+                    : 'text-gray-400 hover:text-white hover:bg-[#161920]'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <Palette className={`w-4 h-4 ${galleryNav === 'artworks' ? 'text-[#FF5722]' : 'text-gray-400'}`} />
+                  <span>Artworks Catalog & Order</span>
+                </div>
+                <span className="bg-[#242934] text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                  {artworks.length}
+                </span>
+              </button>
 
-                  <button
-                    onClick={() => setGalleryNav('artworks')}
-                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
-                      galleryNav === 'artworks'
-                        ? 'bg-[#1D212A] text-white font-semibold shadow-sm border border-gray-700/40'
-                        : 'text-gray-400 hover:text-white hover:bg-[#161920]'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <Palette className={`w-4 h-4 ${galleryNav === 'artworks' ? 'text-[#FF5722]' : 'text-gray-400'}`} />
-                      <span>Artworks Catalog</span>
-                    </div>
-                    <span className="bg-[#242934] text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-                      {artworks.length}
-                    </span>
-                  </button>
+              {/* 2. Homepage Hero Video */}
+              <button
+                onClick={() => setGalleryNav('hero')}
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
+                  galleryNav === 'hero'
+                    ? 'bg-[#1D212A] text-white font-semibold shadow-sm border border-gray-700/40'
+                    : 'text-gray-400 hover:text-white hover:bg-[#161920]'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <Sparkles className={`w-4 h-4 ${galleryNav === 'hero' ? 'text-amber-400' : 'text-gray-400'}`} />
+                  <span>Homepage Hero Video</span>
+                </div>
+                <span className="bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase">
+                  {heroType}
+                </span>
+              </button>
 
-                  <button
-                    onClick={() => setGalleryNav('hero')}
-                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
-                      galleryNav === 'hero'
-                        ? 'bg-[#1D212A] text-white font-semibold shadow-sm border border-gray-700/40'
-                        : 'text-gray-400 hover:text-white hover:bg-[#161920]'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <Sparkles className={`w-4 h-4 ${galleryNav === 'hero' ? 'text-amber-400' : 'text-gray-400'}`} />
-                      <span>Homepage Hero Video</span>
-                    </div>
-                    <span className="bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase">
-                      {heroType}
-                    </span>
-                  </button>
+              {/* 3. About Page Bio & Images Manager */}
+              <button
+                onClick={() => setGalleryNav('about')}
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
+                  galleryNav === 'about'
+                    ? 'bg-[#1D212A] text-white font-semibold shadow-sm border border-gray-700/40'
+                    : 'text-gray-400 hover:text-white hover:bg-[#161920]'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <ImageIcon className={`w-4 h-4 ${galleryNav === 'about' ? 'text-[#FF5722]' : 'text-gray-400'}`} />
+                  <span>About Page Bio & Images</span>
+                </div>
+                <span className="bg-amber-500/20 text-amber-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-500/30">
+                  Full Control
+                </span>
+              </button>
 
-                  <button
-                    onClick={() => setGalleryNav('about')}
-                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
-                      galleryNav === 'about'
-                        ? 'bg-[#1D212A] text-white font-semibold shadow-sm border border-gray-700/40'
-                        : 'text-gray-400 hover:text-white hover:bg-[#161920]'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <ImageIcon className={`w-4 h-4 ${galleryNav === 'about' ? 'text-[#FF5722]' : 'text-gray-400'}`} />
-                      <span>About Page Images</span>
-                    </div>
-                    <span className="bg-[#242934] text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-                      5 Images
-                    </span>
-                  </button>
+              {/* 4. 100% Website Customizer (Fonts, Text, Points) */}
+              <button
+                onClick={() => setGalleryNav('settings')}
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
+                  galleryNav === 'settings'
+                    ? 'bg-[#1D212A] text-white font-semibold shadow-sm border border-gray-700/40'
+                    : 'text-gray-400 hover:text-white hover:bg-[#161920]'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <Sliders className={`w-4 h-4 ${galleryNav === 'settings' ? 'text-[#FF5722]' : 'text-gray-400'}`} />
+                  <span>100% Website Customizer</span>
+                </div>
+                <span className="bg-amber-500/20 text-amber-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-500/30">
+                  Fonts & Text
+                </span>
+              </button>
 
-                  <button
-                    onClick={() => setGalleryNav('inquiries')}
-                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
-                      galleryNav === 'inquiries'
-                        ? 'bg-[#1D212A] text-white font-semibold shadow-sm border border-gray-700/40'
-                        : 'text-gray-400 hover:text-white hover:bg-[#161920]'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <MessageSquare className={`w-4 h-4 ${galleryNav === 'inquiries' ? 'text-[#FF5722]' : 'text-gray-400'}`} />
-                      <span>Customer Inquiries & Leads</span>
-                    </div>
-                    {newInquiriesCount > 0 ? (
-                      <span className="bg-red-500/20 text-red-400 border border-red-500/30 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 animate-pulse">
-                        <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
-                        {newInquiriesCount} New
-                      </span>
-                    ) : (
-                      <span className="bg-[#242934] text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-                        {inquiries.length}
-                      </span>
-                    )}
-                  </button>
+              {/* 5. Customer Inquiries & Leads */}
+              <button
+                onClick={() => setGalleryNav('inquiries')}
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
+                  galleryNav === 'inquiries'
+                    ? 'bg-[#1D212A] text-white font-semibold shadow-sm border border-gray-700/40'
+                    : 'text-gray-400 hover:text-white hover:bg-[#161920]'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <MessageSquare className={`w-4 h-4 ${galleryNav === 'inquiries' ? 'text-[#FF5722]' : 'text-gray-400'}`} />
+                  <span>Customer Inquiries & Leads</span>
+                </div>
+                {newInquiriesCount > 0 ? (
+                  <span className="bg-red-500/20 text-red-400 border border-red-500/30 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 animate-pulse">
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
+                    {newInquiriesCount} New
+                  </span>
+                ) : (
+                  <span className="bg-[#242934] text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                    {inquiries.length}
+                  </span>
+                )}
+              </button>
 
-                  <button
-                    onClick={() => setGalleryNav('analytics')}
-                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
-                      galleryNav === 'analytics'
-                        ? 'bg-[#1D212A] text-white font-semibold shadow-sm border border-gray-700/40'
-                        : 'text-gray-400 hover:text-white hover:bg-[#161920]'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <BarChart3 className={`w-4 h-4 ${galleryNav === 'analytics' ? 'text-[#FF5722]' : 'text-gray-400'}`} />
-                      <span>Sales & Revenue Ledger</span>
-                    </div>
-                  </button>
-
-                  <button
-                    onClick={() => setGalleryNav('video')}
-                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
-                      galleryNav === 'video'
-                        ? 'bg-[#1D212A] text-white font-semibold shadow-sm border border-gray-700/40'
-                        : 'text-gray-400 hover:text-white hover:bg-[#161920]'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <Film className={`w-4 h-4 ${galleryNav === 'video' ? 'text-[#FF5722]' : 'text-gray-400'}`} />
-                      <span>Atelier Video Showcase</span>
-                    </div>
-                    <span className="bg-emerald-500/20 text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-500/30">
-                      Live Reel
-                    </span>
-                  </button>
-
-                  <button
-                    onClick={() => setGalleryNav('testimonials')}
-                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
-                      galleryNav === 'testimonials'
-                        ? 'bg-[#1D212A] text-white font-semibold shadow-sm border border-gray-700/40'
-                        : 'text-gray-400 hover:text-white hover:bg-[#161920]'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <Star className={`w-4 h-4 ${galleryNav === 'testimonials' ? 'text-amber-400' : 'text-gray-400'}`} />
-                      <span>Testimonials & Reviews</span>
-                    </div>
-                    <span className="bg-amber-500/20 text-amber-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-500/30">
-                      {reviews.length}
-                    </span>
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button
-                    onClick={() => setAcademyNav('batches')}
-                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
-                      academyNav === 'batches'
-                        ? 'bg-[#1D212A] text-white font-semibold shadow-sm border border-gray-700/40'
-                        : 'text-gray-400 hover:text-white hover:bg-[#161920]'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <Radio className={`w-4 h-4 ${isLiveBroadcasting ? 'text-red-400 animate-pulse' : 'text-gray-400'}`} />
-                      <span>Live Batches & Stream</span>
-                    </div>
-                    <span className="bg-red-500/20 text-red-400 text-[10px] font-bold px-2 py-0.5 rounded-full border border-red-500/30">
-                      {courses.length}
-                    </span>
-                  </button>
-
-                  <button
-                    onClick={() => setAcademyNav('curriculum')}
-                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
-                      academyNav === 'curriculum'
-                        ? 'bg-[#1D212A] text-white font-semibold shadow-sm border border-gray-700/40'
-                        : 'text-gray-400 hover:text-white hover:bg-[#161920]'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <Video className={`w-4 h-4 ${academyNav === 'curriculum' ? 'text-[#FF5722]' : 'text-gray-400'}`} />
-                      <span>Video Lectures (LMS)</span>
-                    </div>
-                  </button>
-
-                  <button
-                    onClick={() => setAcademyNav('upcoming')}
-                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
-                      academyNav === 'upcoming'
-                        ? 'bg-[#1D212A] text-white font-semibold shadow-sm border border-gray-700/40'
-                        : 'text-gray-400 hover:text-white hover:bg-[#161920]'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <Sparkles className={`w-4 h-4 ${academyNav === 'upcoming' ? 'text-amber-400' : 'text-gray-400'}`} />
-                      <span>Upcoming Courses</span>
-                    </div>
-                    <span className="bg-amber-500/20 text-amber-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-500/30">
-                      {upcomingCourses.length}
-                    </span>
-                  </button>
-
-                  <button
-                    onClick={() => setAcademyNav('students')}
-                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
-                      academyNav === 'students'
-                        ? 'bg-[#1D212A] text-white font-semibold shadow-sm border border-gray-700/40'
-                        : 'text-gray-400 hover:text-white hover:bg-[#161920]'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <Users className={`w-4 h-4 ${academyNav === 'students' ? 'text-[#FF5722]' : 'text-gray-400'}`} />
-                      <span>Enrolled Students</span>
-                    </div>
-                    <span className="bg-[#242934] text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-                      {students.length}
-                    </span>
-                  </button>
-
-                  <button
-                    onClick={() => setAcademyNav('users')}
-                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
-                      academyNav === 'users'
-                        ? 'bg-[#1D212A] text-white font-semibold shadow-sm border border-gray-700/40'
-                        : 'text-gray-400 hover:text-white hover:bg-[#161920]'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <KeyRound className={`w-4 h-4 ${academyNav === 'users' ? 'text-[#FF5722]' : 'text-gray-400'}`} />
-                      <span>Registered Logins</span>
-                    </div>
-                    <span className="bg-emerald-500/20 text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-500/30">
-                      {users.length}
-                    </span>
-                  </button>
-
-                  <button
-                    onClick={() => setAcademyNav('testimonials')}
-                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
-                      academyNav === 'testimonials'
-                        ? 'bg-[#1D212A] text-white font-semibold shadow-sm border border-gray-700/40'
-                        : 'text-gray-400 hover:text-white hover:bg-[#161920]'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <Quote className={`w-4 h-4 ${academyNav === 'testimonials' ? 'text-amber-400' : 'text-gray-400'}`} />
-                      <span>Student Testimonials</span>
-                    </div>
-                    <span className="bg-amber-500/20 text-amber-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-500/30">
-                      {reviews.length}
-                    </span>
-                  </button>
-                </>
-              )}
+              {/* 6. Testimonials & Reviews */}
+              <button
+                onClick={() => setGalleryNav('testimonials')}
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
+                  galleryNav === 'testimonials'
+                    ? 'bg-[#1D212A] text-white font-semibold shadow-sm border border-gray-700/40'
+                    : 'text-gray-400 hover:text-white hover:bg-[#161920]'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <Star className={`w-4 h-4 ${galleryNav === 'testimonials' ? 'text-amber-400' : 'text-gray-400'}`} />
+                  <span>Upcoming Courses & Testimonials</span>
+                </div>
+                <span className="bg-amber-500/20 text-amber-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-500/30">
+                  {reviews.length}
+                </span>
+              </button>
             </nav>
           </div>
 
@@ -3741,6 +3900,51 @@ const handleSaveTestimonialSectionSettings = (e: React.FormEvent) => {
                             <p className="text-xs text-gray-400 line-clamp-2 mt-1">{art.description}</p>
                           </div>
 
+                          {/* Sequence Reorder & Highlighted Centerpiece Controls */}
+                          <div className="bg-[#181C24] p-3 rounded-2xl border border-[#242A36] space-y-2.5">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[11px] text-gray-300 font-semibold flex items-center gap-1.5">
+                                <span className="px-2 py-0.5 rounded bg-gray-800 text-amber-400 font-mono text-[10px] font-bold">
+                                  #{artworks.findIndex(a => a.id === art.id) + 1}
+                                </span>
+                                Sequence Order
+                              </span>
+                              <div className="flex items-center gap-1">
+                                <button
+                                  type="button"
+                                  disabled={artworks.findIndex(a => a.id === art.id) === 0}
+                                  onClick={() => handleMoveArtwork(artworks.findIndex(a => a.id === art.id), 'up')}
+                                  className="p-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed text-gray-200 transition-colors cursor-pointer"
+                                  title="Move Up in Website Sequence"
+                                >
+                                  <ArrowUp className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={artworks.findIndex(a => a.id === art.id) === artworks.length - 1}
+                                  onClick={() => handleMoveArtwork(artworks.findIndex(a => a.id === art.id), 'down')}
+                                  className="p-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed text-gray-200 transition-colors cursor-pointer"
+                                  title="Move Down in Website Sequence"
+                                >
+                                  <ArrowDown className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => handleSetMainArtwork(art)}
+                              className={`w-full py-2 px-3 rounded-xl text-[11px] font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                                art.isMain
+                                  ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20'
+                                  : 'bg-gray-800/80 hover:bg-amber-500/20 text-gray-300 hover:text-amber-300 border border-gray-700/60'
+                              }`}
+                            >
+                              <Star className={`w-3.5 h-3.5 ${art.isMain ? 'fill-black text-black' : 'text-amber-400'}`} />
+                              <span>{art.isMain ? '★ MAIN Highlighted Painting' : 'Set as Main (Highlighted) Painting'}</span>
+                            </button>
+                          </div>
+
                           {/* Quick 1-Click Status Changer */}
                           <div className="bg-[#181C24] p-2.5 rounded-2xl border border-[#242A36] flex items-center justify-between">
                             <span className="text-[11px] text-gray-400 font-semibold flex items-center gap-1.5">
@@ -3841,233 +4045,420 @@ const handleSaveTestimonialSectionSettings = (e: React.FormEvent) => {
 
               {/* FEATURED HERO SHOWCASE TAB (CANVAS / VIDEO) */}
                             {galleryNav === 'about' && (
-                <div className="space-y-8 animate-fade-in pb-12">
+                <div className="space-y-8 animate-fade-in pb-16">
+                  {/* Header Bar */}
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-gray-800">
                     <div>
                       <h2 className="text-xl sm:text-2xl font-serif font-bold text-white flex items-center gap-2.5">
                         <ImageIcon className="w-6 h-6 text-[#FF5722]" />
-                        <span>About Page Images & Banner Manager</span>
+                        <span>About Page Bio, Story & Images Manager</span>
                       </h2>
                       <p className="text-xs sm:text-sm text-gray-400 mt-1">
-                        Customize and update the top Hero Banner and all 4 narrative section images for the live About Page.
+                        100% control over the About Page: Edit Kuldeep Singh's biography paragraphs, section titles, and artwork images.
                       </p>
+                    </div>
+
+                    <button
+                      onClick={() => handleSaveAboutBio()}
+                      disabled={isSavingAboutBio}
+                      className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#FF5722] to-orange-600 hover:from-orange-500 hover:to-orange-600 text-white font-bold text-xs flex items-center gap-2 shadow-lg cursor-pointer whitespace-nowrap"
+                    >
+                      <Save className="w-4 h-4" />
+                      <span>{isSavingAboutBio ? 'Saving Changes...' : 'Save All Bio & Story Changes'}</span>
+                    </button>
+                  </div>
+
+                  {/* 1. Main Top Hero Banner Card */}
+                  <div className="bg-[#161920] rounded-2xl border border-gray-800 p-6 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <span className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center font-bold text-sm">
+                          ★
+                        </span>
+                        <div>
+                          <h3 className="text-base font-bold text-white">Top Website Hero Banner</h3>
+                          <p className="text-xs text-gray-400">The wide horizontal banner displayed at the top of the About page</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="aspect-[3.6/1] w-full max-h-[220px] rounded-xl overflow-hidden bg-black/60 border border-gray-800 flex items-center justify-center">
+                      <img
+                        src={artistProfile?.aboutHeroBanner || '/images/artist-hero-banner.png'}
+                        alt="Hero Banner Preview"
+                        className="w-full h-full object-contain"
+                      />
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row items-center gap-3">
+                      <input
+                        type="text"
+                        value={artistProfile?.aboutHeroBanner || ''}
+                        onChange={(e) => updateAboutPageImage('aboutHeroBanner', e.target.value)}
+                        placeholder="Paste Image URL or upload new image"
+                        className="flex-1 bg-[#1A1D24] border border-gray-700/60 rounded-xl px-4 py-2.5 text-xs sm:text-sm text-white focus:outline-none focus:border-[#FF5722]"
+                      />
+                      <label className="cursor-pointer bg-[#FF5722] hover:bg-[#e64a19] text-white font-medium px-4 py-2.5 rounded-xl text-xs flex items-center gap-2 transition-colors whitespace-nowrap">
+                        <Upload className="w-4 h-4" />
+                        <span>Upload Banner</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => handleAboutImageFileChange(e, 'aboutHeroBanner')}
+                        />
+                      </label>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 gap-8">
-                    {/* 1. Main Hero Banner Card */}
-                    <div className="bg-[#161920] rounded-2xl border border-gray-800 p-6 space-y-4">
-                      <div className="flex items-center justify-between">
+                  {/* 2. Narrative Bio Sections (Both Text & Image) */}
+                  <div className="space-y-8">
+                    {/* SECTION 01 */}
+                    <div className="bg-[#161920] rounded-2xl border border-gray-800 p-6 space-y-6">
+                      <div className="flex items-center justify-between pb-3 border-b border-gray-800/80">
                         <div className="flex items-center gap-3">
-                          <span className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center font-bold text-sm">
-                            ★
-                          </span>
-                          <div>
-                            <h3 className="text-base font-bold text-white">Top Website Hero Banner</h3>
-                            <p className="text-xs text-gray-400">The wide horizontal banner displayed at the top of the About page</p>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="aspect-[3.6/1] w-full max-h-[220px] rounded-xl overflow-hidden bg-black/60 border border-gray-800 flex items-center justify-center">
-                        <img
-                          src={artistProfile?.aboutHeroBanner || '/images/artist-hero-banner.png'}
-                          alt="Hero Banner Preview"
-                          className="w-full h-full object-contain"
-                        />
-                      </div>
-
-                      <div className="flex flex-col sm:flex-row items-center gap-3">
-                        <input
-                          type="text"
-                          value={artistProfile?.aboutHeroBanner || ''}
-                          onChange={(e) => updateAboutPageImage('aboutHeroBanner', e.target.value)}
-                          placeholder="Paste Image URL or upload new image below"
-                          className="flex-1 bg-[#1A1D24] border border-gray-700/60 rounded-xl px-4 py-2.5 text-xs sm:text-sm text-white focus:outline-none focus:border-[#FF5722]"
-                        />
-                        <label className="cursor-pointer bg-[#FF5722] hover:bg-[#e64a19] text-white font-medium px-4 py-2.5 rounded-xl text-xs flex items-center gap-2 transition-colors whitespace-nowrap">
-                          <Upload className="w-4 h-4" />
-                          <span>Upload Banner</span>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={(e) => handleAboutImageFileChange(e, 'aboutHeroBanner')}
-                          />
-                        </label>
-                      </div>
-                    </div>
-
-                    {/* 2. Four About Section Cards */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {/* Section 01 */}
-                      <div className="bg-[#161920] rounded-2xl border border-gray-800 p-5 space-y-3">
-                        <div className="flex items-center gap-2.5">
-                          <span className="w-7 h-7 rounded-lg bg-orange-500/10 text-orange-400 flex items-center justify-center font-bold text-xs">
+                          <span className="w-8 h-8 rounded-lg bg-orange-500/10 text-orange-400 flex items-center justify-center font-bold text-sm">
                             01
                           </span>
                           <div>
-                            <h4 className="text-sm font-bold text-white">01 | ABOUT THE ARTIST</h4>
-                            <p className="text-[11px] text-gray-400">Artwork image for Section 1</p>
+                            <h3 className="text-base font-bold text-white">Section 01: About The Artist</h3>
+                            <p className="text-xs text-gray-400">Heading title, full biography story, and featured artwork portrait</p>
+                          </div>
+                        </div>
+                        <span className="text-[10px] bg-orange-500/10 text-orange-400 border border-orange-500/30 px-2 py-0.5 rounded-full font-mono">
+                          Live On Website
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                        {/* Text Content Form (7 cols) */}
+                        <div className="lg:col-span-7 space-y-4">
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+                              Section 01 Title
+                            </label>
+                            <input
+                              type="text"
+                              value={aboutBioForm.aboutSection01Title}
+                              onChange={(e) => setAboutBioForm(prev => ({ ...prev, aboutSection01Title: e.target.value }))}
+                              className="w-full bg-[#111318] border border-gray-700/60 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#FF5722]"
+                              placeholder="ABOUT THE ARTIST"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-300 mb-1.5 flex items-center justify-between">
+                              <span>Biography Paragraphs & Story Points</span>
+                              <span className="text-[10px] text-gray-400 font-normal">Double Enter / Blank line creates new paragraph</span>
+                            </label>
+                            <textarea
+                              rows={8}
+                              value={aboutBioForm.aboutSection01Text}
+                              onChange={(e) => setAboutBioForm(prev => ({ ...prev, aboutSection01Text: e.target.value }))}
+                              className="w-full bg-[#111318] border border-gray-700/60 rounded-xl p-3.5 text-xs text-gray-200 leading-relaxed focus:outline-none focus:border-[#FF5722] font-sans"
+                              placeholder="Enter artist biography paragraphs..."
+                            />
                           </div>
                         </div>
 
-                        <div className="aspect-[3/4] sm:aspect-[4/5] max-h-[360px] w-full rounded-xl overflow-hidden bg-black/40 border border-gray-800 flex items-center justify-center">
-                          <img
-                            src={artistProfile?.aboutSection01Image || '/images/buddha-tree-of-life-painting.jpg'}
-                            alt="Section 01 Preview"
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="text"
-                            value={artistProfile?.aboutSection01Image || ''}
-                            onChange={(e) => updateAboutPageImage('aboutSection01Image', e.target.value)}
-                            placeholder="Image URL"
-                            className="flex-1 bg-[#1A1D24] border border-gray-700/60 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#FF5722]"
-                          />
-                          <label className="cursor-pointer bg-[#242934] hover:bg-gray-700 text-white font-medium px-3 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-colors whitespace-nowrap border border-gray-700">
-                            <Upload className="w-3.5 h-3.5" />
-                            <span>Upload</span>
-                            <input
-                              type="file"
-                              accept="image/*"
-                              className="hidden"
-                              onChange={(e) => handleAboutImageFileChange(e, 'aboutSection01Image')}
-                            />
+                        {/* Image Manager (5 cols) */}
+                        <div className="lg:col-span-5 bg-[#111318] p-4 rounded-xl border border-gray-800 space-y-3">
+                          <label className="block text-xs font-semibold text-gray-300">
+                            Section 01 Artwork Image
                           </label>
+                          <div className="aspect-[3/4] max-h-[300px] w-full rounded-xl overflow-hidden bg-black/40 border border-gray-800 flex items-center justify-center">
+                            <img
+                              src={artistProfile?.aboutSection01Image || '/images/about-section-01-custom.jpg'}
+                              alt="Section 01 Preview"
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              value={artistProfile?.aboutSection01Image || ''}
+                              onChange={(e) => updateAboutPageImage('aboutSection01Image', e.target.value)}
+                              placeholder="Image URL"
+                              className="flex-1 bg-[#1A1D24] border border-gray-700/60 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#FF5722]"
+                            />
+                            <label className="cursor-pointer bg-[#242934] hover:bg-gray-700 text-white font-medium px-3 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-colors whitespace-nowrap border border-gray-700">
+                              <Upload className="w-3.5 h-3.5" />
+                              <span>Upload</span>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={(e) => handleAboutImageFileChange(e, 'aboutSection01Image')}
+                              />
+                            </label>
+                          </div>
                         </div>
                       </div>
+                    </div>
 
-                      {/* Section 02 */}
-                      <div className="bg-[#161920] rounded-2xl border border-gray-800 p-5 space-y-3">
-                        <div className="flex items-center gap-2.5">
-                          <span className="w-7 h-7 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center font-bold text-xs">
+                    {/* SECTION 02 */}
+                    <div className="bg-[#161920] rounded-2xl border border-gray-800 p-6 space-y-6">
+                      <div className="flex items-center justify-between pb-3 border-b border-gray-800/80">
+                        <div className="flex items-center gap-3">
+                          <span className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center font-bold text-sm">
                             02
                           </span>
                           <div>
-                            <h4 className="text-sm font-bold text-white">02 | ARTISTIC VISION & PHILOSOPHY</h4>
-                            <p className="text-[11px] text-gray-400">Artwork image for Section 2</p>
+                            <h3 className="text-base font-bold text-white">Section 02: Artistic Vision & Philosophy</h3>
+                            <p className="text-xs text-gray-400">Artistic philosophy, Rahyasya & Beyond the Horizon series details</p>
+                          </div>
+                        </div>
+                        <span className="text-[10px] bg-amber-500/10 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full font-mono">
+                          Live On Website
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                        {/* Text Content Form (7 cols) */}
+                        <div className="lg:col-span-7 space-y-4">
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+                              Section 02 Title
+                            </label>
+                            <input
+                              type="text"
+                              value={aboutBioForm.aboutSection02Title}
+                              onChange={(e) => setAboutBioForm(prev => ({ ...prev, aboutSection02Title: e.target.value }))}
+                              className="w-full bg-[#111318] border border-gray-700/60 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#FF5722]"
+                              placeholder="ARTISTIC VISION & PHILOSOPHY"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-300 mb-1.5 flex items-center justify-between">
+                              <span>Philosophy Paragraphs & Vision Points</span>
+                              <span className="text-[10px] text-gray-400 font-normal">Double Enter / Blank line creates new paragraph</span>
+                            </label>
+                            <textarea
+                              rows={8}
+                              value={aboutBioForm.aboutSection02Text}
+                              onChange={(e) => setAboutBioForm(prev => ({ ...prev, aboutSection02Text: e.target.value }))}
+                              className="w-full bg-[#111318] border border-gray-700/60 rounded-xl p-3.5 text-xs text-gray-200 leading-relaxed focus:outline-none focus:border-[#FF5722] font-sans"
+                              placeholder="Enter philosophy and vision points..."
+                            />
                           </div>
                         </div>
 
-                        <div className="aspect-[3/4] sm:aspect-[4/5] max-h-[360px] w-full rounded-xl overflow-hidden bg-black/40 border border-gray-800 flex items-center justify-center">
-                          <img
-                            src={artistProfile?.aboutSection02Image || '/images/abstract-spiritual-canvas-print.jpg'}
-                            alt="Section 02 Preview"
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="text"
-                            value={artistProfile?.aboutSection02Image || ''}
-                            onChange={(e) => updateAboutPageImage('aboutSection02Image', e.target.value)}
-                            placeholder="Image URL"
-                            className="flex-1 bg-[#1A1D24] border border-gray-700/60 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#FF5722]"
-                          />
-                          <label className="cursor-pointer bg-[#242934] hover:bg-gray-700 text-white font-medium px-3 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-colors whitespace-nowrap border border-gray-700">
-                            <Upload className="w-3.5 h-3.5" />
-                            <span>Upload</span>
-                            <input
-                              type="file"
-                              accept="image/*"
-                              className="hidden"
-                              onChange={(e) => handleAboutImageFileChange(e, 'aboutSection02Image')}
-                            />
+                        {/* Image Manager (5 cols) */}
+                        <div className="lg:col-span-5 bg-[#111318] p-4 rounded-xl border border-gray-800 space-y-3">
+                          <label className="block text-xs font-semibold text-gray-300">
+                            Section 02 Artwork Image
                           </label>
+                          <div className="aspect-[3/4] max-h-[300px] w-full rounded-xl overflow-hidden bg-black/40 border border-gray-800 flex items-center justify-center">
+                            <img
+                              src={artistProfile?.aboutSection02Image || '/images/abstract-spiritual-canvas-print.jpg'}
+                              alt="Section 02 Preview"
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              value={artistProfile?.aboutSection02Image || ''}
+                              onChange={(e) => updateAboutPageImage('aboutSection02Image', e.target.value)}
+                              placeholder="Image URL"
+                              className="flex-1 bg-[#1A1D24] border border-gray-700/60 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#FF5722]"
+                            />
+                            <label className="cursor-pointer bg-[#242934] hover:bg-gray-700 text-white font-medium px-3 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-colors whitespace-nowrap border border-gray-700">
+                              <Upload className="w-3.5 h-3.5" />
+                              <span>Upload</span>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={(e) => handleAboutImageFileChange(e, 'aboutSection02Image')}
+                              />
+                            </label>
+                          </div>
                         </div>
                       </div>
+                    </div>
 
-                      {/* Section 03 */}
-                      <div className="bg-[#161920] rounded-2xl border border-gray-800 p-5 space-y-3">
-                        <div className="flex items-center gap-2.5">
-                          <span className="w-7 h-7 rounded-lg bg-rose-500/10 text-rose-400 flex items-center justify-center font-bold text-xs">
+                    {/* SECTION 03 */}
+                    <div className="bg-[#161920] rounded-2xl border border-gray-800 p-6 space-y-6">
+                      <div className="flex items-center justify-between pb-3 border-b border-gray-800/80">
+                        <div className="flex items-center gap-3">
+                          <span className="w-8 h-8 rounded-lg bg-rose-500/10 text-rose-400 flex items-center justify-center font-bold text-sm">
                             03
                           </span>
                           <div>
-                            <h4 className="text-sm font-bold text-white">03 | EXHIBITIONS & PRESENCE</h4>
-                            <p className="text-[11px] text-gray-400">Artwork image for Section 3</p>
+                            <h3 className="text-base font-bold text-white">Section 03: Exhibitions & International Presence</h3>
+                            <p className="text-xs text-gray-400">Galleries, national & international exhibitions (AIFACS, Norway, Puerto Rico, etc.)</p>
+                          </div>
+                        </div>
+                        <span className="text-[10px] bg-rose-500/10 text-rose-400 border border-rose-500/30 px-2 py-0.5 rounded-full font-mono">
+                          Live On Website
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                        {/* Text Content Form (7 cols) */}
+                        <div className="lg:col-span-7 space-y-4">
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+                              Section 03 Title
+                            </label>
+                            <input
+                              type="text"
+                              value={aboutBioForm.aboutSection03Title}
+                              onChange={(e) => setAboutBioForm(prev => ({ ...prev, aboutSection03Title: e.target.value }))}
+                              className="w-full bg-[#111318] border border-gray-700/60 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#FF5722]"
+                              placeholder="EXHIBITIONS & INTERNATIONAL PRESENCE"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-300 mb-1.5 flex items-center justify-between">
+                              <span>Exhibitions Story & Locations</span>
+                              <span className="text-[10px] text-gray-400 font-normal">Double Enter / Blank line creates new paragraph</span>
+                            </label>
+                            <textarea
+                              rows={8}
+                              value={aboutBioForm.aboutSection03Text}
+                              onChange={(e) => setAboutBioForm(prev => ({ ...prev, aboutSection03Text: e.target.value }))}
+                              className="w-full bg-[#111318] border border-gray-700/60 rounded-xl p-3.5 text-xs text-gray-200 leading-relaxed focus:outline-none focus:border-[#FF5722] font-sans"
+                              placeholder="Enter exhibitions, galleries, and venues..."
+                            />
                           </div>
                         </div>
 
-                        <div className="aspect-[3/4] sm:aspect-[4/5] max-h-[360px] w-full rounded-xl overflow-hidden bg-black/40 border border-gray-800 flex items-center justify-center">
-                          <img
-                            src={artistProfile?.aboutSection03Image || '/images/abstract-woman-leopard-eagle-painting.jpg'}
-                            alt="Section 03 Preview"
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="text"
-                            value={artistProfile?.aboutSection03Image || ''}
-                            onChange={(e) => updateAboutPageImage('aboutSection03Image', e.target.value)}
-                            placeholder="Image URL"
-                            className="flex-1 bg-[#1A1D24] border border-gray-700/60 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#FF5722]"
-                          />
-                          <label className="cursor-pointer bg-[#242934] hover:bg-gray-700 text-white font-medium px-3 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-colors whitespace-nowrap border border-gray-700">
-                            <Upload className="w-3.5 h-3.5" />
-                            <span>Upload</span>
-                            <input
-                              type="file"
-                              accept="image/*"
-                              className="hidden"
-                              onChange={(e) => handleAboutImageFileChange(e, 'aboutSection03Image')}
-                            />
+                        {/* Image Manager (5 cols) */}
+                        <div className="lg:col-span-5 bg-[#111318] p-4 rounded-xl border border-gray-800 space-y-3">
+                          <label className="block text-xs font-semibold text-gray-300">
+                            Section 03 Artwork Image
                           </label>
+                          <div className="aspect-[3/4] max-h-[300px] w-full rounded-xl overflow-hidden bg-black/40 border border-gray-800 flex items-center justify-center">
+                            <img
+                              src={artistProfile?.aboutSection03Image || '/images/abstract-woman-leopard-eagle-painting.jpg'}
+                              alt="Section 03 Preview"
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              value={artistProfile?.aboutSection03Image || ''}
+                              onChange={(e) => updateAboutPageImage('aboutSection03Image', e.target.value)}
+                              placeholder="Image URL"
+                              className="flex-1 bg-[#1A1D24] border border-gray-700/60 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#FF5722]"
+                            />
+                            <label className="cursor-pointer bg-[#242934] hover:bg-gray-700 text-white font-medium px-3 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-colors whitespace-nowrap border border-gray-700">
+                              <Upload className="w-3.5 h-3.5" />
+                              <span>Upload</span>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={(e) => handleAboutImageFileChange(e, 'aboutSection03Image')}
+                              />
+                            </label>
+                          </div>
                         </div>
                       </div>
+                    </div>
 
-                      {/* Section 04 */}
-                      <div className="bg-[#161920] rounded-2xl border border-gray-800 p-5 space-y-3">
-                        <div className="flex items-center gap-2.5">
-                          <span className="w-7 h-7 rounded-lg bg-purple-500/10 text-purple-400 flex items-center justify-center font-bold text-xs">
+                    {/* SECTION 04 */}
+                    <div className="bg-[#161920] rounded-2xl border border-gray-800 p-6 space-y-6">
+                      <div className="flex items-center justify-between pb-3 border-b border-gray-800/80">
+                        <div className="flex items-center gap-3">
+                          <span className="w-8 h-8 rounded-lg bg-purple-500/10 text-purple-400 flex items-center justify-center font-bold text-sm">
                             04
                           </span>
                           <div>
-                            <h4 className="text-sm font-bold text-white">04 | AWARDS & JOURNEY</h4>
-                            <p className="text-[11px] text-gray-400">Artwork image for Section 4</p>
+                            <h3 className="text-base font-bold text-white">Section 04: Awards, Recognition & Continuing Journey</h3>
+                            <p className="text-xs text-gray-400">Kala Gaurav, Raja Ravi Verma Award, Rajya Lalit Kala Academy & philosophy</p>
+                          </div>
+                        </div>
+                        <span className="text-[10px] bg-purple-500/10 text-purple-400 border border-purple-500/30 px-2 py-0.5 rounded-full font-mono">
+                          Live On Website
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                        {/* Text Content Form (7 cols) */}
+                        <div className="lg:col-span-7 space-y-4">
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+                              Section 04 Title
+                            </label>
+                            <input
+                              type="text"
+                              value={aboutBioForm.aboutSection04Title}
+                              onChange={(e) => setAboutBioForm(prev => ({ ...prev, aboutSection04Title: e.target.value }))}
+                              className="w-full bg-[#111318] border border-gray-700/60 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#FF5722]"
+                              placeholder="AWARDS, RECOGNITION & CONTINUING JOURNEY"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-300 mb-1.5 flex items-center justify-between">
+                              <span>Awards Points & Continuing Journey Story</span>
+                              <span className="text-[10px] text-gray-400 font-normal">Double Enter / Blank line creates new paragraph</span>
+                            </label>
+                            <textarea
+                              rows={8}
+                              value={aboutBioForm.aboutSection04Text}
+                              onChange={(e) => setAboutBioForm(prev => ({ ...prev, aboutSection04Text: e.target.value }))}
+                              className="w-full bg-[#111318] border border-gray-700/60 rounded-xl p-3.5 text-xs text-gray-200 leading-relaxed focus:outline-none focus:border-[#FF5722] font-sans"
+                              placeholder="Enter awards and continuing journey narrative..."
+                            />
                           </div>
                         </div>
 
-                        <div className="aspect-[3/4] sm:aspect-[4/5] max-h-[360px] w-full rounded-xl overflow-hidden bg-black/40 border border-gray-800 flex items-center justify-center">
-                          <img
-                            src={artistProfile?.aboutSection04Image || '/images/abstract-face-contemporary-painting.jpg'}
-                            alt="Section 04 Preview"
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="text"
-                            value={artistProfile?.aboutSection04Image || ''}
-                            onChange={(e) => updateAboutPageImage('aboutSection04Image', e.target.value)}
-                            placeholder="Image URL"
-                            className="flex-1 bg-[#1A1D24] border border-gray-700/60 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#FF5722]"
-                          />
-                          <label className="cursor-pointer bg-[#242934] hover:bg-gray-700 text-white font-medium px-3 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-colors whitespace-nowrap border border-gray-700">
-                            <Upload className="w-3.5 h-3.5" />
-                            <span>Upload</span>
-                            <input
-                              type="file"
-                              accept="image/*"
-                              className="hidden"
-                              onChange={(e) => handleAboutImageFileChange(e, 'aboutSection04Image')}
-                            />
+                        {/* Image Manager (5 cols) */}
+                        <div className="lg:col-span-5 bg-[#111318] p-4 rounded-xl border border-gray-800 space-y-3">
+                          <label className="block text-xs font-semibold text-gray-300">
+                            Section 04 Artwork Image
                           </label>
+                          <div className="aspect-[3/4] max-h-[300px] w-full rounded-xl overflow-hidden bg-black/40 border border-gray-800 flex items-center justify-center">
+                            <img
+                              src={artistProfile?.aboutSection04Image || '/images/abstract-face-contemporary-painting.jpg'}
+                              alt="Section 04 Preview"
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              value={artistProfile?.aboutSection04Image || ''}
+                              onChange={(e) => updateAboutPageImage('aboutSection04Image', e.target.value)}
+                              placeholder="Image URL"
+                              className="flex-1 bg-[#1A1D24] border border-gray-700/60 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#FF5722]"
+                            />
+                            <label className="cursor-pointer bg-[#242934] hover:bg-gray-700 text-white font-medium px-3 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-colors whitespace-nowrap border border-gray-700">
+                              <Upload className="w-3.5 h-3.5" />
+                              <span>Upload</span>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={(e) => handleAboutImageFileChange(e, 'aboutSection04Image')}
+                              />
+                            </label>
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
+
+                  {/* Bottom Save Bar */}
+                  <div className="flex items-center justify-end gap-4 pt-6 border-t border-gray-800">
+                    <button
+                      onClick={() => handleSaveAboutBio()}
+                      disabled={isSavingAboutBio}
+                      className="px-6 py-3 rounded-xl bg-gradient-to-r from-[#FF5722] to-orange-600 hover:from-orange-500 hover:to-orange-600 text-white font-bold text-sm flex items-center gap-2 shadow-lg cursor-pointer"
+                    >
+                      <Save className="w-4 h-4" />
+                      <span>{isSavingAboutBio ? 'Saving Changes...' : 'Save All Bio & Story Changes'}</span>
+                    </button>
+                  </div>
                 </div>
               )}
-
 {galleryNav === 'hero' && (
                 <div className="space-y-6 animate-fade-in">
                   {/* Top Header */}
@@ -5232,6 +5623,7 @@ const handleSaveTestimonialSectionSettings = (e: React.FormEvent) => {
               {/* TESTIMONIALS & REVIEWS TAB (Gallery Console) */}
               {galleryNav === 'testimonials' && renderTestimonialsTabContent()}
               {galleryNav === 'promos' && renderPromosAndDeliveryTabContent()}
+              {galleryNav === 'settings' && renderSiteSettingsTabContent()}
             </div>
           )}
 

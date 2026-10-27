@@ -15,6 +15,8 @@ export interface Artwork {
   framed: boolean;
   status: 'available' | 'sold' | 'reserved';
   featured?: boolean;
+  order?: number;
+  isMain?: boolean;
   paletteColors: string[]; // hex codes of primary pigments used
   weight?: string;
   varnishType?: string;
@@ -216,6 +218,15 @@ export interface ArtistProfile {
   aboutSection02Image?: string;
   aboutSection03Image?: string;
   aboutSection04Image?: string;
+  // Dynamic About Page Sections Text & Bio
+  aboutSection01Title?: string;
+  aboutSection01Text?: string;
+  aboutSection02Title?: string;
+  aboutSection02Text?: string;
+  aboutSection03Title?: string;
+  aboutSection03Text?: string;
+  aboutSection04Title?: string;
+  aboutSection04Text?: string;
 }
 
 export interface StudioReel {
@@ -318,3 +329,39 @@ export interface StoreDeliverySettings {
 }
 
 
+
+
+export interface SiteSettings {
+  id: string;
+  fontHeading: string;
+  fontBody: string;
+  fontAccent: string;
+  primaryColor: string;
+  goldColor: string;
+  brandNameFirst: string;
+  brandNameSecond: string;
+  siteTagline: string;
+  heroPreTitle: string;
+  heroMainTitle: string;
+  heroButtonText: string;
+  statsYearsLabel: string;
+  statsYearsValue: string;
+  statsArtworksLabel: string;
+  statsArtworksValue: string;
+  statsExhibitionsLabel: string;
+  statsExhibitionsValue: string;
+  statsStudentsLabel: string;
+  statsStudentsValue: string;
+  galleryHeading: string;
+  gallerySubheading: string;
+  aboutStoryHeading: string;
+  philosophyQuote: string;
+  contactEmail: string;
+  contactPhone: string;
+  studioAddress: string;
+  whatsappNumber: string;
+  instagramUrl: string;
+  youtubeUrl: string;
+  enableParticles?: boolean;
+  enableAudioAmbiance?: boolean;
+}
