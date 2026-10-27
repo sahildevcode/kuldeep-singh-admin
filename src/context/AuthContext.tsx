@@ -26,6 +26,8 @@ interface AuthContextType {
   requestAdminOtp: (email: string, pass: string) => Promise<{ success: boolean; error?: string; devMode?: boolean }>;
   verifyAdminOtp: (otp: string) => Promise<{ success: boolean; error?: string }>;
   resendAdminOtp: () => Promise<{ success: boolean; error?: string; cooldownRemaining?: number }>;
+  requestForgotPasswordOtp: (email: string) => Promise<{ success: boolean; error?: string; message?: string; cooldownRemaining?: number; devOtp?: string }>;
+  resetAdminPasswordWithOtp: (email: string, otp: string, newPass: string) => Promise<{ success: boolean; error?: string; message?: string }>;
   adminLogout: () => Promise<void>;
   resetAdminAuthState: () => void;
   unlockCourse: (courseId: string) => void;
@@ -201,6 +203,79 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   /**
+   * Request Password Recovery OTP
+   */
+  const requestForgotPasswordOtp = async (
+    email: string
+  ): Promise<{ success: boolean; error?: string; message?: string; cooldownRemaining?: number; devOtp?: string }> => {
+    setAdminError(null);
+    const backend = getBackendBase();
+    try {
+      const res = await fetch(`${backend}/api/admin/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim().toLowerCase() }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok || !data.success) {
+        const errMsg = data.error || 'Failed to request password reset.';
+        setAdminError(errMsg);
+        return { success: false, error: errMsg, cooldownRemaining: data.cooldownRemaining };
+      }
+
+      return {
+        success: true,
+        message: data.message,
+        cooldownRemaining: data.cooldownRemaining,
+        devOtp: data.devOtp,
+      };
+    } catch (err: any) {
+      const errMsg = 'Network error while requesting password reset.';
+      setAdminError(errMsg);
+      return { success: false, error: errMsg };
+    }
+  };
+
+  /**
+   * Reset Admin Password with Verified OTP
+   */
+  const resetAdminPasswordWithOtp = async (
+    email: string,
+    otp: string,
+    newPass: string
+  ): Promise<{ success: boolean; error?: string; message?: string }> => {
+    setAdminError(null);
+    const backend = getBackendBase();
+    try {
+      const res = await fetch(`${backend}/api/admin/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: email.trim().toLowerCase(),
+          otp: otp.trim(),
+          newPassword: newPass.trim(),
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok || !data.success) {
+        const errMsg = data.error || 'Failed to reset password.';
+        setAdminError(errMsg);
+        return { success: false, error: errMsg };
+      }
+
+      return { success: true, message: data.message };
+    } catch (err: any) {
+      const errMsg = 'Network error while resetting password.';
+      setAdminError(errMsg);
+      return { success: false, error: errMsg };
+    }
+  };
+
+  /**
    * Admin Logout: Revoke session on backend and clear cookies/tokens
    */
   const adminLogout = async () => {
@@ -278,6 +353,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         requestAdminOtp,
         verifyAdminOtp,
         resendAdminOtp,
+        requestForgotPasswordOtp,
+        resetAdminPasswordWithOtp,
         adminLogout,
         resetAdminAuthState,
         unlockCourse,
