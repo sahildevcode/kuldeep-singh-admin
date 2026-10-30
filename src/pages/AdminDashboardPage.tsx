@@ -884,7 +884,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
 
       let res: Response;
       try {
-        res = await fetch('https://kuldeep-singh-backend-nehy.onrender.com/api/upload/video', {
+        res = await fetch('https://kuldeep-singh-backend.vercel.app/api/upload/video', {
           method: 'POST',
           body: formData,
         });
@@ -932,7 +932,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
 
       // Sync to backend PUT /api/profile
       try {
-        await fetch('https://kuldeep-singh-backend-nehy.onrender.com/api/profile', {
+        await fetch('https://kuldeep-singh-backend.vercel.app/api/profile', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -1006,7 +1006,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
     };
 
     try {
-      await fetch('https://kuldeep-singh-backend-nehy.onrender.com/api/profile', {
+      await fetch('https://kuldeep-singh-backend.vercel.app/api/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -1065,7 +1065,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
     updateArtistProfile(payload);
 
     try {
-      await fetch('https://kuldeep-singh-backend-nehy.onrender.com/api/profile', {
+      await fetch('https://kuldeep-singh-backend.vercel.app/api/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -2017,7 +2017,7 @@ const handleSaveTestimonialSectionSettings = (e: React.FormEvent) => {
 
   // Sync initial live broadcast status from cloud backend
   useEffect(() => {
-    fetch('https://kuldeep-singh-backend-nehy.onrender.com/api/live')
+    fetch('https://kuldeep-singh-backend.vercel.app/api/live')
       .then((res) => res.json())
       .then((data) => {
         if (data) {
@@ -2058,7 +2058,7 @@ const handleSaveTestimonialSectionSettings = (e: React.FormEvent) => {
     });
 
     try {
-      await fetch('https://kuldeep-singh-backend-nehy.onrender.com/api/live', {
+      await fetch('https://kuldeep-singh-backend.vercel.app/api/live', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -2103,7 +2103,7 @@ const handleSaveTestimonialSectionSettings = (e: React.FormEvent) => {
 
   const handleUpdateLiveUrl = async () => {
     try {
-      await fetch('https://kuldeep-singh-backend-nehy.onrender.com/api/live', {
+      await fetch('https://kuldeep-singh-backend.vercel.app/api/live', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -2533,7 +2533,7 @@ const handleSaveTestimonialSectionSettings = (e: React.FormEvent) => {
       // 1. Get Direct TUS Upload Token from Backend
       let tokenRes: Response;
       try {
-        tokenRes = await fetch('https://kuldeep-singh-backend-nehy.onrender.com/api/upload/bunny-token', {
+        tokenRes = await fetch('https://kuldeep-singh-backend.vercel.app/api/upload/bunny-token', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ title: titleToUse })

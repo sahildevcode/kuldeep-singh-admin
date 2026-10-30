@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+﻿import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { UserProfile } from '../types';
 import { adminFetch, setAdminAuthToken } from '../utils/apiClient';
 
@@ -40,7 +40,7 @@ const getBackendBase = () => {
   if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
     return 'http://localhost:5000';
   }
-  return 'https://kuldeep-singh-backend-nehy.onrender.com';
+  return 'https://kuldeep-singh-backend.vercel.app';
 };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
