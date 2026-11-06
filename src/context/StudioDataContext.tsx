@@ -574,7 +574,7 @@ const [siteSettings, setSiteSettings] = useState<SiteSettings>(() => {
         let cloudArtworks: Artwork[] | null = null;
         for (const base of getBackendUrls()) {
           try {
-            const artRes = await fetch(`${base}/api/artworks`);
+            const artRes = await fetch(`${base}/api/artworks?full=true`);
             if (artRes.ok) {
               cloudArtworks = await artRes.json();
               break;
