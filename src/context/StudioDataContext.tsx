@@ -584,12 +584,7 @@ const [siteSettings, setSiteSettings] = useState<SiteSettings>(() => {
         if (cloudArtworks) {
           if (Array.isArray(cloudArtworks) && isMounted) {
             // Guard: don't wipe local artworks with empty cloud response (cold start protection)
-            setArtworks((prev) => {
-              if (cloudArtworks.length === 0 && prev.length > 0) return prev;
-              const cloudIds = new Set(cloudArtworks.map(a => a.id));
-              const localPending = prev.filter(a => !cloudIds.has(a.id) && String(a.id).startsWith('art-'));
-              return [...localPending, ...cloudArtworks];
-            });
+            setArtworks(cloudArtworks);
             if (cloudArtworks.length > 0) {
               try {
                 localStorage.setItem('kuldeep_studio_artworks', JSON.stringify(cloudArtworks));
@@ -995,35 +990,53 @@ const [siteSettings, setSiteSettings] = useState<SiteSettings>(() => {
 
   // Painting Handlers (Local Optimistic + Instant 24/7 Cloud Sync)
   const addArtwork = async (artwork: Artwork) => {
-    setArtworks((prev) => [artwork, ...prev]);
+    setArtworks((prev) => {
+      const next = [artwork, ...prev];
+      try {
+        localStorage.setItem('kuldeep_studio_artworks', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
     for (const base of getBackendUrls()) {
       try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
         const res = await adminFetch(`${base}/api/artworks`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(artwork)
+          body: JSON.stringify(artwork),
+          signal: controller.signal
         });
+        clearTimeout(timeoutId);
         if (res.ok) break;
       } catch (err) {
-        console.error('Error syncing new artwork to cloud database:', err);
+        console.warn('Error syncing new artwork to cloud database:', err);
       }
     }
   };
 
   const updateArtwork = async (id: string, updates: Partial<Artwork>) => {
-    setArtworks((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, ...updates } : item))
-    );
+    setArtworks((prev) => {
+      const next = prev.map((item) => (item.id === id ? { ...item, ...updates } : item));
+      try {
+        localStorage.setItem('kuldeep_studio_artworks', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
     for (const base of getBackendUrls()) {
       try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 6000);
         const res = await adminFetch(`${base}/api/artworks/${id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updates)
+          body: JSON.stringify(updates),
+          signal: controller.signal
         });
+        clearTimeout(timeoutId);
         if (res.ok) break;
       } catch (err) {
-        console.error('Error updating artwork in cloud database:', err);
+        console.warn('Error updating artwork in cloud database:', err);
       }
     }
   };
@@ -1038,11 +1051,16 @@ const [siteSettings, setSiteSettings] = useState<SiteSettings>(() => {
     });
     for (const base of getBackendUrls()) {
       try {
-        await fetch(`${base}/api/artworks/${id}`, {
-          method: 'DELETE'
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 6000);
+        const res = await adminFetch(`${base}/api/artworks/${id}`, {
+          method: 'DELETE',
+          signal: controller.signal
         });
+        clearTimeout(timeoutId);
+        if (res.ok) break;
       } catch (err) {
-        console.error('Error deleting artwork from cloud database:', err);
+        console.warn('Error deleting artwork from cloud database:', err);
       }
     }
   };
