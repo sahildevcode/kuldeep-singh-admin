@@ -1032,6 +1032,13 @@ const [siteSettings, setSiteSettings] = useState<SiteSettings>(() => {
       } catch {}
       return next;
     });
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      try {
+        const bc = new BroadcastChannel('ks_artwork_channel');
+        bc.postMessage({ type: 'ARTWORK_UPDATED', artwork });
+        bc.close();
+      } catch {}
+    }
     for (const base of getBackendUrls()) {
       try {
         const controller = new AbortController();
@@ -1062,6 +1069,13 @@ const [siteSettings, setSiteSettings] = useState<SiteSettings>(() => {
       } catch {}
       return next;
     });
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      try {
+        const bc = new BroadcastChannel('ks_artwork_channel');
+        bc.postMessage({ type: 'ARTWORK_UPDATED', artwork: { ...updates, id } });
+        bc.close();
+      } catch {}
+    }
     for (const base of getBackendUrls()) {
       try {
         const controller = new AbortController();
@@ -1092,6 +1106,13 @@ const [siteSettings, setSiteSettings] = useState<SiteSettings>(() => {
       } catch {}
       return next;
     });
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      try {
+        const bc = new BroadcastChannel('ks_artwork_channel');
+        bc.postMessage({ type: 'ARTWORK_DELETED', id });
+        bc.close();
+      } catch {}
+    }
     for (const base of getBackendUrls()) {
       try {
         const controller = new AbortController();
