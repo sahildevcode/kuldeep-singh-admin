@@ -754,6 +754,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
   const [artworkSearchQuery, setArtworkSearchQuery] = useState('');
   const [isAddArtworkModalOpen, setIsAddArtworkModalOpen] = useState(false);
   const [artworkToEdit, setArtworkToEdit] = useState<Artwork | null>(null);
+  const [isSavingArtwork, setIsSavingArtwork] = useState(false);
 
   // Customer Inquiries Management
   const [inquiryFilter, setInquiryFilter] = useState<'all' | 'new' | 'contacted' | 'resolved'>('all');
@@ -1910,8 +1911,9 @@ const handleSaveTestimonialSectionSettings = (e: React.FormEvent) => {
     e.target.value = '';
   };
 
-  const handleSaveArtwork = (e: React.FormEvent) => {
+  const handleSaveArtwork = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSavingArtwork) return;
     if (!newArtworkForm.title?.trim()) {
       showToast('⚠️ Please enter painting title');
       return;
@@ -1928,41 +1930,48 @@ const handleSaveTestimonialSectionSettings = (e: React.FormEvent) => {
 
     const primaryImage = allImages[0];
     const detailImages = allImages.slice(1);
+    setIsSavingArtwork(true);
 
-    if (artworkToEdit) {
-      updateArtwork(artworkToEdit.id, {
-        ...newArtworkForm,
-        series: (newArtworkForm.series || '').trim(),
-        image: primaryImage,
-        detailImages: detailImages
-      });
-      showToast(`Artwork "${newArtworkForm.title}" updated successfully!`);
-      setArtworkToEdit(null);
-    } else {
-      const newId = 'art-' + Date.now();
-      const newArt: Artwork = {
-        id: newId,
-        title: newArtworkForm.title.trim(),
-        subtitle: newArtworkForm.subtitle?.trim() || 'Classical Atelier Original',
-        year: Number(newArtworkForm.year) || 2026,
-        medium: (newArtworkForm.medium as MediumType) || 'Oil on Canvas',
-        dimensions: newArtworkForm.dimensions?.trim() || '36 x 48 in (91 x 122 cm)',
-        price: newArtworkForm.price !== undefined && !isNaN(Number(newArtworkForm.price)) ? Number(newArtworkForm.price) : 95000,
-        image: primaryImage,
-        detailImages: detailImages,
-        description: newArtworkForm.description?.trim() || '',
-        story: newArtworkForm.story?.trim() || '',
-        framed: Boolean(newArtworkForm.framed !== false),
-        status: newArtworkForm.status || 'available',
-        featured: Boolean(newArtworkForm.featured),
-        paletteColors: ['#1A1816', '#C5A059', '#E63946'],
-        varnishType: newArtworkForm.varnishType || 'Archival Dammar Varnish',
-        series: (newArtworkForm.series || '').trim()
-      };
-      addArtwork(newArt);
-      showToast(`Masterpiece "${newArt.title}" added to Atelier gallery!`);
+    try {
+      if (artworkToEdit) {
+        await updateArtwork(artworkToEdit.id, {
+          ...newArtworkForm,
+          series: (newArtworkForm.series || '').trim(),
+          image: primaryImage,
+          detailImages: detailImages
+        });
+        showToast(`Artwork "${newArtworkForm.title}" saved & synced to live website!`);
+        setArtworkToEdit(null);
+      } else {
+        const newId = 'art-' + Date.now();
+        const newArt: Artwork = {
+          id: newId,
+          title: newArtworkForm.title.trim(),
+          subtitle: newArtworkForm.subtitle?.trim() || 'Classical Atelier Original',
+          year: Number(newArtworkForm.year) || 2026,
+          medium: (newArtworkForm.medium as MediumType) || 'Oil on Canvas',
+          dimensions: newArtworkForm.dimensions?.trim() || '36 x 48 in (91 x 122 cm)',
+          price: newArtworkForm.price !== undefined && !isNaN(Number(newArtworkForm.price)) ? Number(newArtworkForm.price) : 95000,
+          image: primaryImage,
+          detailImages: detailImages,
+          description: newArtworkForm.description?.trim() || '',
+          story: newArtworkForm.story?.trim() || '',
+          framed: Boolean(newArtworkForm.framed !== false),
+          status: newArtworkForm.status || 'available',
+          featured: Boolean(newArtworkForm.featured),
+          paletteColors: ['#1A1816', '#C5A059', '#E63946'],
+          varnishType: newArtworkForm.varnishType || 'Archival Dammar Varnish',
+          series: (newArtworkForm.series || '').trim()
+        };
+        await addArtwork(newArt);
+        showToast(`Masterpiece "${newArt.title}" added & synced to live website!`);
+      }
+      setIsAddArtworkModalOpen(false);
+    } catch (err) {
+      showToast('⚠️ Error saving to cloud database. Please try again.');
+    } finally {
+      setIsSavingArtwork(false);
     }
-    setIsAddArtworkModalOpen(false);
   };
 
   const handleCreateNewOrder = (e: React.FormEvent) => {
@@ -8776,8 +8785,19 @@ const handleSaveTestimonialSectionSettings = (e: React.FormEvent) => {
                 <button type="button" onClick={() => setIsAddArtworkModalOpen(false)} className="px-4 py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl text-xs font-semibold cursor-pointer">
                   Cancel
                 </button>
-                <button type="submit" className="px-6 py-2.5 bg-gradient-to-r from-[#FF5722] to-[#FF7A45] text-white rounded-xl text-xs font-bold shadow-lg cursor-pointer">
-                  Save Artwork
+                <button
+                  type="submit"
+                  disabled={isSavingArtwork}
+                  className="px-6 py-2.5 bg-gradient-to-r from-[#FF5722] to-[#FF7A45] disabled:opacity-50 text-white rounded-xl text-xs font-bold shadow-lg cursor-pointer flex items-center gap-2"
+                >
+                  {isSavingArtwork ? (
+                    <>
+                      <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      <span>Saving to Cloud...</span>
+                    </>
+                  ) : (
+                    <span>Save Artwork</span>
+                  )}
                 </button>
               </div>
             </form>
