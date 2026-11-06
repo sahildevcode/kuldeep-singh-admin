@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { adminFetch } from '../utils/apiClient';
 import type { SiteSettings, PromoCode, StoreDeliverySettings, Artwork, Course, CourseModule, CourseLecture, ArtistProfile, AchievementTimelineItem, Award, EnrolledStudent, RegisteredUser, Inquiry, UpcomingCourse, CollectorReview } from '../types';
 import { ARTWORKS } from '../data/artworks';
@@ -326,6 +326,39 @@ export const StudioDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     });
   };
 
+  // Protect locally uploaded/updated artworks from being overwritten by rapid background polling
+  const pendingArtworkUpdates = useRef<Map<string, { artwork: Partial<Artwork>; timestamp: number }>>(new Map());
+
+  const mergeArtworksWithCloud = (_localArtworks: Artwork[], cloudArtworks: Artwork[]): Artwork[] => {
+    const now = Date.now();
+    // 1. Clean up stale pending records (> 60s)
+    for (const [id, record] of pendingArtworkUpdates.current.entries()) {
+      if (now - record.timestamp > 60000) {
+        pendingArtworkUpdates.current.delete(id);
+      }
+    }
+
+    // 2. Map cloud artworks, applying any recent local modifications
+    const merged = cloudArtworks.map((cArt) => {
+      const pending = pendingArtworkUpdates.current.get(cArt.id);
+      if (pending && now - pending.timestamp < 60000) {
+        return { ...cArt, ...pending.artwork };
+      }
+      return cArt;
+    });
+
+    // 3. Keep newly added local artworks not yet returned by cloud
+    for (const [id, record] of pendingArtworkUpdates.current.entries()) {
+      if (now - record.timestamp < 60000 && !merged.some((a) => a.id === id)) {
+        if ((record.artwork as any).title) {
+          merged.unshift(record.artwork as Artwork);
+        }
+      }
+    }
+
+    return merged;
+  };
+
   // Promos State
   const [promoCodes, setPromoCodes] = useState<PromoCode[]>(() => {
     try {
@@ -583,13 +616,14 @@ const [siteSettings, setSiteSettings] = useState<SiteSettings>(() => {
         }
         if (cloudArtworks) {
           if (Array.isArray(cloudArtworks) && isMounted) {
-            // Guard: don't wipe local artworks with empty cloud response (cold start protection)
-            setArtworks(cloudArtworks);
-            if (cloudArtworks.length > 0) {
+            setArtworks((prev) => {
+              if (cloudArtworks.length === 0 && prev.length > 0) return prev;
+              const merged = mergeArtworksWithCloud(prev, cloudArtworks);
               try {
-                localStorage.setItem('kuldeep_studio_artworks', JSON.stringify(cloudArtworks));
+                localStorage.setItem('kuldeep_studio_artworks', JSON.stringify(merged));
               } catch {}
-            }
+              return merged;
+            });
           }
         }
 
@@ -777,7 +811,7 @@ const [siteSettings, setSiteSettings] = useState<SiteSettings>(() => {
         if (!document.hidden && !isUserIdle) {
           syncAllWithCloud();
         }
-      }, 3000);
+      }, 8000);
     };
 
     const stopSync = () => {
@@ -990,6 +1024,7 @@ const [siteSettings, setSiteSettings] = useState<SiteSettings>(() => {
 
   // Painting Handlers (Local Optimistic + Instant 24/7 Cloud Sync)
   const addArtwork = async (artwork: Artwork) => {
+    pendingArtworkUpdates.current.set(artwork.id, { artwork, timestamp: Date.now() });
     setArtworks((prev) => {
       const next = [artwork, ...prev];
       try {
@@ -1000,7 +1035,7 @@ const [siteSettings, setSiteSettings] = useState<SiteSettings>(() => {
     for (const base of getBackendUrls()) {
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        const timeoutId = setTimeout(() => controller.abort(), 30000);
         const res = await adminFetch(`${base}/api/artworks`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1008,7 +1043,10 @@ const [siteSettings, setSiteSettings] = useState<SiteSettings>(() => {
           signal: controller.signal
         });
         clearTimeout(timeoutId);
-        if (res.ok) break;
+        if (res.ok) {
+          pendingArtworkUpdates.current.delete(artwork.id);
+          break;
+        }
       } catch (err) {
         console.warn('Error syncing new artwork to cloud database:', err);
       }
@@ -1016,6 +1054,7 @@ const [siteSettings, setSiteSettings] = useState<SiteSettings>(() => {
   };
 
   const updateArtwork = async (id: string, updates: Partial<Artwork>) => {
+    pendingArtworkUpdates.current.set(id, { artwork: updates, timestamp: Date.now() });
     setArtworks((prev) => {
       const next = prev.map((item) => (item.id === id ? { ...item, ...updates } : item));
       try {
@@ -1026,7 +1065,7 @@ const [siteSettings, setSiteSettings] = useState<SiteSettings>(() => {
     for (const base of getBackendUrls()) {
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 6000);
+        const timeoutId = setTimeout(() => controller.abort(), 30000);
         const res = await adminFetch(`${base}/api/artworks/${id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -1034,7 +1073,10 @@ const [siteSettings, setSiteSettings] = useState<SiteSettings>(() => {
           signal: controller.signal
         });
         clearTimeout(timeoutId);
-        if (res.ok) break;
+        if (res.ok) {
+          pendingArtworkUpdates.current.delete(id);
+          break;
+        }
       } catch (err) {
         console.warn('Error updating artwork in cloud database:', err);
       }
@@ -1042,6 +1084,7 @@ const [siteSettings, setSiteSettings] = useState<SiteSettings>(() => {
   };
 
   const deleteArtwork = async (id: string) => {
+    pendingArtworkUpdates.current.delete(id);
     setArtworks((prev) => {
       const next = prev.filter((item) => item.id !== id && (item as any)._id !== id);
       try {
@@ -1052,7 +1095,7 @@ const [siteSettings, setSiteSettings] = useState<SiteSettings>(() => {
     for (const base of getBackendUrls()) {
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 6000);
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
         const res = await adminFetch(`${base}/api/artworks/${id}`, {
           method: 'DELETE',
           signal: controller.signal
