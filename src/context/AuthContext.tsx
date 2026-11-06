@@ -23,9 +23,9 @@ interface AuthContextType {
   setAdminError: (err: string | null) => void;
   login: (email: string, name?: string, role?: 'collector' | 'student') => void;
   logout: () => void;
-  requestAdminOtp: (email: string, pass: string) => Promise<{ success: boolean; error?: string; devMode?: boolean }>;
+  requestAdminOtp: (email: string, pass: string) => Promise<{ success: boolean; error?: string; devMode?: boolean; devOtp?: string }>;
   verifyAdminOtp: (otp: string) => Promise<{ success: boolean; error?: string }>;
-  resendAdminOtp: () => Promise<{ success: boolean; error?: string; cooldownRemaining?: number }>;
+  resendAdminOtp: () => Promise<{ success: boolean; error?: string; cooldownRemaining?: number; devMode?: boolean; devOtp?: string }>;
   requestForgotPasswordOtp: (email: string) => Promise<{ success: boolean; error?: string; message?: string; cooldownRemaining?: number; devOtp?: string }>;
   resetAdminPasswordWithOtp: (email: string, otp: string, newPass: string) => Promise<{ success: boolean; error?: string; message?: string }>;
   adminLogout: () => Promise<void>;
@@ -36,11 +36,42 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const getBackendBase = () => {
-  if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
-    return 'http://localhost:5000';
+export const getBackendUrls = (): string[] => {
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    if (host === 'localhost' || host === '127.0.0.1') {
+      return [
+        'http://localhost:5000',
+        'http://127.0.0.1:5000',
+        'https://kuldeep-singh-backend-nehy.onrender.com',
+        'https://kuldeep-singh-backend.vercel.app'
+      ];
+    }
   }
-  return 'https://kuldeep-singh-backend.vercel.app';
+  return [
+    'https://kuldeep-singh-backend-nehy.onrender.com',
+    'https://kuldeep-singh-backend.vercel.app',
+    'http://localhost:5000'
+  ];
+};
+
+const executeAuthApi = async (
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<{ ok: boolean; status: number; data: any; networkError?: boolean }> => {
+  const urls = getBackendUrls();
+
+  for (const base of urls) {
+    try {
+      const res = await adminFetch(`${base}${endpoint}`, options);
+      const data = await res.json().catch(() => ({}));
+      return { ok: res.ok, status: res.status, data };
+    } catch {
+      // try next backend url candidate
+    }
+  }
+
+  return { ok: false, status: 0, data: null, networkError: true };
 };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -66,25 +97,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Validate active Admin session with the backend on page load
   const validateSession = useCallback(async () => {
     setAdminLoading(true);
-    const backend = getBackendBase();
     try {
-      const res = await adminFetch(`${backend}/api/admin/session`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success && data.admin) {
-          setIsAdminAuthenticated(true);
-          setAdminUser(data.admin);
-          setAdminError(null);
-          setAdminLoading(false);
-          return;
-        }
+      const { ok, data } = await executeAuthApi('/api/admin/session');
+      if (ok && data?.success && data?.admin) {
+        setIsAdminAuthenticated(true);
+        setAdminUser(data.admin);
+        setAdminError(null);
+        setAdminLoading(false);
+        return;
       }
       // If unauthorized or failed
       setIsAdminAuthenticated(false);
       setAdminUser(null);
       setAdminAuthToken(null);
     } catch (err) {
-      // Backend might be offline or sleeping on free tier
       setIsAdminAuthenticated(false);
       setAdminUser(null);
     } finally {
@@ -105,35 +131,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   /**
    * Phase 1 of Admin Login: Send email and password to receive Resend OTP
    */
-  const requestAdminOtp = async (email: string, pass: string): Promise<{ success: boolean; error?: string; devMode?: boolean }> => {
+  const requestAdminOtp = async (email: string, pass: string): Promise<{ success: boolean; error?: string; devMode?: boolean; devOtp?: string }> => {
     setAdminError(null);
-    const backend = getBackendBase();
-    try {
-      const res = await fetch(`${backend}/api/admin/login-challenge`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim(), password: pass.trim() }),
-      });
+    const { ok, data, networkError } = await executeAuthApi('/api/admin/login-challenge', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email.trim(), password: pass.trim() }),
+    });
 
-      const data = await res.json().catch(() => ({}));
-
-      if (!res.ok || !data.success) {
-        const errMsg = data.error || 'Failed to authenticate administrator credentials.';
-        setAdminError(errMsg);
-        return { success: false, error: errMsg };
-      }
-
-      setPendingAdminEmail(email.trim().toLowerCase());
-      setAdminAuthStep('otp');
-      return { success: true, devMode: data.devMode };
-    } catch (err: any) {
-      console.error('requestAdminOtp exception:', err);
-      const errMsg = err?.message && !err.message.includes('fetch')
-        ? err.message
-        : 'Cannot reach backend server. Please check your network or try again.';
+    if (networkError) {
+      const errMsg = 'Cannot reach backend server. Please check your network or try again.';
       setAdminError(errMsg);
       return { success: false, error: errMsg };
     }
+
+    if (!ok || !data?.success) {
+      const errMsg = data?.error || 'Failed to authenticate administrator credentials.';
+      setAdminError(errMsg);
+      return { success: false, error: errMsg };
+    }
+
+    setPendingAdminEmail(email.trim().toLowerCase());
+    setAdminAuthStep('otp');
+    return { success: true, devMode: data.devMode, devOtp: data.devOtp };
   };
 
   /**
@@ -141,65 +161,54 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
    */
   const verifyAdminOtp = async (otp: string): Promise<{ success: boolean; error?: string }> => {
     setAdminError(null);
-    const backend = getBackendBase();
-    try {
-      const res = await fetch(`${backend}/api/admin/verify-otp`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: pendingAdminEmail, otp: otp.trim() }),
-      });
+    const { ok, data, networkError } = await executeAuthApi('/api/admin/verify-otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: pendingAdminEmail, otp: otp.trim() }),
+    });
 
-      const data = await res.json().catch(() => ({}));
-
-      if (!res.ok || !data.success) {
-        const errMsg = data.error || 'Invalid or expired verification code.';
-        setAdminError(errMsg);
-        return { success: false, error: errMsg };
-      }
-
-      if (data.token) {
-        setAdminAuthToken(data.token);
-      }
-
-      setIsAdminAuthenticated(true);
-      setAdminUser(data.admin);
-      setAdminAuthStep('credentials');
-      setPendingAdminEmail('');
-      setIsAdminModalOpen(false);
-      return { success: true };
-    } catch (err: any) {
-      const errMsg = 'Error verifying code. Please try again.';
+    if (networkError) {
+      const errMsg = 'Cannot reach backend server. Please check your network or try again.';
       setAdminError(errMsg);
       return { success: false, error: errMsg };
     }
+
+    if (!ok || !data?.success) {
+      const errMsg = data?.error || 'Invalid or expired verification code.';
+      setAdminError(errMsg);
+      return { success: false, error: errMsg };
+    }
+
+    if (data.token) {
+      setAdminAuthToken(data.token);
+    }
+
+    setIsAdminAuthenticated(true);
+    setAdminUser(data.admin);
+    setAdminAuthStep('credentials');
+    setPendingAdminEmail('');
+    setIsAdminModalOpen(false);
+    return { success: true };
   };
 
   /**
    * Resend Admin OTP
    */
-  const resendAdminOtp = async (): Promise<{ success: boolean; error?: string; cooldownRemaining?: number }> => {
+  const resendAdminOtp = async (): Promise<{ success: boolean; error?: string; cooldownRemaining?: number; devMode?: boolean; devOtp?: string }> => {
     setAdminError(null);
-    const backend = getBackendBase();
-    try {
-      const res = await fetch(`${backend}/api/admin/resend-otp`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: pendingAdminEmail }),
-      });
+    const { ok, data, networkError } = await executeAuthApi('/api/admin/resend-otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: pendingAdminEmail }),
+    });
 
-      const data = await res.json().catch(() => ({}));
-
-      if (!res.ok || !data.success) {
-        const errMsg = data.error || 'Failed to resend verification code.';
-        setAdminError(errMsg);
-        return { success: false, error: errMsg, cooldownRemaining: data.cooldownRemaining };
-      }
-
-      return { success: true };
-    } catch (err: any) {
-      return { success: false, error: 'Network error while requesting code.' };
+    if (networkError || !ok || !data?.success) {
+      const errMsg = data?.error || 'Failed to resend verification code.';
+      setAdminError(errMsg);
+      return { success: false, error: errMsg, cooldownRemaining: data?.cooldownRemaining };
     }
+
+    return { success: true, devMode: data?.devMode, devOtp: data?.devOtp };
   };
 
   /**
@@ -209,33 +218,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     email: string
   ): Promise<{ success: boolean; error?: string; message?: string; cooldownRemaining?: number; devOtp?: string }> => {
     setAdminError(null);
-    const backend = getBackendBase();
-    try {
-      const res = await fetch(`${backend}/api/admin/forgot-password`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim().toLowerCase() }),
-      });
+    const { ok, data, networkError } = await executeAuthApi('/api/admin/forgot-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email.trim().toLowerCase() }),
+    });
 
-      const data = await res.json().catch(() => ({}));
-
-      if (!res.ok || !data.success) {
-        const errMsg = data.error || 'Failed to request password reset.';
-        setAdminError(errMsg);
-        return { success: false, error: errMsg, cooldownRemaining: data.cooldownRemaining };
-      }
-
-      return {
-        success: true,
-        message: data.message,
-        cooldownRemaining: data.cooldownRemaining,
-        devOtp: data.devOtp,
-      };
-    } catch (err: any) {
-      const errMsg = 'Network error while requesting password reset.';
+    if (networkError || !ok || !data?.success) {
+      const errMsg = data?.error || 'Failed to request password reset.';
       setAdminError(errMsg);
-      return { success: false, error: errMsg };
+      return { success: false, error: errMsg, cooldownRemaining: data?.cooldownRemaining };
     }
+
+    return {
+      success: true,
+      message: data.message,
+      cooldownRemaining: data.cooldownRemaining,
+      devOtp: data.devOtp,
+    };
   };
 
   /**
@@ -247,41 +247,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     newPass: string
   ): Promise<{ success: boolean; error?: string; message?: string }> => {
     setAdminError(null);
-    const backend = getBackendBase();
-    try {
-      const res = await fetch(`${backend}/api/admin/reset-password`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: email.trim().toLowerCase(),
-          otp: otp.trim(),
-          newPassword: newPass.trim(),
-        }),
-      });
+    const { ok, data, networkError } = await executeAuthApi('/api/admin/reset-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: email.trim().toLowerCase(),
+        otp: otp.trim(),
+        newPassword: newPass.trim(),
+      }),
+    });
 
-      const data = await res.json().catch(() => ({}));
-
-      if (!res.ok || !data.success) {
-        const errMsg = data.error || 'Failed to reset password.';
-        setAdminError(errMsg);
-        return { success: false, error: errMsg };
-      }
-
-      return { success: true, message: data.message };
-    } catch (err: any) {
-      const errMsg = 'Network error while resetting password.';
+    if (networkError || !ok || !data?.success) {
+      const errMsg = data?.error || 'Failed to reset password.';
       setAdminError(errMsg);
       return { success: false, error: errMsg };
     }
+
+    return { success: true, message: data.message };
   };
 
   /**
    * Admin Logout: Revoke session on backend and clear cookies/tokens
    */
   const adminLogout = async () => {
-    const backend = getBackendBase();
     try {
-      await adminFetch(`${backend}/api/admin/logout`, {
+      await executeAuthApi('/api/admin/logout', {
         method: 'POST',
       });
     } catch {}

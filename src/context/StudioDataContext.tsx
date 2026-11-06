@@ -1,4 +1,5 @@
-﻿import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { adminFetch } from '../utils/apiClient';
 import type { SiteSettings, PromoCode, StoreDeliverySettings, Artwork, Course, CourseModule, CourseLecture, ArtistProfile, AchievementTimelineItem, Award, EnrolledStudent, RegisteredUser, Inquiry, UpcomingCourse, CollectorReview } from '../types';
 import { ARTWORKS } from '../data/artworks';
 import { COURSES } from '../data/courses';
@@ -7,14 +8,29 @@ import { INITIAL_UPCOMING_COURSES } from '../data/upcomingCourses';
 import { REVIEWS } from '../data/reviews';
 
 export const getBackendUrls = (): string[] => {
-  return ['https://kuldeep-singh-backend.vercel.app', 'http://localhost:5000'];
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    if (host === 'localhost' || host === '127.0.0.1') {
+      return [
+        'http://localhost:5000',
+        'http://127.0.0.1:5000',
+        'https://kuldeep-singh-backend-nehy.onrender.com',
+        'https://kuldeep-singh-backend.vercel.app'
+      ];
+    }
+  }
+  return [
+    'https://kuldeep-singh-backend-nehy.onrender.com',
+    'https://kuldeep-singh-backend.vercel.app',
+    'http://localhost:5000'
+  ];
 };
 
 export const deleteBunnyVideo = async (videoUrlOrId: string) => {
   if (!videoUrlOrId) return;
   for (const base of getBackendUrls()) {
     try {
-      await fetch(`${base}/api/upload/bunny-delete`, {
+      await adminFetch(`${base}/api/upload/bunny-delete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ videoUrl: videoUrlOrId }),
@@ -83,7 +99,7 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
   gallerySubheading: 'Explore authentic museum-grade masterworks hand-crafted with archival minerals, oils, and charcoals. Delivered worldwide with hand-embossed Certificates of Authenticity.',
   aboutStoryHeading: 'A Life Dedicated to the Alchemy of Light, Oil & Form.',
   philosophyQuote: 'Every stroke of oil on linen is a conversation between human patience and natural light.',
-  contactEmail: 'artistkuldeepsingh26@gmail.com',
+  contactEmail: 'artistkuldeepsingh01@gmail.com',
   contactPhone: '+91 88580 60101',
   studioAddress: 'Delhi, India',
   whatsappNumber: '918858060101',
@@ -555,14 +571,24 @@ const [siteSettings, setSiteSettings] = useState<SiteSettings>(() => {
         } catch {}
       try {
         // 1. Artworks (Cloud is absolute source of truth)
-        const artRes = await fetch('https://kuldeep-singh-backend.vercel.app/api/artworks');
-        if (artRes.ok) {
-          const cloudArtworks: Artwork[] = await artRes.json();
+        let cloudArtworks: Artwork[] | null = null;
+        for (const base of getBackendUrls()) {
+          try {
+            const artRes = await fetch(`${base}/api/artworks`);
+            if (artRes.ok) {
+              cloudArtworks = await artRes.json();
+              break;
+            }
+          } catch {}
+        }
+        if (cloudArtworks) {
           if (Array.isArray(cloudArtworks) && isMounted) {
             // Guard: don't wipe local artworks with empty cloud response (cold start protection)
             setArtworks((prev) => {
               if (cloudArtworks.length === 0 && prev.length > 0) return prev;
-              return cloudArtworks;
+              const cloudIds = new Set(cloudArtworks.map(a => a.id));
+              const localPending = prev.filter(a => !cloudIds.has(a.id) && String(a.id).startsWith('art-'));
+              return [...localPending, ...cloudArtworks];
             });
             if (cloudArtworks.length > 0) {
               try {
@@ -573,9 +599,17 @@ const [siteSettings, setSiteSettings] = useState<SiteSettings>(() => {
         }
 
         // 2. Courses & Lectures
-        const courseRes = await fetch('https://kuldeep-singh-backend.vercel.app/api/courses').catch(() => null);
-        if (courseRes && courseRes.ok) {
-          const cloudCourses: Course[] = await courseRes.json();
+        let cloudCourses: Course[] | null = null;
+        for (const base of getBackendUrls()) {
+          try {
+            const courseRes = await fetch(`${base}/api/courses`);
+            if (courseRes.ok) {
+              cloudCourses = await courseRes.json();
+              break;
+            }
+          } catch {}
+        }
+        if (cloudCourses) {
           if (Array.isArray(cloudCourses) && isMounted) {
             const validCloudCourses = cloudCourses.filter((c) => !DUMMY_COURSE_IDS.includes(c.id));
             const normalizedCloud = normalizeCourses(validCloudCourses);
@@ -962,14 +996,17 @@ const [siteSettings, setSiteSettings] = useState<SiteSettings>(() => {
   // Painting Handlers (Local Optimistic + Instant 24/7 Cloud Sync)
   const addArtwork = async (artwork: Artwork) => {
     setArtworks((prev) => [artwork, ...prev]);
-    try {
-      await fetch('https://kuldeep-singh-backend.vercel.app/api/artworks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(artwork)
-      });
-    } catch (err) {
-      console.error('Error syncing new artwork to cloud database:', err);
+    for (const base of getBackendUrls()) {
+      try {
+        const res = await adminFetch(`${base}/api/artworks`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(artwork)
+        });
+        if (res.ok) break;
+      } catch (err) {
+        console.error('Error syncing new artwork to cloud database:', err);
+      }
     }
   };
 
@@ -977,14 +1014,17 @@ const [siteSettings, setSiteSettings] = useState<SiteSettings>(() => {
     setArtworks((prev) =>
       prev.map((item) => (item.id === id ? { ...item, ...updates } : item))
     );
-    try {
-      await fetch(`https://kuldeep-singh-backend.vercel.app/api/artworks/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updates)
-      });
-    } catch (err) {
-      console.error('Error updating artwork in cloud database:', err);
+    for (const base of getBackendUrls()) {
+      try {
+        const res = await adminFetch(`${base}/api/artworks/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updates)
+        });
+        if (res.ok) break;
+      } catch (err) {
+        console.error('Error updating artwork in cloud database:', err);
+      }
     }
   };
 
@@ -1038,7 +1078,7 @@ const [siteSettings, setSiteSettings] = useState<SiteSettings>(() => {
 
     for (const base of getBackendUrls()) {
       try {
-        await fetch(`${base}/api/artworks/reorder`, {
+        await adminFetch(`${base}/api/artworks/reorder`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ artworkIds: orderedIds, mainArtworkId: mainId })
@@ -1085,7 +1125,7 @@ const [siteSettings, setSiteSettings] = useState<SiteSettings>(() => {
 
     for (const base of getBackendUrls()) {
       try {
-        await fetch(`${base}/api/settings`, {
+        await adminFetch(`${base}/api/settings`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(merged)
@@ -1102,7 +1142,7 @@ const [siteSettings, setSiteSettings] = useState<SiteSettings>(() => {
     setCourses((prev) => [course, ...prev]);
     for (const base of getBackendUrls()) {
       try {
-        await fetch(`${base}/api/courses`, {
+        await adminFetch(`${base}/api/courses`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(course)
@@ -1135,13 +1175,13 @@ const [siteSettings, setSiteSettings] = useState<SiteSettings>(() => {
     const payloadToSend = updates.modules ? updatedCourse : updates;
     for (const base of getBackendUrls()) {
       try {
-        await fetch(`${base}/api/courses/${id}`, {
+        await adminFetch(`${base}/api/courses/${id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payloadToSend || updates)
         });
         if (updates.liveClassStatus !== undefined) {
-          await fetch(`${base}/api/live`, {
+          await adminFetch(`${base}/api/live`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -1174,7 +1214,7 @@ const [siteSettings, setSiteSettings] = useState<SiteSettings>(() => {
     }
     for (const base of getBackendUrls()) {
       try {
-        await fetch(`${base}/api/courses/${id}`, {
+        await adminFetch(`${base}/api/courses/${id}`, {
           method: 'DELETE'
         });
       } catch (e) {
@@ -1243,7 +1283,7 @@ const [siteSettings, setSiteSettings] = useState<SiteSettings>(() => {
     const backendEndpoints = getBackendUrls();
     for (const baseUrl of backendEndpoints) {
       try {
-        const postRes = await fetch(`${baseUrl}/api/courses/${courseId}/modules/${moduleIndex}/lectures`, {
+        const postRes = await adminFetch(`${baseUrl}/api/courses/${courseId}/modules/${moduleIndex}/lectures`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(lecture)
@@ -1260,7 +1300,7 @@ const [siteSettings, setSiteSettings] = useState<SiteSettings>(() => {
     if (targetCourse) {
       for (const baseUrl of backendEndpoints) {
         try {
-          await fetch(`${baseUrl}/api/courses/${courseId}`, {
+          await adminFetch(`${baseUrl}/api/courses/${courseId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(targetCourse)
@@ -1318,7 +1358,7 @@ const [siteSettings, setSiteSettings] = useState<SiteSettings>(() => {
       const backendEndpoints = getBackendUrls();
       for (const baseUrl of backendEndpoints) {
         try {
-          await fetch(`${baseUrl}/api/courses/${courseId}`, {
+          await adminFetch(`${baseUrl}/api/courses/${courseId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(targetCourse)
@@ -1389,7 +1429,7 @@ const [siteSettings, setSiteSettings] = useState<SiteSettings>(() => {
         const delUrl = targetLectureId
           ? `${baseUrl}/api/courses/${courseId}/modules/${moduleIndex}/lectures/${lectureIndex}?lectureId=${targetLectureId}`
           : `${baseUrl}/api/courses/${courseId}/modules/${moduleIndex}/lectures/${lectureIndex}`;
-        await fetch(delUrl, { method: 'DELETE' });
+        await adminFetch(delUrl, { method: 'DELETE' });
       } catch {
         // ignore
       }
@@ -1402,7 +1442,7 @@ const [siteSettings, setSiteSettings] = useState<SiteSettings>(() => {
     if (targetCourse) {
       for (const baseUrl of backendEndpoints) {
         try {
-          await fetch(`${baseUrl}/api/courses/${courseId}`, {
+          await adminFetch(`${baseUrl}/api/courses/${courseId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(targetCourse)
@@ -1461,7 +1501,7 @@ const [siteSettings, setSiteSettings] = useState<SiteSettings>(() => {
       ];
       for (const baseUrl of backendEndpoints) {
         try {
-          await fetch(`${baseUrl}/api/courses/${courseId}`, {
+          await adminFetch(`${baseUrl}/api/courses/${courseId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(courseToPut)
@@ -1515,7 +1555,7 @@ const [siteSettings, setSiteSettings] = useState<SiteSettings>(() => {
       ];
       for (const baseUrl of backendEndpoints) {
         try {
-          await fetch(`${baseUrl}/api/courses/${courseId}`, {
+          await adminFetch(`${baseUrl}/api/courses/${courseId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(courseToPut)
@@ -1551,7 +1591,7 @@ const [siteSettings, setSiteSettings] = useState<SiteSettings>(() => {
     setStudents((prev) => [student, ...prev]);
     for (const base of getBackendUrls()) {
       try {
-        await fetch(`${base}/api/students`, {
+        await adminFetch(`${base}/api/students`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(student)
@@ -1586,7 +1626,7 @@ const [siteSettings, setSiteSettings] = useState<SiteSettings>(() => {
 
     for (const base of getBackendUrls()) {
       try {
-        await fetch(`${base}/api/students/${id}`, {
+        await adminFetch(`${base}/api/students/${id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(updates)
@@ -1616,7 +1656,7 @@ const [siteSettings, setSiteSettings] = useState<SiteSettings>(() => {
     // 3. Delete across all backend instances
     for (const base of getBackendUrls()) {
       try {
-        await fetch(`${base}/api/students/${id}`, {
+        await adminFetch(`${base}/api/students/${id}`, {
           method: 'DELETE'
         });
       } catch (e) {
@@ -1651,7 +1691,7 @@ const [siteSettings, setSiteSettings] = useState<SiteSettings>(() => {
 
     for (const base of getBackendUrls()) {
       try {
-        await fetch(`${base}/api/users/${id}`, {
+        await adminFetch(`${base}/api/users/${id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(updates)
@@ -1678,7 +1718,7 @@ const [siteSettings, setSiteSettings] = useState<SiteSettings>(() => {
 
     for (const base of getBackendUrls()) {
       try {
-        await fetch(`${base}/api/users/${id}`, {
+        await adminFetch(`${base}/api/users/${id}`, {
           method: 'DELETE'
         });
       } catch (e) {
@@ -1693,7 +1733,7 @@ const [siteSettings, setSiteSettings] = useState<SiteSettings>(() => {
 
     for (const base of getBackendUrls()) {
       try {
-        await fetch(`${base}/api/inquiries/${id}`, {
+        await adminFetch(`${base}/api/inquiries/${id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ status })
@@ -1720,7 +1760,7 @@ const [siteSettings, setSiteSettings] = useState<SiteSettings>(() => {
 
     for (const base of getBackendUrls()) {
       try {
-        await fetch(`${base}/api/inquiries/${id}`, {
+        await adminFetch(`${base}/api/inquiries/${id}`, {
           method: 'DELETE'
         });
       } catch (e) {
@@ -1734,7 +1774,7 @@ const [siteSettings, setSiteSettings] = useState<SiteSettings>(() => {
     setUpcomingCourses((prev) => [course, ...prev]);
     for (const base of getBackendUrls()) {
       try {
-        await fetch(`${base}/api/upcoming-courses`, {
+        await adminFetch(`${base}/api/upcoming-courses`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(course)
@@ -1752,7 +1792,7 @@ const [siteSettings, setSiteSettings] = useState<SiteSettings>(() => {
     );
     for (const base of getBackendUrls()) {
       try {
-        await fetch(`${base}/api/upcoming-courses/${id}`, {
+        await adminFetch(`${base}/api/upcoming-courses/${id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(updates)
@@ -1768,7 +1808,7 @@ const [siteSettings, setSiteSettings] = useState<SiteSettings>(() => {
     setUpcomingCourses((prev) => prev.filter((c) => c.id !== id));
     for (const base of getBackendUrls()) {
       try {
-        await fetch(`${base}/api/upcoming-courses/${id}`, {
+        await adminFetch(`${base}/api/upcoming-courses/${id}`, {
           method: 'DELETE'
         });
         break;
@@ -1783,7 +1823,7 @@ const [siteSettings, setSiteSettings] = useState<SiteSettings>(() => {
     setReviews((prev) => [review, ...prev]);
     for (const base of getBackendUrls()) {
       try {
-        await fetch(`${base}/api/testimonials`, {
+        await adminFetch(`${base}/api/testimonials`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(review)
@@ -1801,7 +1841,7 @@ const [siteSettings, setSiteSettings] = useState<SiteSettings>(() => {
     );
     for (const base of getBackendUrls()) {
       try {
-        await fetch(`${base}/api/testimonials/${id}`, {
+        await adminFetch(`${base}/api/testimonials/${id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(updates)
@@ -1817,7 +1857,7 @@ const [siteSettings, setSiteSettings] = useState<SiteSettings>(() => {
     setReviews((prev) => prev.filter((r) => r.id !== id));
     for (const base of getBackendUrls()) {
       try {
-        await fetch(`${base}/api/testimonials/${id}`, {
+        await adminFetch(`${base}/api/testimonials/${id}`, {
           method: 'DELETE'
         });
         break;

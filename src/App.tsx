@@ -51,6 +51,7 @@ const AdminPortalContent: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [cooldown, setCooldown] = useState(0);
   const [devOtpNotice, setDevOtpNotice] = useState<boolean>(false);
+  const [currentDevOtp, setCurrentDevOtp] = useState<string | null>(null);
 
   // Countdown timer for resend cooldown
   useEffect(() => {
@@ -77,6 +78,10 @@ const AdminPortalContent: React.FC = () => {
       setCooldown(60);
       if (result.devMode) {
         setDevOtpNotice(true);
+        if (result.devOtp) {
+          setCurrentDevOtp(result.devOtp);
+          setOtp(result.devOtp);
+        }
       }
     }
   };
@@ -102,6 +107,13 @@ const AdminPortalContent: React.FC = () => {
     setIsSubmitting(false);
     if (result.success) {
       setCooldown(60);
+      if (result.devMode) {
+        setDevOtpNotice(true);
+        if (result.devOtp) {
+          setCurrentDevOtp(result.devOtp);
+          setOtp(result.devOtp);
+        }
+      }
     } else if (result.cooldownRemaining) {
       setCooldown(result.cooldownRemaining);
     }
@@ -123,6 +135,11 @@ const AdminPortalContent: React.FC = () => {
       setForgotStep('verify');
       setCooldown(result.cooldownRemaining || 60);
       setForgotSuccessMsg(result.message || 'Recovery code sent to your email.');
+      if (result.devOtp) {
+        setDevOtpNotice(true);
+        setCurrentDevOtp(result.devOtp);
+        setRecoveryOtp(result.devOtp);
+      }
     }
   };
 
@@ -225,12 +242,7 @@ const AdminPortalContent: React.FC = () => {
             </div>
           )}
 
-          {/* Development Mode Notice */}
-          {devOtpNotice && (
-            <div className="mb-6 p-3 rounded-lg bg-amber-950/30 border border-amber-500/30 text-amber-200 text-xs text-center">
-              <strong>Local Development Mode:</strong> Check your backend terminal console for the simulated 6-digit OTP code.
-            </div>
-          )}
+
 
           {/* ========================================================= */}
           {/* FORGOT PASSWORD FLOW                                      */}
@@ -296,6 +308,14 @@ const AdminPortalContent: React.FC = () => {
                       {forgotEmail}
                     </p>
                   </div>
+
+                  {devOtpNotice && currentDevOtp && (
+                    <div className="p-3 rounded-xl bg-amber-950/40 border border-amber-500/40 text-amber-200 text-xs text-center">
+                      <span>⚡ Recovery Code: </span>
+                      <strong className="font-mono text-sm text-[#d4af37]">{currentDevOtp}</strong>
+                      <span className="text-gray-400"> (Auto-filled)</span>
+                    </div>
+                  )}
 
                   {/* 6-Digit OTP */}
                   <div>
@@ -488,6 +508,20 @@ const AdminPortalContent: React.FC = () => {
               {/* ========================================================= */}
               {adminAuthStep === 'otp' && (
                 <form onSubmit={handleOtpSubmit} className="space-y-6">
+                  {/* Development Mode OTP Display */}
+                  {devOtpNotice && currentDevOtp && (
+                    <div className="p-3.5 rounded-xl bg-amber-950/40 border border-amber-500/40 text-amber-200 text-xs text-center space-y-1.5">
+                      <div className="font-semibold text-amber-300 flex items-center justify-center gap-1.5">
+                        <span>⚡ Local Development Mode Code:</span>
+                        <span className="font-mono text-base font-bold text-[#d4af37] bg-black/60 px-2 py-0.5 rounded border border-[#d4af37]/40">
+                          {currentDevOtp}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-gray-300">
+                        (Code auto-filled in 6-digit box below)
+                      </p>
+                    </div>
+                  )}
                   <div className="text-center">
                     <p className="text-xs text-gray-400 mb-1">
                       A 6-digit security code was dispatched to:

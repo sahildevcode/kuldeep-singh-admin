@@ -49,6 +49,7 @@ import {
   Truck,
 } from 'lucide-react';
 import * as tus from 'tus-js-client';
+import { adminFetch } from '../utils/apiClient';
 import { useStudioData, getBackendUrls, deleteBunnyVideo } from '../context/StudioDataContext';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
@@ -225,7 +226,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
       updateArtistProfile(aboutBioForm);
       for (const base of getBackendUrls()) {
         try {
-          await fetch(`${base}/api/profile`, {
+          await adminFetch(`${base}/api/profile`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(aboutBioForm)
@@ -884,13 +885,13 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
 
       let res: Response;
       try {
-        res = await fetch('https://kuldeep-singh-backend.vercel.app/api/upload/video', {
+        res = await adminFetch('https://kuldeep-singh-backend.vercel.app/api/upload/video', {
           method: 'POST',
           body: formData,
         });
         if (!res.ok) throw new Error('Remote cloud upload failed');
       } catch {
-        res = await fetch('http://localhost:5000/api/upload/video', {
+        res = await adminFetch('http://localhost:5000/api/upload/video', {
           method: 'POST',
           body: formData,
         });
@@ -932,7 +933,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
 
       // Sync to backend PUT /api/profile
       try {
-        await fetch('https://kuldeep-singh-backend.vercel.app/api/profile', {
+        await adminFetch('https://kuldeep-singh-backend.vercel.app/api/profile', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -1006,13 +1007,13 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
     };
 
     try {
-      await fetch('https://kuldeep-singh-backend.vercel.app/api/profile', {
+      await adminFetch('https://kuldeep-singh-backend.vercel.app/api/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
     } catch {
-      await fetch('http://localhost:5000/api/profile', {
+      await adminFetch('http://localhost:5000/api/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -1065,13 +1066,13 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
     updateArtistProfile(payload);
 
     try {
-      await fetch('https://kuldeep-singh-backend.vercel.app/api/profile', {
+      await adminFetch('https://kuldeep-singh-backend.vercel.app/api/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
     } catch {
-      await fetch('http://localhost:5000/api/profile', {
+      await adminFetch('http://localhost:5000/api/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -1153,7 +1154,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-        const res = await fetch(`${base}/api/profile`, {
+        const res = await adminFetch(`${base}/api/profile`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(updates),
@@ -1242,7 +1243,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
     updateArtistProfile(updates);
     for (const base of getBackendUrls()) {
       try {
-        await fetch(`${base}/api/profile`, {
+        await adminFetch(`${base}/api/profile`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(updates),
@@ -1264,7 +1265,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
     let res: Response | null = null;
     for (const base of getBackendUrls()) {
       try {
-        res = await fetch(`${base}/api/upload/video`, {
+        res = await adminFetch(`${base}/api/upload/video`, {
           method: 'POST',
           body: formData,
         });
@@ -1323,7 +1324,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
       let tokenRes: Response | null = null;
       for (const base of getBackendUrls()) {
         try {
-          tokenRes = await fetch(`${base}/api/upload/bunny-token`, {
+          tokenRes = await adminFetch(`${base}/api/upload/bunny-token`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ title: heroTitle || file.name }),
@@ -1573,7 +1574,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
     showToast(`✓ Image updated for About Page!`);
     for (const base of getBackendUrls()) {
       try {
-        await fetch(`${base}/api/profile`, {
+        await adminFetch(`${base}/api/profile`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(updates)
@@ -2058,7 +2059,7 @@ const handleSaveTestimonialSectionSettings = (e: React.FormEvent) => {
     });
 
     try {
-      await fetch('https://kuldeep-singh-backend.vercel.app/api/live', {
+      await adminFetch('https://kuldeep-singh-backend.vercel.app/api/live', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -2103,7 +2104,7 @@ const handleSaveTestimonialSectionSettings = (e: React.FormEvent) => {
 
   const handleUpdateLiveUrl = async () => {
     try {
-      await fetch('https://kuldeep-singh-backend.vercel.app/api/live', {
+      await adminFetch('https://kuldeep-singh-backend.vercel.app/api/live', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -2533,14 +2534,14 @@ const handleSaveTestimonialSectionSettings = (e: React.FormEvent) => {
       // 1. Get Direct TUS Upload Token from Backend
       let tokenRes: Response;
       try {
-        tokenRes = await fetch('https://kuldeep-singh-backend.vercel.app/api/upload/bunny-token', {
+        tokenRes = await adminFetch('https://kuldeep-singh-backend.vercel.app/api/upload/bunny-token', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ title: titleToUse })
         });
         if (!tokenRes.ok) throw new Error('Remote token generation failed');
       } catch {
-        tokenRes = await fetch('http://localhost:5000/api/upload/bunny-token', {
+        tokenRes = await adminFetch('http://localhost:5000/api/upload/bunny-token', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ title: titleToUse })
