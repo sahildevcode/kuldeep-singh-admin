@@ -44,13 +44,11 @@ export const getBackendUrls = (): string[] => {
         'http://localhost:5000',
         'http://127.0.0.1:5000',
         'https://kuldeep-singh-backend.vercel.app',
-        'https://kuldeep-singh-backend-nehy.onrender.com',
       ];
     }
   }
   return [
     'https://kuldeep-singh-backend.vercel.app',
-    'https://kuldeep-singh-backend-nehy.onrender.com',
     'http://localhost:5000'
   ];
 };
