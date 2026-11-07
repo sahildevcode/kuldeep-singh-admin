@@ -95,39 +95,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
 
-  // Validate active Admin session with the backend on page load
-  const validateSession = useCallback(async () => {
-    setAdminLoading(true);
+  // Validate active Admin session with the backend on page load (without disturbing the user)
+  const validateSession = useCallback(async (isInitial = false) => {
+    if (isInitial) {
+      setAdminLoading(true);
+    }
     try {
       const { ok, data } = await executeAuthApi('/api/admin/session');
       if (ok && data?.success && data?.admin) {
         setIsAdminAuthenticated(true);
         setAdminUser(data.admin);
         setAdminError(null);
-        setAdminLoading(false);
         return;
       }
-      // If unauthorized or failed
-      setIsAdminAuthenticated(false);
-      setAdminUser(null);
-      setAdminAuthToken(null);
+      // If server explicitly says unauthenticated on initial load
+      if (isInitial) {
+        setIsAdminAuthenticated(false);
+        setAdminUser(null);
+        setAdminAuthToken(null);
+      }
     } catch (err) {
-      setIsAdminAuthenticated(false);
-      setAdminUser(null);
+      if (isInitial) {
+        setIsAdminAuthenticated(false);
+        setAdminUser(null);
+      }
     } finally {
-      setAdminLoading(false);
+      if (isInitial) {
+        setAdminLoading(false);
+      }
     }
   }, []);
 
+  // ONLY validate on mount once, NO background timer refresh to prevent UI flickering/reloading
   useEffect(() => {
-    validateSession();
-    // Periodically sync session every 25s so if email changes on another device, this device syncs immediately
-    const sessionTimer = setInterval(() => {
-      if (!document.hidden) {
-        validateSession();
-      }
-    }, 25000);
-    return () => clearInterval(sessionTimer);
+    validateSession(true);
   }, [validateSession]);
 
   const resetAdminAuthState = () => {
