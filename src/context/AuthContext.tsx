@@ -28,6 +28,8 @@ interface AuthContextType {
   resendAdminOtp: () => Promise<{ success: boolean; error?: string; cooldownRemaining?: number; devMode?: boolean; devOtp?: string }>;
   requestForgotPasswordOtp: (email: string) => Promise<{ success: boolean; error?: string; message?: string; cooldownRemaining?: number; devOtp?: string }>;
   resetAdminPasswordWithOtp: (email: string, otp: string, newPass: string) => Promise<{ success: boolean; error?: string; message?: string }>;
+  requestEmailChangeOtp: (newEmail: string, password: string) => Promise<{ success: boolean; error?: string; message?: string; devOtp?: string; devMode?: boolean; cooldownRemaining?: number }>;
+  confirmEmailChangeOtp: (newEmail: string, otp: string) => Promise<{ success: boolean; error?: string; message?: string; admin?: AdminUser }>;
   adminLogout: () => Promise<void>;
   resetAdminAuthState: () => void;
   unlockCourse: (courseId: string) => void;
@@ -265,6 +267,74 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   /**
+   * Request OTP to change admin login email
+   */
+  const requestEmailChangeOtp = async (
+    newEmail: string,
+    password: string
+  ): Promise<{ success: boolean; error?: string; message?: string; devOtp?: string; devMode?: boolean; cooldownRemaining?: number }> => {
+    setAdminError(null);
+    const { ok, data, networkError } = await executeAuthApi('/api/admin/request-email-change', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        newEmail: newEmail.trim().toLowerCase(),
+        password: password.trim(),
+      }),
+    });
+
+    if (networkError || !ok || !data?.success) {
+      const errMsg = data?.error || 'Failed to request email change code.';
+      setAdminError(errMsg);
+      return { success: false, error: errMsg, cooldownRemaining: data?.cooldownRemaining };
+    }
+
+    return {
+      success: true,
+      message: data.message,
+      devMode: data.devMode,
+      devOtp: data.devOtp,
+    };
+  };
+
+  /**
+   * Confirm Admin Email change with verified 6-digit OTP
+   */
+  const confirmEmailChangeOtp = async (
+    newEmail: string,
+    otp: string
+  ): Promise<{ success: boolean; error?: string; message?: string; admin?: AdminUser }> => {
+    setAdminError(null);
+    const { ok, data, networkError } = await executeAuthApi('/api/admin/confirm-email-change', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        newEmail: newEmail.trim().toLowerCase(),
+        otp: otp.trim(),
+      }),
+    });
+
+    if (networkError || !ok || !data?.success) {
+      const errMsg = data?.error || 'Failed to confirm email update.';
+      setAdminError(errMsg);
+      return { success: false, error: errMsg };
+    }
+
+    if (data.token) {
+      setAdminAuthToken(data.token);
+    }
+    if (data.admin) {
+      setAdminUser(data.admin);
+    }
+
+    return {
+      success: true,
+      message: data.message,
+      admin: data.admin,
+    };
+  };
+
+  /**
    * Admin Logout: Revoke session on backend and clear cookies/tokens
    */
   const adminLogout = async () => {
@@ -343,6 +413,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         resendAdminOtp,
         requestForgotPasswordOtp,
         resetAdminPasswordWithOtp,
+        requestEmailChangeOtp,
+        confirmEmailChangeOtp,
         adminLogout,
         resetAdminAuthState,
         unlockCourse,
