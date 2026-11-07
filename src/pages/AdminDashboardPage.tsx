@@ -182,6 +182,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
   const [emailChangeStep, setEmailChangeStep] = useState<'input' | 'otp'>('input');
   const [newEmailInput, setNewEmailInput] = useState('');
   const [emailChangePassword, setEmailChangePassword] = useState('');
+  const [showEmailChangePassword, setShowEmailChangePassword] = useState(false);
   const [emailChangeOtp, setEmailChangeOtp] = useState('');
   const [emailChangeLoading, setEmailChangeLoading] = useState(false);
   const [emailChangeError, setEmailChangeError] = useState<string | null>(null);
@@ -192,6 +193,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
     setEmailChangeStep('input');
     setNewEmailInput('');
     setEmailChangePassword('');
+    setShowEmailChangePassword(false);
     setEmailChangeOtp('');
     setEmailChangeError(null);
     setEmailChangeDevOtp(null);
@@ -3524,17 +3526,50 @@ const handleSaveTestimonialSectionSettings = (e: React.FormEvent) => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-gray-300 mb-1.5">
-                    Current Admin Password *
-                  </label>
-                  <input
-                    type="password"
-                    required
-                    value={emailChangePassword}
-                    onChange={(e) => setEmailChangePassword(e.target.value)}
-                    placeholder="Enter current admin password"
-                    className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-4 py-2.5 text-white text-xs focus:outline-none focus:border-amber-400 transition"
-                  />
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-semibold text-gray-300">
+                      Current Admin Password *
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setShowEmailChangePassword(!showEmailChangePassword)}
+                      className="text-[11px] text-amber-400 hover:text-amber-300 flex items-center gap-1 cursor-pointer transition-colors"
+                    >
+                      {showEmailChangePassword ? (
+                        <>
+                          <EyeOff className="w-3.5 h-3.5" />
+                          <span>Hide</span>
+                        </>
+                      ) : (
+                        <>
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>Show</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type={showEmailChangePassword ? 'text' : 'password'}
+                      required
+                      value={emailChangePassword}
+                      onChange={(e) => setEmailChangePassword(e.target.value)}
+                      placeholder="Enter current admin password"
+                      className="w-full bg-[#181C24] border border-[#242A36] rounded-xl pl-4 pr-11 py-2.5 text-white text-xs focus:outline-none focus:border-amber-400 transition"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowEmailChangePassword(!showEmailChangePassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-200 cursor-pointer p-1"
+                      tabIndex={-1}
+                    >
+                      {showEmailChangePassword ? (
+                        <EyeOff className="w-4 h-4 text-amber-400" />
+                      ) : (
+                        <Eye className="w-4 h-4" />
+                      )}
+                    </button>
+                  </div>
                 </div>
 
                 <div className="flex items-center justify-end gap-3 pt-3">
