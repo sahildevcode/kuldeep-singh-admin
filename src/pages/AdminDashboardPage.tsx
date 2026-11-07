@@ -175,15 +175,19 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
     updateSiteSettings
   } = useStudioData();
 
-  const { adminUser, adminLogout, requestEmailChangeOtp, confirmEmailChangeOtp } = useAuth();
+  const { adminUser, adminLogout, requestEmailChangeOtp, verifyCurrentEmailChangeOtp, confirmEmailChangeOtp } = useAuth();
 
-  // Admin Login Email Change Modal State
+  // Admin Login Email Change Modal State (3-Stage Dual OTP Verification)
+  // Step 1 ('input'): Enter New Email + Current Password -> OTP goes to CURRENT email
+  // Step 2 ('verify_current'): Enter 6-digit OTP sent to CURRENT email -> OTP goes to NEW email
+  // Step 3 ('verify_new'): Enter 6-digit OTP sent to NEW email -> Final Confirmation & update DB
   const [isEmailChangeModalOpen, setIsEmailChangeModalOpen] = useState(false);
-  const [emailChangeStep, setEmailChangeStep] = useState<'input' | 'otp'>('input');
+  const [emailChangeStep, setEmailChangeStep] = useState<'input' | 'verify_current' | 'verify_new'>('input');
   const [newEmailInput, setNewEmailInput] = useState('');
   const [emailChangePassword, setEmailChangePassword] = useState('');
   const [showEmailChangePassword, setShowEmailChangePassword] = useState(false);
-  const [emailChangeOtp, setEmailChangeOtp] = useState('');
+  const [currentEmailOtp, setCurrentEmailOtp] = useState('');
+  const [newEmailOtp, setNewEmailOtp] = useState('');
   const [emailChangeLoading, setEmailChangeLoading] = useState(false);
   const [emailChangeError, setEmailChangeError] = useState<string | null>(null);
   const [emailChangeDevOtp, setEmailChangeDevOtp] = useState<string | null>(null);
@@ -194,12 +198,14 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
     setNewEmailInput('');
     setEmailChangePassword('');
     setShowEmailChangePassword(false);
-    setEmailChangeOtp('');
+    setCurrentEmailOtp('');
+    setNewEmailOtp('');
     setEmailChangeError(null);
     setEmailChangeDevOtp(null);
     setIsEmailChangeModalOpen(true);
   };
 
+  // Stage 1 Submit: Check password and send OTP to CURRENT email
   const handleRequestEmailChangeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newEmailInput || !emailChangePassword) {
@@ -211,12 +217,12 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
     try {
       const res = await requestEmailChangeOtp(newEmailInput, emailChangePassword);
       if (res.success) {
-        setEmailChangeStep('otp');
+        setEmailChangeStep('verify_current');
         setEmailChangeCooldown(res.cooldownRemaining || 60);
         if (res.devOtp) {
           setEmailChangeDevOtp(res.devOtp);
         }
-        showToast('Verification code sent to ' + newEmailInput);
+        showToast('Step 1/2: Verification code sent to current email (' + (adminUser?.email || 'admin') + ')');
       } else {
         setEmailChangeError(res.error || 'Failed to request email change code.');
       }
@@ -227,24 +233,54 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = () => {
     }
   };
 
-  const handleConfirmEmailChangeSubmit = async (e: React.FormEvent) => {
+  // Stage 2 Submit: Verify OTP from CURRENT email, then send OTP to NEW email
+  const handleVerifyCurrentEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (emailChangeOtp.length !== 6) {
-      setEmailChangeError('Please enter the 6-digit verification code.');
+    if (currentEmailOtp.length !== 6) {
+      setEmailChangeError('Please enter the 6-digit code received on your current email.');
       return;
     }
     setEmailChangeLoading(true);
     setEmailChangeError(null);
     try {
-      const res = await confirmEmailChangeOtp(newEmailInput, emailChangeOtp);
+      const res = await verifyCurrentEmailChangeOtp(newEmailInput, currentEmailOtp);
       if (res.success) {
-        setIsEmailChangeModalOpen(false);
-        showToast('Login email changed to ' + newEmailInput + ' successfully!');
+        setEmailChangeStep('verify_new');
+        if (res.devOtp) {
+          setEmailChangeDevOtp(res.devOtp);
+        } else {
+          setEmailChangeDevOtp(null);
+        }
+        showToast('Step 2/2: Current email authorized! Confirmation code sent to ' + newEmailInput);
       } else {
-        setEmailChangeError(res.error || 'Failed to verify code.');
+        setEmailChangeError(res.error || 'Failed to verify code for current email.');
       }
     } catch (err: any) {
-      setEmailChangeError(err?.message || 'Error confirming email change.');
+      setEmailChangeError(err?.message || 'Error verifying current email code.');
+    } finally {
+      setEmailChangeLoading(false);
+    }
+  };
+
+  // Stage 3 Submit: Verify OTP from NEW email and finalize email change
+  const handleConfirmNewEmailSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newEmailOtp.length !== 6) {
+      setEmailChangeError('Please enter the 6-digit confirmation code received on your new email.');
+      return;
+    }
+    setEmailChangeLoading(true);
+    setEmailChangeError(null);
+    try {
+      const res = await confirmEmailChangeOtp(newEmailInput, newEmailOtp);
+      if (res.success) {
+        setIsEmailChangeModalOpen(false);
+        showToast('Security Verified: Admin login email changed to ' + newEmailInput + ' successfully!');
+      } else {
+        setEmailChangeError(res.error || 'Failed to verify new email code.');
+      }
+    } catch (err: any) {
+      setEmailChangeError(err?.message || 'Error confirming new email.');
     } finally {
       setEmailChangeLoading(false);
     }
@@ -3464,7 +3500,7 @@ const handleSaveTestimonialSectionSettings = (e: React.FormEvent) => {
 
   return (
     <div className="min-h-screen bg-[#0C0E12] text-[#E1E4EA] font-sans flex flex-col antialiased selection:bg-[#FF5722] selection:text-white">
-      {/* ADMIN LOGIN EMAIL CHANGE MODAL (Instagram / Google Style 2-Step) */}
+      {/* ADMIN LOGIN EMAIL CHANGE MODAL (Bank-Grade 2-Way Security: Current Email OTP -> New Email OTP) */}
       {isEmailChangeModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
           <div className="bg-[#14171E] border border-amber-500/40 rounded-3xl w-full max-w-md p-6 sm:p-8 shadow-2xl relative">
@@ -3475,13 +3511,32 @@ const handleSaveTestimonialSectionSettings = (e: React.FormEvent) => {
               <X className="w-5 h-5" />
             </button>
 
+            {/* Modal Header */}
             <div className="flex items-center gap-3 mb-5">
               <div className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
                 <ShieldCheck className="w-5 h-5" />
               </div>
               <div>
                 <h3 className="font-serif font-bold text-xl text-white">Change Login Email</h3>
-                <p className="text-xs text-gray-400">Update the email that receives 2FA login OTPs</p>
+                <p className="text-xs text-gray-400">Bank-Grade 2-Way Security Verification</p>
+              </div>
+            </div>
+
+            {/* Stepper indicator */}
+            <div className="flex items-center justify-between mb-6 bg-[#0E1117] p-2.5 rounded-2xl border border-gray-800 text-[11px]">
+              <div className={`flex items-center gap-1.5 font-bold ${emailChangeStep === 'input' ? 'text-amber-400' : 'text-emerald-400'}`}>
+                <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] bg-gray-800">1</span>
+                <span>Password</span>
+              </div>
+              <ChevronRight className="w-3.5 h-3.5 text-gray-600" />
+              <div className={`flex items-center gap-1.5 font-bold ${emailChangeStep === 'verify_current' ? 'text-amber-400' : emailChangeStep === 'verify_new' ? 'text-emerald-400' : 'text-gray-500'}`}>
+                <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] bg-gray-800">2</span>
+                <span>Current Email</span>
+              </div>
+              <ChevronRight className="w-3.5 h-3.5 text-gray-600" />
+              <div className={`flex items-center gap-1.5 font-bold ${emailChangeStep === 'verify_new' ? 'text-amber-400' : 'text-gray-500'}`}>
+                <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] bg-gray-800">3</span>
+                <span>New Email</span>
               </div>
             </div>
 
@@ -3499,10 +3554,11 @@ const handleSaveTestimonialSectionSettings = (e: React.FormEvent) => {
               </div>
             )}
 
-            {emailChangeStep === 'input' ? (
+            {/* STEP 1: Enter New Email + Master Password */}
+            {emailChangeStep === 'input' && (
               <form onSubmit={handleRequestEmailChangeSubmit} className="space-y-4">
                 <div className="p-3 rounded-xl bg-[#0C0E12] border border-gray-800 text-xs">
-                  <span className="text-gray-400">Current Login Email:</span>
+                  <span className="text-gray-400">Current Login Email (OTP will go here first):</span>
                   <div className="font-mono text-gray-200 font-semibold mt-0.5">
                     {adminUser?.email || 'artistkuldeepsingh01@gmail.com'}
                   </div>
@@ -3517,11 +3573,11 @@ const handleSaveTestimonialSectionSettings = (e: React.FormEvent) => {
                     required
                     value={newEmailInput}
                     onChange={(e) => setNewEmailInput(e.target.value)}
-                    placeholder="e.g. kuldeep.new@gmail.com"
+                    placeholder="e.g. new.artistemail@gmail.com"
                     className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-4 py-2.5 text-white text-xs focus:outline-none focus:border-amber-400 transition"
                   />
                   <p className="text-[10px] text-gray-500 mt-1">
-                    Future login OTPs will be sent directly to this new email.
+                    Pehle aapke purane email par verification code aayega, uske baad is naye email par code aayega.
                   </p>
                 </div>
 
@@ -3589,36 +3645,40 @@ const handleSaveTestimonialSectionSettings = (e: React.FormEvent) => {
                       <span>Sending OTP...</span>
                     ) : (
                       <>
-                        <span>Send 6-Digit OTP</span>
+                        <span>Verify Password & Send OTP</span>
                         <Send className="w-3.5 h-3.5" />
                       </>
                     )}
                   </button>
                 </div>
               </form>
-            ) : (
-              <form onSubmit={handleConfirmEmailChangeSubmit} className="space-y-4">
-                <div className="p-3 rounded-xl bg-[#0C0E12] border border-gray-800 text-xs">
-                  <span className="text-gray-400">Verifying New Email:</span>
-                  <div className="font-mono text-amber-300 font-semibold mt-0.5">
-                    {newEmailInput}
+            )}
+
+            {/* STEP 2: Verify Current Email OTP */}
+            {emailChangeStep === 'verify_current' && (
+              <form onSubmit={handleVerifyCurrentEmailSubmit} className="space-y-4">
+                <div className="p-3.5 rounded-xl bg-[#0C0E12] border border-amber-500/30 text-xs space-y-1">
+                  <div className="flex items-center gap-2 text-amber-300 font-bold">
+                    <ShieldCheck className="w-4 h-4" />
+                    <span>Step 1: Purana (Current) Email Authorize Karein</span>
                   </div>
-                  <p className="text-[10px] text-gray-500 mt-1">
-                    Humne naye email par 6-digit OTP bheja hai. Kripya use yahan enter karein.
+                  <p className="text-gray-300 text-[11px] leading-relaxed">
+                    Suraksha ke liye, humne aapke pehle se set email{' '}
+                    <strong className="text-white font-mono">{adminUser?.email || 'current admin email'}</strong> par 6-digit OTP bheja hai.
                   </p>
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-gray-300 mb-1.5 text-center">
-                    Enter 6-Digit OTP Code
+                    Enter OTP from CURRENT Email
                   </label>
                   <input
                     type="text"
                     maxLength={6}
                     required
                     autoFocus
-                    value={emailChangeOtp}
-                    onChange={(e) => setEmailChangeOtp(e.target.value.replace(/\D/g, ''))}
+                    value={currentEmailOtp}
+                    onChange={(e) => setCurrentEmailOtp(e.target.value.replace(/\D/g, ''))}
                     placeholder="••••••"
                     className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-4 py-3 text-white text-center font-mono text-xl tracking-[0.4em] focus:outline-none focus:border-amber-400 transition"
                   />
@@ -3634,10 +3694,59 @@ const handleSaveTestimonialSectionSettings = (e: React.FormEvent) => {
                   </button>
                   <button
                     type="submit"
-                    disabled={emailChangeLoading || emailChangeOtp.length !== 6}
+                    disabled={emailChangeLoading || currentEmailOtp.length !== 6}
+                    className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-black font-bold text-xs flex items-center gap-2 shadow-lg shadow-amber-500/20 cursor-pointer disabled:opacity-50"
+                  >
+                    {emailChangeLoading ? 'Verifying...' : 'Authorize & Send OTP to New Email →'}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* STEP 3: Verify New Email OTP */}
+            {emailChangeStep === 'verify_new' && (
+              <form onSubmit={handleConfirmNewEmailSubmit} className="space-y-4">
+                <div className="p-3.5 rounded-xl bg-[#0C0E12] border border-emerald-500/30 text-xs space-y-1">
+                  <div className="flex items-center gap-2 text-emerald-400 font-bold">
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Step 2: Naye Email ko Confirm Karein</span>
+                  </div>
+                  <p className="text-gray-300 text-[11px] leading-relaxed">
+                    Purana email safalta-purvak authorize ho gaya hai! Ab humne naye email{' '}
+                    <strong className="text-amber-300 font-mono">{newEmailInput}</strong> par 6-digit confirmation code bheja hai.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-300 mb-1.5 text-center">
+                    Enter OTP from NEW Email
+                  </label>
+                  <input
+                    type="text"
+                    maxLength={6}
+                    required
+                    autoFocus
+                    value={newEmailOtp}
+                    onChange={(e) => setNewEmailOtp(e.target.value.replace(/\D/g, ''))}
+                    placeholder="••••••"
+                    className="w-full bg-[#181C24] border border-[#242A36] rounded-xl px-4 py-3 text-white text-center font-mono text-xl tracking-[0.4em] focus:outline-none focus:border-emerald-400 transition"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setEmailChangeStep('verify_current')}
+                    className="text-xs text-gray-400 hover:text-white cursor-pointer"
+                  >
+                    ← Back to step 1
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={emailChangeLoading || newEmailOtp.length !== 6}
                     className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-black font-bold text-xs flex items-center gap-2 shadow-lg shadow-emerald-500/20 cursor-pointer disabled:opacity-50"
                   >
-                    {emailChangeLoading ? 'Verifying...' : 'Confirm & Save Email ✓'}
+                    {emailChangeLoading ? 'Finalizing...' : 'Confirm & Save New Email ✓'}
                   </button>
                 </div>
               </form>

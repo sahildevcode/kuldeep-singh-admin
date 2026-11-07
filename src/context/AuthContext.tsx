@@ -29,6 +29,7 @@ interface AuthContextType {
   requestForgotPasswordOtp: (email: string) => Promise<{ success: boolean; error?: string; message?: string; cooldownRemaining?: number; devOtp?: string }>;
   resetAdminPasswordWithOtp: (email: string, otp: string, newPass: string) => Promise<{ success: boolean; error?: string; message?: string }>;
   requestEmailChangeOtp: (newEmail: string, password: string) => Promise<{ success: boolean; error?: string; message?: string; devOtp?: string; devMode?: boolean; cooldownRemaining?: number }>;
+  verifyCurrentEmailChangeOtp: (newEmail: string, currentOtp: string) => Promise<{ success: boolean; error?: string; message?: string; devOtp?: string; devMode?: boolean }>;
   confirmEmailChangeOtp: (newEmail: string, otp: string) => Promise<{ success: boolean; error?: string; message?: string; admin?: AdminUser }>;
   adminLogout: () => Promise<void>;
   resetAdminAuthState: () => void;
@@ -298,6 +299,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   /**
+   * Verify Current Email authorization OTP and trigger dispatch to NEW email
+   */
+  const verifyCurrentEmailChangeOtp = async (
+    newEmail: string,
+    currentOtp: string
+  ): Promise<{ success: boolean; error?: string; message?: string; devOtp?: string; devMode?: boolean }> => {
+    setAdminError(null);
+    const { ok, data, networkError } = await executeAuthApi('/api/admin/verify-current-email-change', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        newEmail: newEmail.trim().toLowerCase(),
+        currentOtp: currentOtp.trim(),
+      }),
+    });
+
+    if (networkError || !ok || !data?.success) {
+      const errMsg = data?.error || 'Failed to verify current email authorization code.';
+      setAdminError(errMsg);
+      return { success: false, error: errMsg };
+    }
+
+    return {
+      success: true,
+      message: data.message,
+      devMode: data.devMode,
+      devOtp: data.devOtp,
+    };
+  };
+
+  /**
    * Confirm Admin Email change with verified 6-digit OTP
    */
   const confirmEmailChangeOtp = async (
@@ -414,6 +446,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         requestForgotPasswordOtp,
         resetAdminPasswordWithOtp,
         requestEmailChangeOtp,
+        verifyCurrentEmailChangeOtp,
         confirmEmailChangeOtp,
         adminLogout,
         resetAdminAuthState,
