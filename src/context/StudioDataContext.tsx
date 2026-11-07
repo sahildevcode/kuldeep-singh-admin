@@ -809,7 +809,7 @@ const [siteSettings, setSiteSettings] = useState<SiteSettings>(() => {
         if (!document.hidden && !isUserIdle) {
           syncAllWithCloud();
         }
-      }, 8000);
+      }, 60000);
     };
 
     const stopSync = () => {

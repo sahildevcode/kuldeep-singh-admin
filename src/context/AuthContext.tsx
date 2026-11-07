@@ -121,6 +121,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     validateSession();
+    // Periodically sync session every 25s so if email changes on another device, this device syncs immediately
+    const sessionTimer = setInterval(() => {
+      if (!document.hidden) {
+        validateSession();
+      }
+    }, 25000);
+    return () => clearInterval(sessionTimer);
   }, [validateSession]);
 
   const resetAdminAuthState = () => {
